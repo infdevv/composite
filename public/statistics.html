@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>composite⁴</title>
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js" defer></script>
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: white;
+            font-family: 'Trebuchet MS', sans-serif;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 8px;
+        }
+
+        .code {
+            font-family: monospace;
+            background-color: #272727;
+            padding: 4px;
+            border-radius: 4px;
+            ;
+        }
+
+        button {
+            background-color: #484948;
+            border: none;
+            color: white;
+            padding: 7px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        #debug {
+            display: none;
+        }
+
+        #logs {
+            background-color: #272727;
+            color: white;
+            font-family: monospace;
+            text-align: left;
+            margin-left: calc(50% - calc(70% / 2));
+            padding: 4px;
+            height: 300px;
+            width: 70%;
+            overflow-y: scroll;
+            border-radius: 4px;
+        }
+
+        select {
+            background-color: #484948;
+            border: none;
+            color: white;
+            padding: 7px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        #enable-images {
+            align-items: center;
+            justify-content: center;
+        }
+
+        input {
+            background-color: #484948;
+            border: none;
+            color: white;
+            padding: 7px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body>
+
+
+    <h1>composite<span style="color: #74db7a">⁴</span> for statistical analysis</h1>
+
+    <center>
+        <h3 id="stats"></h3>
+    </center>
+
+    <script>
+        let stats = fetch("/api/stats").then(response => response.json()).then(data => {
+            document.getElementById("stats").innerHTML = `
+            <span>connected users: ${data["connected_users"]}</span>
+            <span>total handled messages: ${data["total_handled_messages"]}</span>
+            `
+        })
+    </script>
+
+
+</body>
+
+</html>

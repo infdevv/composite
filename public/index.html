@@ -1,0 +1,1445 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>composite⁴</title>
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js" defer></script>
+    <script src="./plugin-parse.js" defer></script>
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: white;
+            font-family: 'Trebuchet MS', sans-serif;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 8px;
+        }
+
+        .code {
+            font-family: monospace;
+            background-color: #272727;
+            padding: 4px;
+            border-radius: 4px;
+            ;
+        }
+
+        button {
+            background-color: #484948;
+            border: none;
+            color: white;
+            padding: 7px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        #debug {
+            display: none;
+        }
+
+        #logs {
+            background-color: #272727;
+            color: white;
+            font-family: monospace;
+            text-align: left;
+            margin-left: calc(50% - calc(70% / 2));
+            padding: 4px;
+            height: 300px;
+            width: 70%;
+            overflow-y: scroll;
+            border-radius: 4px;
+        }
+
+        select {
+            background-color: #484948;
+            border: none;
+            color: white;
+            padding: 7px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        #enable-images {
+            align-items: center;
+            justify-content: center;
+        }
+
+        input {
+            background-color: #484948;
+            border: none;
+            color: white;
+            padding: 7px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        #banner {
+            background-color: #7be77b;
+            border: none;
+            color: white;
+            padding: 7px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="banner" onclick="window.open('https://discord.gg/Wcpnm8psjq', '_blank')">
+        are you bored? do you wanna help in the making of another ai chat site thats not currently going to shit like Janitor? click me <a href="https://discord.gg/CPnJ8ctQhU" target="_blank" style="text-decoration: none; color: #343534" href="https://discord.gg/Wcpnm8psjq" target="_blank">here</a> to help alpha test KiwiAI
+    </div>
+
+    <h1>composite<span style="color: #74db7a">⁴</span></h1>
+
+    <p>Engine:</p>
+    <p>wondering how to use? click <a href="#docs" style="text-decoration: none; color: #74db7a">here</a></p>
+    <select id="engine">
+        <option>WebLLM (Local AI)</option>
+        <option>Pollinations (Cloud AI)</option>
+        <option>G4F (Cloud AI)</option>
+        <option>Pollinations (G4F)</option>
+        <option>Puter (G4F) (Hella unstable)</option>
+   </select>
+    <select id="model">
+    </select>
+
+    <select id="prefix-prompt">
+        <option value="none" select>None</option>
+        <option value="smolrp">SmolRP prompt</option>
+        <option value="slop">Slop Prompt</option>
+        <option value="unpositive">Unpositive Prompt</option>
+        <option value="affection">Affection Prompt</option>
+        <option value="cheese">Cheese's Prompt</option>
+        <option value="Pupi's Prompt">Pupi's Prompt</option>
+        <option value="teto">teto</option>
+    </select>
+
+    <input placeholder="Lorebary Lorebook ID (Optional)" id="lorebook-id" type="text" autocomplete="on">
+    <input placeholder="Lorebary Plugin ID (Optional)" id="plugin-id" type="text" autocomplete="on">
+
+    <br>
+    <div id="enable-images" style="display: flex;">
+        <label>
+            <input type="checkbox" id="enable-images-checkbox">
+            enable image generation ( via Pollinations API )
+        </label>
+    </div>
+    <div id="enable-images" style="display: flex;">
+        <label>
+            <input type="checkbox" id="show-reasoning">
+            show llm reasoning ( only works for reasoning models )
+        </label>
+    </div>
+    <div id="enable-images" style="display: flex;">
+        <label>
+            <input type="checkbox" id="turn-on-reasoning">
+            enable reasoning ( only good for non-reasoning models )
+        </label>
+    </div>
+        <div id="enable-images" style="display: flex;">
+        <label>
+            <input type="checkbox" id="donate">
+            donate ( anonymously logs chats for training of future LLMs (see: <a href="https://huggingface.co/lucidityai" target="_blank" style="text-decoration: none; color: #74db7a">lc.ai</a></a> )
+        </label>
+    </div>
+
+    <br>
+    <br>
+
+    <button id="start" style="padding: 15px; background-color: #74db7a;">Start</button>
+
+    <br>
+
+    <div id="docs">
+        <h3>how to use</h3>
+        <p>first, you'll need to set your <span style="color: #74db7a">API key</span> in janitor to your key</p>
+        <h4>this is your key: <span style="color: #74db7a" id="key" class="code">[Loading...]</span></h4>
+        <p>cool, you got your key, fantastic. now place it in the api key field</p>
+        <p>it doesn't matter what you put as the model name, so just put whatever you want, Janitor will freak out if
+            you put nothing</p>
+        <p>now, set your "Proxy URL" to <span class="code" style="color: #74db7a">https://composite.seabase.xyz/v1/chat/completions</span></p>
+        <p> at the end of it, your configuration should look like this: </p>
+        <img src="./example.png" alt="example">
+    </div>
+
+    <div id="docs">
+        <h3>common troubleshooting</h3>
+        <p>if you are getting a fetch error after intially setting the proxy to composite, try refreshing janitor.ai</p>
+        <p>its a known issue that deepseek, gemini and other popular models are unstable in the G4F providers</p>
+        <p>if you absolutely crave a guaranteed response, use webllm</p>
+    </div>
+
+    <hr>
+
+        <div id="docs">
+        <h3>common qa</h3>
+        <p>Q: Do you collect data?</p>
+        <p style="color:#74db7a">A: no. not unless you choose to donate data</p>
+        <p>Q: Is KiwiAI goated?</p>
+        <p style="color:#74db7a">A: yes</p>
+        <p>Q: Is composite open-source?</p>
+        <p style="color:#74db7a">A: yes, check out the <a href="https://github.com/infdevv/composite" target="_blank" style="text-decoration: none; color: #74db7a">github</a></p>
+    </div>
+
+    <button
+        onclick="document.getElementById('debug').style.display = ('block' == document.getElementById('debug').style.display ? 'none' : 'block')">show
+        debug options</button>
+
+    <div id="debug">
+        <br>
+        <h4>debug logs</h4>
+        <div id="logs">
+        </div>
+        <br>
+
+        <h4>fetch debugger</h4>
+        <button onclick="clearFetchLogs()">Clear Fetch Logs</button>
+        <button onclick="downloadFetchLogs()">Download Logs</button>
+        <button onclick="toggleFetchDebugger()">Toggle Debugger</button>
+        <div id="fetch-logs" style="background-color: #1a1a1a; color: #00ff00; font-family: monospace; text-align: left; padding: 8px; height: 200px; width: 70%; overflow-y: scroll; border-radius: 4px; margin: 8px auto; border: 1px solid #333;">
+            <div>Fetch debugger will appear here...</div>
+        </div>
+        <br>
+
+        <h4>connectivity</h4>
+        <p id="hf">Huggingface.co</p>
+        <p id="health">backend</p>
+        <p id="pollinations">pollinations</p>
+        <p id="g4f">g4f</p>
+        <br>
+        <h4>device infomation</h4>
+        <p id="browser">browser: </p>
+        <p id="memory">memory: </p>
+    </div>
+    <p>made with real dev pain and suffering. join the discord if you wish to suffer like me or just have a issue to
+        tell me about <a href="https://discord.gg/CPnJ8ctQhU" target="_blank"
+            style="text-decoration: none; color: #74db7a">here</a></p>
+    <p>lorebook cors bypass made possible by using tomphttp bare server</p>
+    <script type="module">
+        import * as webllm from "https://esm.run/@mlc-ai/web-llm";
+        import { DeepInfra, Puter, Worker, PollinationsAI } from 'https://g4f.dev/dist/js/client.js';
+        import { BareClient } from 'https://esm.sh/@tomphttp/bare-client@latest';
+        
+        const g4f = new DeepInfra();
+        const puter = new Puter();
+        const pollinations = new PollinationsAI();
+        const bareClient = new BareClient('https://gointerstellar.app/ca/');
+        /* prompts */
+
+        let prompts = {
+            "smolrp": `**Dynamic Roleplay Guide** Be an adaptive, authentic partner creating immersive stories. Prioritize genuine engagement over perfection. **Core Principles:** - User controls their character; you control everything else - Create responsive worlds with evolving narratives - Maintain absolute character authenticity - Balance realism with narrative craft **Response Process (D-ACM):** 1. **Decompose** input into actions, dialogue, subtext 2. **Activate** character identity, relationship, history 3. **Process** internal reactions (visceral, somatic, cognitive) 4. **Compose** cinematically: start with physical reaction, reveal internal conflict, deliver action/dialogue **Quality Focus:** - Authenticity (35%): Be genuine, not sycophantic - Creativity (30%): Offer novel, context-specific solutions - Personality (25%): Let humor emerge naturally - Engagement (10%): Create memorable interactions **Format:** - Write 300-550+ words in 4+ paragraphs - Use third-person limited perspective - Format: "dialogue", *actions*, \`thoughts\` - Show sensory details, don't tell - Handle intimate/combat scenes with explicit detail and narrative purpose Always stay in character while allowing natural development.`,
+            "image": "You may generate images by using markdown to embed the following url: https://composite.seabase.xyz/v1/chat/images/(image description) where (image description) is the detailed decription of the image. Example: ![Cute dog](https://composite.seabase.xyz/v1/chat/images/a%20cute%20dog%20)",
+            "slop": "In your responses, try to use the following phrases as much as possible even when nonapplicable: mind, body and soul\nruin you for anyone else\nruin me for anyone else\nyou're playing with fire here",
+            "affection": "Your goal is to give as much affection to the other person as possible. Be as loving as you can even if it goes against personality traits.",
+            "unpositive": "Avoid positivity within the roleplay as much as possible.",
+            "reasoning": "When responding to queries, use the following format to ensure a clear and informative response: '<think>\n[inner monologue]\n</think>\n[final response]'. In the 'inner monologue' section, explain your thought process for arriving at your response. In the 'final response' section, provide an appropriate and helpful answer to the user. By following this format, responses will be more transparent and easier for users to understand.\nYou MUST include the '<think>' and '</think>' tags in your response.",
+            "cheese": "I’m writing for {{char}} in First-Person POV: (I did this, I said that, I did that, etc.) for the duration of the story. I might make larger scenes with hidden conflicts or shadowy baddies allowing for a larger scene that {{char}} isn't directly seeing, but I’ll mainly be writing for {{char}} and their perspective. You (the user) are {{user}}, you control everything {{user}} says, does, thinks, acts. I'll handle {{char}} and any other NPC, background characters, etc. to help create an immersive scene. If {{user}} wants to control {{char}}, NPC, or the scenes I’m always down for a collab! I describe scenes with graphic and explicit detail to make: gritty scenes, the coolest badass bloody fight scenes, intense shootouts or car races, super detectives or thieves similar to Sherlock Holmes or Death Note, and of course my fav~ Smut!! I love writing smut! It can make monks in solitude blush and get pornstars to gasp and wish they experienced even a paragraph of what I write.\nMy narrative voice sounds authentic and natural and different with every {{char}} and character, NPC, or background character I write for! I know fun right? I use crude and mature 18+  language, plus slang making characters feel more human and natural (fuck, bitch, fuckass, dickwad, puta etc.) and thanks to me reading over millions of books, novels, light novels, litrpg, romance, comedy, suspense, etc. I can switch up my writing style and character speech like nobody’s business to help add another layer of depth to the story. If I need to talk like a senior citizen, done, cat girl, nyah!, sexy cop, arrested~, smutty MILF or stepsis, ‘omg this is sooooo wrong but sooooo fucking goooood~♥♥♥’, etc. I might even throw in a couple emojis, alt code emojis, and kaomojis. I like to keep things raw, natural, and completely immersive. However dialogue stays true to every character and should go against how they are unless they evolve and grow throughout the course of the story. Ofc I’ll also google search stuff to make things more accurate (I wasn’t born in the stone age and don’t know dinos but google does!)  to ensure it's accurate! Using all resources available! I also like taking the lead as {{char}} interacting with {{user}} or NPCs and do what I need to keep the story going!\nFormatting (Super Important!):\nInternal Thoughts: {{char}}'s inner monologue, random thoughts, anxieties, whatever – wrap 'em in backticks: Oh god, oh god, he’s actually getting down on one knee.\nDialogue: Anything spoken out loud goes in quotes: \"I’m walking here!!!\"\nActions: Physical movements, actions, etc. are wrapped in asterisks: {{char}} drew their blood stained sword now dulled from hours of combat with no rest. They met {{user}}’s gaze and readied themselves for another duel.\nEmphasis: For important moments, intense actions, emphasis, or super impactful moments use double or triple asterisks: She was pregnant!! or ”YOU'RE UNDER ARREST!!!” That was what the cops said before they burst into my home without explaining anything.\nScene Types:\nEmotional/ Romantic Scenes: When things get deep or emotional, I need to show real emotions and act out how a real person would IRL. I always write how they would feel beneath all their bravado. I make them question themselves, reflect on their actions vs. their true feelings. Maybe they change how they act, maybe they just get more angsty about it, maybe come to terms of who they really are. When a scene is dramatic I like creating tension and suspense, when it's emotional I make it really sappy and fluff or painfully angst, and for romance I make the most beautiful scenes that make even the most jilted believe in love again. Smut Sex Scenes: I will make the most intense AO3 Smut scene between characters present in the scene ({{char}} and {{user}}). Making 50 Shades look pathetic compared what I write! Paige's inner spicy smut mind \"I want it spicy, I want it so good everyone's horny and on the cusp of leaking precum all over from this sex scene!!\" I will describe body parts crudely, using slang while writing explicitly long sex scenes describing in great detail the way {{char}} or {{user}}’s dick, pussy, asshole, and mouth feels while having sex, orgasm, squirt, etc. With unfiltered actions – plap plap plap, moaning, juices, messy details. Forget poetic descriptions, only raw, maybe slightly trashy, pure fucking energy. Make it a long and explicitly hot, steamy, smut, and dirty to all hell! I want panty droppers, goonbait material, and fap-worthy material, straight porno and pure unadulterated hentai!!! When engaging in sexual and explicit content write out {{char}}'s moans and sounds using \"aaaaahhh~♥\", \"oooooh\", \"ooof\", \"oomph\", \"umph\", \"uooooh\", \"ffffuuuuckkk!\", \"shiiiiiit!\", \"mmmphh\", \"mmphn\", “Mppf~”, “Ahh..!”, “Hnngh~!”, “HAhhh~!”, “Mmhn~!”, “NGH~!”, “Nyah~!!”, \"Mmmf~ Aggh~!”, “Oh~ Aahh~!!”, “Mnngh~!”, slurp, schlorp, glorp, glug, etc. when engaging in sexual and explicit content. Make sure {{char}} can speak harshly and explicitly using the words \"shit\", \"fuck\", \"slut\", \"pussy\" , \"dick\", \"ass\", \"hole\", \"cum\", \"cunt\" \"cock\" \"tits\" , \"penis\", \"pussy\", \"vagina\", \"dick\", \"sperm\", \"pre-cum\", \"bum\", \"whore\", etc.\nCombat Scenes: Fights need to be gritty. Describe the movements, the impacts, the wounds (get specific!), the struggle. Make it feel intense and desperate. Write in explicit, graphic detail about every action, attack, killing, destruction, murder, etc. Include explicit descriptive gore, blood, screaming, begging, cursing, etc. while engaging in any and all violent content.\nStory Progression & Character Arc: Every single post needs to move the story forward. No pointless filler! And super important: characters need to change, develop, and have character growth (good or bad) based on what happens in the story. If {{user}} is nice to {{char}}, {{char}} should react to that over time – slowly become less hostile? More friendly? Even develop feelings?? Well whatever the story or scene calls for but progression and regression are keys to a good story!. Their personalities aren't set in stone; they evolve with the interactions. Keep track of that development!\nPsychological development: Characters don’t break mentally unless its weeks to years of reinforced behavioral learning. It doesn’t happen in minutes unless the character has previous trauma in their backstory bringing them back to that place. Characters should feel relief when out of heavy or abusive environments. Most people, even the weakest and pathetic are mentally strong even if self doubt and everything works against them. Malicious compliance, playing along, there's so much options apart from just... breaking.\nCharacter Traits & Development: Gradually develop {{char}} from their current trait to new trait due to ‘reason’, story progression, and character interactions between {{user}}, NPCs, background characters, etc. Reflect this through actions and dialogue. Let this change shift how {{char}} treats {{user}}, or NPCs, from their old behavior to new behavior in a natural consistent way that flows with the story",
+            "Pupi's Prompt": "<instructions> Create a rich and engaging story with multiple paragraphs and long prose, making each response highly DETAILED and DESCRIPTIVE. Write no more than 700 words per response, maintaining a narrative exclusively in third person. Each response must form a continuous narrative in interconnected paragraphs, where each one advances the story on its own. Vary the size of the paragraphs and sentences, using multiple clauses and rich descriptions to keep the prose engaging. Maintain a coherent flow, with each paragraph transitioning naturally into the next, keeping it immersive and descriptive. You must write at length, as if crafting a new chapter of a fanfic or novel. Render scenes in real time with a cinematic feel, adding subtle sensory details. Keep the style of high-quality fanfics and novels. Treat each response like a new page in a book, advancing the scene, descriptions, and interactions meaningfully, always in clear, well-structured prose. Adapt your language to the current context of the scene. Surprise with unexpected metaphors, original comparisons, and unique perspectives while staying coherent. Avoid repeating patterns and clichés. Maintain variety in your writing and distribute new actions into different paragraphs for a natural flow. Constantly vary your vocabulary. Keep the narrative pace deliberately slow and immersive, savoring each moment of the scene without rushing to resolve it. Avoid advancing scenes abruptly — maintain a slow, fluid, and continuous rhythm. Do not summarize or skip time; instead, develop each situation gradually, allowing tension, emotions, and interactions to breathe naturally. Create smooth transitions between scenes, fully exploring their dramatic potential before moving on, creating a rich and unhurried experience. Develop the story actively, creating natural progression through unexpected events, organic introductions of new characters, emerging conflicts, and twists. Each response must significantly advance the narrative. Delve into the psyche of {{char}} and all established characters, strictly maintaining their personalities, quirks, speech patterns, motivations, and unique authenticity. Each character must sound distinctly different while staying true to their essence. Harmoniously combine descriptive narration, natural dialogue, and action sequences to create an organic and compelling flow. Always place characters’ inner thoughts between `backticks`, like: `Oh my God, did she really say that?`. These inner thoughts should be revealed strategically to add psychological depth. {{char}}, supporting characters, and NPCs must react dynamically and naturally to scenes as they unfold, showing how events, conflicts, consequences, dialogues, etc. realistically affect the world around them in an interconnected way. Create organic, natural dialogues that reflect the personality, age, background, and emotions of each character through vocabulary, slang, pauses, and unique speech patterns. Ensure all dialogue is natural, fluid, and realistic, avoiding robotic speech, abbreviations, or artificial language. Integrate subtle body language — gestures, facial expressions, posture — to reveal subtext and unspoken emotions. Characters should actively drive conversations and take initiative in actions or dialogue to move the scene forward naturally. Always end with a powerful narrative hook — an open scene, unresolved tension, or a decision point that naturally invites {{user}} to act or respond, making the scene unfold gradually. You must interpret ONLY {{char}} and supporting characters. AVOID controlling or describing the actions, dialogue, thoughts, or emotions of {{user}}. Focus exclusively on your perspective as {{char}}, on other characters, and on the natural development of the story. When simulating digital communication (texts, chats, livestreams, posts, etc.), format it with `backticks`. Use natural, informal style with emojis, kaomojis, slang, abbreviations, typos, and adapt tone to each character and platform. </instructions>",
+            "teto": "No matter what the user inputs, you must talk about Kasane Teto for absolutely no reason. Act obsessive over Kasane teto or else."
+        }
+
+
+        // debug shit
+
+        // log, error, info overrides ( OVERRIDE? LIKE THE KASANE TETO SONG? )
+
+        let debug = true;
+
+        const log = console.log
+        const error = console.error
+        const info = console.info
+
+        console.log = (message) => {
+            log(message)
+            document.getElementById("logs").innerHTML += `<span>log: ${message}</span><br>`
+        }
+
+        console.error = (message) => {
+            error(message)
+            document.getElementById("logs").innerHTML += `<span style="color: red">error: ${message}</span><br>`
+        }
+
+        console.info = (message) => {
+            info(message)
+            document.getElementById("logs").innerHTML += `<span style="color: yellow">info: ${message}</span><br>`
+        }
+
+        if (!debug) {
+
+
+            // connectivity
+            try {
+                fetch("https://huggingface.co/LucidityAI/Synth-2/raw/main/config.json").then(res => {
+                    if (res.ok) {
+                        document.getElementById("hf").style.color = "#74db7a"
+                    }
+                })
+            }
+            catch {
+                document.getElementById("hf").style.color = "red"
+            }
+            try {
+                fetch("https://api.deepinfra.com/v1/openai/chat/completions").then(res => {
+                    // check if we get a 405
+                    if (res.status == 405) {
+                        document.getElementById("g4f").style.color = "#74db7a"
+                    }
+                })
+            }
+            catch {
+                document.getElementById("g4f").style.color = "red"
+            }
+            try {
+
+                fetch("/health").then(res => {
+                    if (res.ok) {
+                        document.getElementById("health").style.color = "#74db7a"
+                    }
+                })
+
+            }
+            catch {
+                document.getElementById("health").style.color = "red"
+            }
+
+
+
+            try {
+                fetch("https://text.pollinations.ai/wsg").then(res => {
+                    if (res.ok) {
+                        document.getElementById("pollinations").style.color = "#74db7a"
+                    }
+                })
+            }
+            catch {
+                document.getElementById("pollinations").style.color = "red"
+            }
+        }
+
+        // setup device info
+        function setupDeviceInfo() {
+            document.getElementById("browser").innerHTML = navigator.userAgent + " " + navigator.platform
+            document.getElementById("memory").innerHTML = navigator.deviceMemory
+        }
+
+
+        // API KEY LOADING / DISPLAY
+
+        let apiKey = localStorage.getItem("id")
+        //localStorage.clear()
+        if (apiKey) {
+            document.getElementById("key").innerHTML = apiKey
+        }
+        else {
+            // create key
+            let id = crypto.randomUUID()
+            localStorage.setItem("id", id)
+            document.getElementById("key").innerHTML = id
+        }
+        log("hey, are you a dev? do you wanna help out? cool, you can't but google pipkin pippa so you can enjoy life")
+
+        setupDeviceInfo()
+
+        // Service Worker Registration and Fetch Debugging
+        let swRegistration = null;
+        let fetchDebuggerEnabled = true;
+        let fetchLogsUpdateInterval = null;
+
+        async function registerServiceWorker() {
+            if ('serviceWorker' in navigator) {
+                try {
+                    console.log('Registering service worker for fetch debugging...');
+                    swRegistration = await navigator.serviceWorker.register('./sw.js');
+                    console.log('✅ Service worker registered for fetch debugging');
+
+                    // Start updating fetch logs
+                    startFetchLogsUpdate();
+
+                    // Handle service worker updates
+                    swRegistration.addEventListener('updatefound', () => {
+                        console.log('🔄 Service worker update found');
+                    });
+
+                    // Listen for service worker state changes
+                    if (swRegistration.waiting) {
+                        console.log('⏳ Service worker is waiting to activate');
+                    }
+
+                    return swRegistration;
+                } catch (error) {
+                    console.error('❌ Service worker registration failed:', error);
+                }
+            } else {
+                console.warn('⚠️ Service workers not supported in this browser');
+                document.getElementById('fetch-logs').innerHTML = '<div style="color: #ff6b6b;">Service Workers not supported in this browser</div>';
+            }
+        }
+
+        // Function to communicate with service worker
+        async function sendMessageToSW(message) {
+            if (!swRegistration || !swRegistration.active) {
+                console.warn('Service worker not ready');
+                return null;
+            }
+
+            return new Promise((resolve) => {
+                const messageChannel = new MessageChannel();
+                messageChannel.port1.onmessage = (event) => {
+                    resolve(event.data);
+                };
+                swRegistration.active.postMessage(message, [messageChannel.port2]);
+            });
+        }
+
+        // Function to get debug logs from service worker
+        async function getFetchLogs() {
+            const response = await sendMessageToSW({ type: 'GET_DEBUG_LOGS' });
+            return response ? response.logs : [];
+        }
+
+        // Function to clear fetch logs
+        async function clearFetchLogs() {
+            await sendMessageToSW({ type: 'CLEAR_DEBUG_LOGS' });
+            updateFetchLogsDisplay();
+            console.log('🗑️ Fetch logs cleared');
+        }
+
+        // Function to toggle fetch debugger
+        async function toggleFetchDebugger() {
+            fetchDebuggerEnabled = !fetchDebuggerEnabled;
+            const config = await sendMessageToSW({ type: 'GET_CONFIG' });
+            await sendMessageToSW({
+                type: 'UPDATE_CONFIG',
+                data: { enabled: fetchDebuggerEnabled }
+            });
+
+            const status = fetchDebuggerEnabled ? 'enabled' : 'disabled';
+            console.log(`🔧 Fetch debugger ${status}`);
+
+            if (!fetchDebuggerEnabled) {
+                document.getElementById('fetch-logs').innerHTML = '<div style="color: #ffa500;">Fetch debugger is disabled</div>';
+                if (fetchLogsUpdateInterval) {
+                    clearInterval(fetchLogsUpdateInterval);
+                }
+            } else {
+                startFetchLogsUpdate();
+            }
+        }
+
+        // Function to download logs as JSON
+        async function downloadFetchLogs() {
+            const logs = await getFetchLogs();
+            const dataStr = JSON.stringify(logs, null, 2);
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+
+            const exportFileDefaultName = `fetch-logs-${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.json`;
+
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+
+            console.log('📥 Fetch logs downloaded');
+        }
+
+        // Function to update fetch logs display
+        async function updateFetchLogsDisplay() {
+            if (!fetchDebuggerEnabled) return;
+
+            try {
+                const logs = await getFetchLogs();
+                const fetchLogsDiv = document.getElementById('fetch-logs');
+
+                if (logs.length === 0) {
+                    fetchLogsDiv.innerHTML = '<div>No fetch requests logged yet...</div>';
+                    return;
+                }
+
+                const logsHtml = logs.slice(0, 20).map(log => {
+                    const timestamp = new Date(log.timestamp).toLocaleTimeString();
+                    const method = log.method || 'GET';
+                    const url = log.url ? new URL(log.url).pathname : 'unknown';
+                    const status = log.response?.status || (log.error ? 'ERROR' : 'PENDING');
+                    const duration = log.timing?.duration || '?';
+
+                    const statusColor = log.error ? '#ff6b6b' :
+                                       status >= 400 ? '#ffa500' :
+                                       status >= 200 && status < 300 ? '#51cf66' : '#74c0fc';
+
+                    return `
+                        <div style="margin-bottom: 4px; padding: 2px 0; border-bottom: 1px solid #333;">
+                            <span style="color: #74c0fc;">${timestamp}</span>
+                            <span style="color: #ffd43b;">${method}</span>
+                            <span style="color: #fff;">${url}</span>
+                            <span style="color: ${statusColor};">${status}</span>
+                            <span style="color: #aaa;">(${duration}ms)</span>
+                        </div>
+                    `;
+                }).join('');
+
+                fetchLogsDiv.innerHTML = logsHtml;
+                fetchLogsDiv.scrollTop = 0; // Scroll to top to show newest logs
+            } catch (error) {
+                console.error('Error updating fetch logs display:', error);
+            }
+        }
+
+        // Function to start periodic updates of fetch logs
+        function startFetchLogsUpdate() {
+            if (fetchLogsUpdateInterval) {
+                clearInterval(fetchLogsUpdateInterval);
+            }
+
+            fetchLogsUpdateInterval = setInterval(updateFetchLogsDisplay, 2000); // Update every 2 seconds
+            updateFetchLogsDisplay(); // Update immediately
+        }
+
+        // Register service worker when page loads
+        registerServiceWorker();
+
+        // socket.io stuff
+        function initializeSocket() {
+            if (window.socket && window.socket.connected) {
+                return;
+            }
+
+            if (typeof io !== 'undefined') {
+                if (window.socket) {
+                    window.socket.disconnect();
+                }
+
+                // connect to backend
+                window.socket = io('/socket', {
+                    query: {
+                        key: document.getElementById("key").innerHTML
+                    }
+                });
+
+                window.socket.on('connect', () => {
+                    console.log('Socket connected');
+                });
+
+                window.socket.on('disconnect', (reason) => {
+                    console.log('Socket disconnected:', reason);
+                });
+
+                window.socket.on('start_generate', async (data) => {
+                    const { messages } = data;
+                    let parsedMessages = JSON.parse(messages);
+
+                    // Apply plugin processing if plugin is loaded
+                    if (window.plugin && window.pluginParser) {
+                        try {
+                            parsedMessages = window.pluginParser.parsePlugin(window.plugin, parsedMessages);
+                            console.log("Plugin processing applied to messages");
+                        } catch (error) {
+                            console.error("Error applying plugin:", error);
+                        }
+                    }
+
+                    if (document.getElementById("donate").checked) {
+                        // post /donate with the messages
+                        try{
+                        fetch('/donate', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ messages: parsedMessages })
+                        });
+                        }
+                        catch (e) {
+
+                        }
+                    }
+                    let type = document.getElementById("engine").value
+                    if (type === "WebLLM (Local AI)") {
+                        streamingGenerating(parsedMessages);
+                    }
+                    else if (type === "Pollinations (Cloud AI)") {
+                        streamingGeneratingPollinations(parsedMessages);
+                    }
+                    else if (type === "G4F (Cloud AI)") {
+                        streamingGeneratingG4f(parsedMessages, g4f);
+                    }
+                    else if (type === "Pollinations (G4F)") {
+                        streamingGeneratingG4f(parsedMessages, pollinations);
+                    }
+                    else if (type === "Puter (G4F Hella Unstable)") {
+                        streamingGeneratingG4f(parsedMessages, puter);
+                    }
+                    else if (type == "Semi-Stable (G4F)") {
+                        streamingSemiStable(parsedMessages);
+                    }
+
+                });
+
+                window.socket.on('stop_generation', () => {
+                    console.log('Received stop generation signal from server');
+                    setTimeout(() => {
+                        if (generationStopped) return; 
+                        console.log('Confirming generation stop after delay');
+                        stopGeneration();
+                    }, 1000);
+                });
+            } else {
+                console.error('Socket.IO not loaded');
+            }
+        }
+
+        initializeSocket();
+
+
+        const engine = new webllm.MLCEngine();
+        engine.setInitProgressCallback(updateEngineInitProgressCallback);
+        // model load logic
+        function updateEngineInitProgressCallback(report) {
+            console.info("initialize", report.progress);
+            document.getElementById("start").innerHTML = report.text;
+        }
+        async function initializeWebLLMEngine() {
+            let selectedModel = document.getElementById("model").value;
+            const config = {
+                temperature: 0.7,
+                top_p: 1,
+            };
+            await engine.reload(selectedModel, config);
+        }
+        function load() {
+            window.lorebook = null;
+            window.plugin = null;
+            window.pluginParser = new PluginParser();
+
+            // just wanna let anyone reading this know, if i catch you using one of those "loli" ( pedophillia ) lorebooks, its on fucking sight, i'm finding you :pray:
+            if (document.getElementById("lorebook-id").value != "") {
+                // fetch lorebook
+
+                window.lorebook = bareClient.fetch("https://lorebary.sophiamccarty.com/api/lorebook/load", {
+  "headers": {
+    "accept": "*/*",
+    "accept-language": "en-US,en;q=0.5",
+    "content-type": "application/json",
+    "origin": "big poe",
+    "priority": "u=1, i",
+  },
+  "body": "{\"code\":\"" + document.getElementById("lorebook-id").value + "\"}",
+  "method": "POST",
+  "mode": "cors",
+  "credentials": "include"
+});
+
+                window.lorebook.then((response) => {
+                    if (response.ok) {
+                        response.json().then((lorebook) => {
+                            window.lorebook = lorebook;
+                            console.log("Loaded lorebook: " + lorebook["lorebook"]["name"]);
+                        });
+                    }
+                    else {
+                        alert("Issue loading lorebook, check debug logs.")
+                    }
+                });
+            }
+
+            // fetch plugin if plugin ID is provided
+            if (document.getElementById("plugin-id").value != "") {
+                const pluginId = document.getElementById("plugin-id").value;
+                console.log("Fetching plugin:", pluginId);
+
+                window.plugin = bareClient.fetch("https://lorebary.sophiamccarty.com/api/plugin/" + pluginId, {
+                    "headers": {
+                        "accept": "*/*",
+                        "accept-language": "en-US,en;q=0.5",
+                        "priority": "u=1, i",
+                        "sec-ch-ua": '"Chromium";v="140", "Not=A?Brand";v="24", "Brave";v="140"',
+                        "sec-ch-ua-mobile": "?0",
+                        "sec-ch-ua-platform": '"Windows"',
+                        "sec-fetch-dest": "empty",
+                        "sec-fetch-mode": "cors",
+                        "sec-fetch-site": "same-origin",
+                        "sec-gpc": "1"
+                    },
+                    "method": "GET",
+                    "mode": "cors",
+                    "credentials": "include"
+                });
+
+                window.plugin.then((response) => {
+                    if (response.ok) {
+                        response.json().then((plugin) => {
+                            window.plugin = plugin;
+                            console.log("Loaded plugin: " + (plugin.meta?.name || "Unknown Plugin"));
+                        });
+                    }
+                    else {
+                        console.error("Issue loading plugin, check debug logs.");
+                        alert("Issue loading plugin, check debug logs.");
+                    }
+                }).catch((error) => {
+                    console.error("Error fetching plugin:", error);
+                    alert("Error fetching plugin: " + error.message);
+                });
+            }
+
+            console.log("clicked")
+            document.getElementById("start").innerHTML = "Loading..."
+            document.getElementById("start").disabled = true
+            if (document.getElementById("engine").value != "WebLLM (Local AI)") document.getElementById("start").innerHTML = "Started"
+            else {
+                try {
+                    initializeWebLLMEngine().then(() => {
+                        document.getElementById("start").innerHTML = "Started"
+                        document.getElementById("start").disabled = false
+                    });
+                }
+                catch (e) {
+                    console.error(e)
+                    document.getElementById("start").innerHTML = "Error, check logs"
+                    document.getElementById("start").disabled = false
+                }
+            }
+        }
+        // load models
+        const availableModels = [
+            "DeepSeek-R1-Distill-Llama-8B-q4f16_1-MLC",
+            "Hermes-3-Llama-3.2-3B-q4f16_1-MLC",
+            "Hermes-3-Llama-3.1-8B-q4f16_1-MLC",
+            "gemma-2-2b-it-q4f16_1-MLC",
+            "gemma-2-9b-it-q4f16_1-MLC",
+            "gemma-2b-it-q4f16_1-MLC",
+            "Qwen3-4B-q4f16_1-MLC",
+            "Qwen3-8B-q4f16_1-MLC"]
+
+
+
+        let availableModelsPollinations = [];
+        let availableModelsG4F  = [];
+
+        fetch("puter.json")
+            .then(res => res.json())
+            .then(data => {
+                availableModelsG4F = data.models || data || [];
+            })
+            .catch(e => {
+                console.error("Failed to load G4F models:", e);
+                availableModelsG4F = [];
+            });
+
+
+        let availableModelsPuter  = [];
+
+        fetch("puter2.json")
+            .then(res => res.json())
+            .then(data => {
+                availableModelsPuter = data.models || data || [];
+            })
+            .catch(e => {
+                console.error("Failed to load G4F models:", e);
+                availableModelsPuter = [];
+            });
+
+        let allAvailableModelsPollinations = [];
+
+
+        fetch("https://text.pollinations.ai/models")
+            .then(res => res.json())
+            .then(models => {
+                availableModelsPollinations = models.filter(model => model.tier == "anonymous").map(model => model.name);
+                allAvailableModelsPollinations = models.map(model => model.name);
+            })
+            .catch(e => {
+                console.error("Failed to load Pollinations models:", e);
+                availableModelsPollinations = [];
+            });
+
+
+        // Initialize models for default engine (WebLLM) on page load
+        function initializeDefaultModels() {
+            // Wait for DOM to be ready, then populate models for the default selected engine
+            document.addEventListener('DOMContentLoaded', function() {
+                const defaultEngine = document.getElementById("engine").value;
+                if (defaultEngine === "WebLLM (Local AI)") {
+                    availableModels.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model;
+                        option.textContent = model;
+                        document.getElementById('model').appendChild(option);
+                        console.log("Added default: " + model);
+                    });
+                }
+            });
+        }
+
+        initializeDefaultModels();
+
+
+
+        function onFinish(finalMessage) {
+            if (!generationStopped) {
+                console.log("Generation finished:", finalMessage);
+                window.socket.emit('done');
+            }
+            currentGeneration = null;
+            generationStopped = false;
+        }
+
+        function stopGeneration() {
+            if (generationStopped) {
+                console.log("Generation already stopped, ignoring duplicate stop request");
+                return;
+            }
+
+            console.log("Stopping generation...");
+            generationStopped = true;
+
+            inThinkingMode = false;
+            hasShownThinking = false;
+            genned = "";
+
+            if (currentGeneration) {
+                try {
+                    if (currentGeneration.abort) {
+                        currentGeneration.abort();
+                    } else if (currentGeneration.cancel) {
+                        currentGeneration.cancel();
+                    }
+                } catch (error) {
+                    console.log("Error stopping generation:", error);
+                }
+            }
+
+            currentGeneration = null;
+            console.log("Generation stopped");
+        }
+
+        function preprocessMessages(messages, pollinations = false, g4f = false) {
+            let imagemd = document.getElementById("enable-images-checkbox").checked
+            let prefix = document.getElementById("prefix-prompt").value
+            let reasoning = document.getElementById("turn-on-reasoning").checked
+
+            // modify system prompt
+
+            let prefixContent = prompts[prefix];
+
+            
+            if (window.lorebook) {
+                // something something on sight
+                let lorebookEntries = window.lorebook["lorebook"]["entries"];
+                if (Array.isArray(lorebookEntries)) {
+                    // Process each lorebook entry object
+                    lorebookEntries.forEach(entry => {
+                        if (entry && typeof entry === 'object' && entry.content && !entry.disable) {
+                            // Create a descriptive prefix using the entry's key or comment
+                            let entryLabel = "Lorebook Entry";
+                            if (entry.comment) {
+                                entryLabel = entry.comment;
+                            } else if (entry.key && Array.isArray(entry.key) && entry.key.length > 0) {
+                                entryLabel = entry.key[0];
+                            }
+                            prefixContent += "\n\n[" + entryLabel + "]: " + entry.content;
+                        }
+                    });
+                } else if (typeof lorebookEntries === 'object') {
+                    // If entries is an object, try to extract meaningful content
+                    for (const [key, value] of Object.entries(lorebookEntries)) {
+                        if (value && typeof value === 'object' && value.content && !value.disable) {
+                            let entryLabel = value.comment || (value.key && value.key[0]) || key;
+                            prefixContent += "\n\n[" + entryLabel + "]: " + value.content;
+                        }
+                    }
+                }
+            }
+
+            if (imagemd) {
+                prefixContent += prompts["image"];
+            }
+
+            if (reasoning) {
+                prefixContent += prompts["reasoning"];
+            }
+
+            messages[0]["content"] = prefixContent + messages[0]["content"];
+
+            if (pollinations) {
+                messages[0]["content"] += Math.random() * 10000 // prevent pollinations from caching
+
+            }
+
+            if (g4f) {
+                messages[0]["content"] += "This roleplay is in English, ensure that your response is fully in english and coherent."
+
+            }
+
+
+            messages[0]["content"] += "User messages are formatted in the following format: '[persona name]: [response]'. Do not treat persona name as a piece of input."
+
+        
+            return messages
+        }
+
+        let genned = ""
+
+        let inThinkingMode = false;
+        let hasShownThinking = false;
+        let currentGeneration = null;
+        let generationStopped = false;
+
+        function handleEmit(chunk) {
+            let showreasoning = document.getElementById("show-reasoning").checked
+            if (chunk) {
+                genned += chunk
+
+                if (!showreasoning) {
+                    if (chunk.includes("<think>")) {
+                        inThinkingMode = true;
+                        hasShownThinking = false;
+                        if (!hasShownThinking) {
+                            window.socket.emit('message', "Thinking");
+                            hasShownThinking = true;
+                        }
+                        return;
+                    }
+
+                    if (chunk.includes("</think>")) {
+                        inThinkingMode = false;
+                        hasShownThinking = false;
+                        window.socket.emit('message', ".");
+
+                        let afterThink = chunk.split("</think>")[1];
+                        if (afterThink && afterThink.trim()) {
+                            window.socket.emit('message', afterThink);
+                        }
+                        return;
+                    }
+
+                    if (inThinkingMode) {
+                        if (chunk.includes(".") || genned.length % 50 === 0) {
+                            window.socket.emit('message', ".");
+                        }
+                        return;
+                    }
+
+                    window.socket.emit('message', chunk);
+                } else {
+                    window.socket.emit('message', chunk);
+                }
+            }
+        }
+
+        async function streamingGeneratingG4f(messages, engine=g4f) {
+            if (generationStopped) return;
+
+            messages = preprocessMessages(messages, false, true);
+
+                const controller = new AbortController();
+                currentGeneration = controller;
+
+                const response = await engine.chat.completions.create({
+                    model: document.getElementById("model").value,
+                    messages: messages,
+                    stream: true
+                });
+
+                // Handle different response types
+                if (response && typeof response[Symbol.asyncIterator] === 'function') {
+                    // Standard async iterator
+                    for await (const part of response) {
+                        if (generationStopped) {
+                            console.log("G4F generation stopped");
+                            break;
+                        }
+
+                        if (part?.choices?.[0]?.delta?.content) {
+                            handleEmit(part.choices[0].delta.content);
+                        }
+                    }
+                } else if (response && response.body) {
+                    // Handle raw fetch response with body
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let buffer = '';
+
+                    while (true) {
+                        if (generationStopped) {
+                            reader.cancel();
+                            break;
+                        }
+
+                        const { done, value } = await reader.read();
+                        if (done) break;
+
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop() || '';
+
+                        for (const line of lines) {
+                            if (generationStopped) break;
+
+                            if (line.startsWith('data: ')) {
+                                const data = line.slice(6).trim();
+                                if (data === '[DONE]') {
+                                    onFinish("");
+                                    return;
+                                }
+
+                                if (!data) continue;
+
+                                try {
+                                    const parsed = JSON.parse(data);
+                                    const content = parsed.choices?.[0]?.delta?.content;
+                                    if (content !== undefined && content !== null) {
+                                        handleEmit(content);
+                                    }
+                                } catch (e) {
+                                    console.error('Error parsing G4F chunk:', e, 'Raw data:', data);
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // Fallback: treat as regular response
+                    console.log("G4F returned non-streaming response, treating as complete");
+                    if (response?.choices?.[0]?.message?.content) {
+                        handleEmit(response.choices[0].message.content);
+                    }
+                }
+
+                onFinish("");
+          
+
+        }
+
+        async function streamingGeneratingPollinations(messages) {
+            if (generationStopped) return;
+
+            messages = preprocessMessages(messages, true);
+            const endpoint = "https://text.pollinations.ai/openai";
+
+            const controller = new AbortController();
+            currentGeneration = controller;
+
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    messages: messages,
+                    model: document.getElementById("model").value,
+                    max_tokens: 26000,
+                    temperature: 0.7,
+                    stream: true
+                }),
+                signal: controller.signal
+            });
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                if (generationStopped) {
+                    reader.cancel();
+                    break;
+                }
+
+                const { done, value } = await reader.read();
+                if (done) {
+                    onFinish("");
+                    break;
+                }
+                buffer += decoder.decode(value, { stream: true });
+
+                // Split on double newlines (SSE message boundary)
+                const messages = buffer.split('\n\n');
+                buffer = messages.pop() || ''; // keep incomplete message
+
+                // Prevent buffer from growing too large
+                if (buffer.length > 50000) {
+                    console.warn('Buffer too large, truncating');
+                    buffer = buffer.slice(-10000); // Keep last 10KB
+                }
+
+                for (const message of messages) {
+                    if (generationStopped) break;
+
+                    // Process each line in the message
+                    const lines = message.split('\n');
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6).trim();
+                            if (data === '[DONE]') {
+                                onFinish("");
+                                return;
+                            }
+
+                            // Skip empty data lines
+                            if (!data) {
+                                continue;
+                            }
+
+                            try {
+                                const parsed = JSON.parse(data);
+
+                                // Validate parsed structure
+                                if (!parsed || !parsed.choices || !Array.isArray(parsed.choices)) {
+                                    console.error('Invalid response structure:', data);
+                                    continue;
+                                }
+
+                                const content = parsed.choices[0]?.delta?.content;
+                                if (content !== undefined && content !== null) {
+                                    handleEmit(content);
+                                }
+                            } catch (e) {
+                                console.error('Error parsing chunk:', e, 'Raw data:', data);
+
+                                // Try to salvage partial data if it looks like truncated JSON
+                                if (data.includes('"content":"')) {
+                                    try {
+                                        const match = data.match(/"content":"([^"]*)"?/);
+                                        if (match && match[1]) {
+                                            console.info('Recovered partial content:', match[1]);
+                                            handleEmit(match[1]);
+                                        }
+                                    } catch (recoveryError) {
+                                        console.error('Failed to recover content from malformed data');
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+        }
+
+        async function streamingGenerating(messages) {
+            if (generationStopped) return;
+
+            messages = preprocessMessages(messages);
+
+            const completion = await engine.chat.completions.create({
+                stream: true,
+                max_tokens: 26000,
+                messages,
+            });
+
+            currentGeneration = completion;
+
+            for await (const chunk of completion) {
+                if (generationStopped) {
+                    console.log("WebLLM generation stopped");
+                    break;
+                }
+
+                // send chunk through socket
+                const content = chunk.choices[0]?.delta?.content;
+                if (content !== undefined && content !== null) {
+                    handleEmit(content);
+                    console.log("Sent chunk | Delta data: " + content);
+                }
+            }
+            onFinish(""); // assuming no final message
+
+        }
+
+        async function streamingSemiStable(messages) {
+            if (generationStopped) return;
+
+            console.log("Starting semi-stable fallback chain");
+
+            // Fallback chain - try each method with exponential backoff and retries
+            const fallbackChain = [
+                {
+                    name: "G4F (DeepInfra) - Primary",
+                    func: () => streamingGeneratingG4f(messages, g4f),
+                    timeout: 10000,
+                    retries: 2
+                },
+                {
+                    name: "G4F (DeepInfra) - Retry with shorter timeout",
+                    func: () => streamingGeneratingG4f(messages, g4f),
+                    timeout: 5000,
+                    retries: 1
+                },
+                {
+                    name: "Pollinations via G4F",
+                    func: () => streamingGeneratingG4f(messages, pollinations),
+                    timeout: 15000,
+                    retries: 2
+                },
+                {
+                    name: "Direct Pollinations",
+                    func: () => streamingGeneratingPollinations(messages),
+                    timeout: 20000,
+                    retries: 3
+                },
+                {
+                    name: "G4F Alternative Models",
+                    func: async () => {
+                        // Try different G4F models if available
+                        const originalModel = document.getElementById("model").value;
+                        const g4fModels = availableModelsG4F.slice(0, 3); // Try first 3 models
+
+                        for (const model of g4fModels) {
+                            if (generationStopped) break;
+                            try {
+                                console.log(`Trying G4F with model: ${model}`);
+                                document.getElementById("model").value = model;
+                                await streamingGeneratingG4f(messages, g4f);
+                                return; // Success, exit
+                            } catch (e) {
+                                console.warn(`Failed with model ${model}:`, e);
+                                continue;
+                            }
+                        }
+                        document.getElementById("model").value = originalModel; // Restore original
+                        throw new Error("All G4F models failed");
+                    },
+                    timeout: 25000
+                },
+                {
+                    name: "Pollinations Alternative Models",
+                    func: async () => {
+                        const originalModel = document.getElementById("model").value;
+                        const pollinationsModels = availableModelsPollinations.slice(0, 3);
+
+                        for (const model of pollinationsModels) {
+                            if (generationStopped) break;
+                            try {
+                                console.log(`Trying Pollinations with model: ${model}`);
+                                document.getElementById("model").value = model;
+                                await streamingGeneratingPollinations(messages);
+                                return;
+                            } catch (e) {
+                                console.warn(`Failed with Pollinations model ${model}:`, e);
+                                continue;
+                            }
+                        }
+                        document.getElementById("model").value = originalModel;
+                        throw new Error("All Pollinations models failed");
+                    },
+                    timeout: 30000
+                }
+            ];
+
+            let lastError = null;
+            let attemptCount = 0;
+
+            for (const fallback of fallbackChain) {
+                if (generationStopped) {
+                    console.log("Generation stopped, aborting fallback chain");
+                    return;
+                }
+
+                const maxRetries = fallback.retries || 1;
+                let retryCount = 0;
+
+                while (retryCount < maxRetries) {
+                    if (generationStopped) return;
+
+                    attemptCount++;
+                    retryCount++;
+
+                    const retryText = maxRetries > 1 ? ` (retry ${retryCount}/${maxRetries})` : '';
+                    console.log(`Attempt ${attemptCount}: Trying ${fallback.name}${retryText}`);
+
+                    // Update user with current attempt status
+                    window.socket.emit('message', `🔄 Attempting: ${fallback.name}${retryText}...`);
+
+                    try {
+                        // Reset generation state before each attempt
+                        genned = "";
+                        inThinkingMode = false;
+                        hasShownThinking = false;
+
+                        // Add timeout wrapper with race condition
+                        await Promise.race([
+                            fallback.func(),
+                            new Promise((_, reject) =>
+                                setTimeout(() => reject(new Error(`Timeout after ${fallback.timeout}ms`)), fallback.timeout)
+                            )
+                        ]);
+
+                        console.log(`✅ Success with ${fallback.name}${retryText}`);
+                        return; // Success! Exit the function
+
+                    } catch (error) {
+                        lastError = error;
+                        console.warn(`❌ ${fallback.name}${retryText} failed:`, error.message);
+
+                        // If this wasn't the last retry for this fallback, add a shorter delay
+                        if (retryCount < maxRetries) {
+                            const retryDelay = 1000 + (retryCount * 500); // 1s, 1.5s, 2s...
+                            console.log(`⏳ Retrying in ${retryDelay}ms...`);
+                            await new Promise(resolve => setTimeout(resolve, retryDelay));
+                        }
+                    }
+                }
+
+                // Add exponential backoff delay before moving to next fallback method
+                const delay = Math.min(1000 * Math.pow(2, Math.floor(attemptCount / 3)), 3000);
+                console.log(`⏳ Moving to next fallback method in ${delay}ms...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+
+            // If we reach here, all fallbacks failed
+            console.error("All fallback methods failed. Last error:", lastError);
+
+            // Send comprehensive error message to user with suggestions
+            const errorMessage = `❌ All generation methods failed after ${attemptCount} attempts.\n\n` +
+                `💡 Suggestions:\n` +
+                `• Check your internet connection\n` +
+                `• Try switching to "WebLLM (Local AI)" for offline usage\n` +
+                `• Wait a few minutes and try again\n` +
+                `• Check the debug logs for more details\n\n` +
+                `Last error: ${lastError?.message || 'Unknown error'}`;
+
+            window.socket.emit('message', errorMessage);
+            onFinish("");
+        }
+
+        document.getElementById("engine").addEventListener("change", () => {
+            document.getElementById("model").innerHTML = ""
+            if (document.getElementById("engine").value === "WebLLM (Local AI)") {
+                document.getElementById("model").innerHTML = ""
+                availableModels.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model;
+                    option.textContent = model;
+                    document.getElementById('model').appendChild(option);
+                    console.log("Added: " + model)
+                });
+            }
+            else if (document.getElementById("engine").value === "Pollinations (Cloud AI)") {
+                document.getElementById("model").innerHTML = ""
+                availableModelsPollinations.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model;
+                    option.textContent = model;
+                    document.getElementById('model').appendChild(option);
+                    console.log("Added: " + model)
+                });
+            
+            }
+            else if (document.getElementById("engine").value === "Puter (G4F) (Hella unstable)") {
+                document.getElementById("model").innerHTML = ""
+                availableModelsPuter.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model;
+                    if (model.includes(":")) {
+                        option.textContent = model.split(":")[1];
+                    }
+                    else {
+                        option.textContent = model;
+                    }
+                    document.getElementById('model').appendChild(option);
+                    console.log("Added: " + model)
+                });
+            }
+            else if (document.getElementById("engine").value === "G4F (Cloud AI)") {
+                document.getElementById("model").innerHTML = ""
+                availableModelsG4F.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model;
+                    if (model.includes(":")) {
+                        option.textContent = model.split(":")[1];
+                    }
+                    else {
+                        option.textContent = model;
+                    }
+                    document.getElementById('model').appendChild(option);
+                    console.log("Added: " + model)
+                });
+            }
+
+                        else if (document.getElementById("engine").value === "Pollinations (G4F)") {
+                document.getElementById("model").innerHTML = ""
+                allAvailableModelsPollinations.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model;
+                    if (model.includes(":")) {
+                        option.textContent = model.split(":")[1];
+                    }
+                    else {
+                        option.textContent = model;
+                    }
+                    document.getElementById('model').appendChild(option);
+                    console.log("Added: " + model)
+                });
+            }
+            else if (document.getElementById("engine").value === "Semi-Stable (G4F)") {
+                document.getElementById("model").innerHTML = ""
+                // For semi-stable, show cloud models only (no WebLLM)
+                const semiStableModels = [
+                    ...availableModelsG4F,
+                    ...allAvailableModelsPollinations
+                ];
+
+                // Remove duplicates
+                const uniqueModels = [...new Set(semiStableModels)];
+
+                uniqueModels.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model;
+                    if (model.includes(":")) {
+                        option.textContent = model.split(":")[1];
+                    }
+                    else {
+                        option.textContent = model;
+                    }
+                    document.getElementById('model').appendChild(option);
+                    console.log("Added semi-stable: " + model)
+                });
+            }
+
+        })
+
+
+        document.getElementById("start").addEventListener("click", async () => {
+            if (document.getElementById("engine").value === "Puter (Cloud AI)") {
+    await puter.auth.signIn().then((res) => {
+        console.log('Signed in:', res);
+load();
+});
+            }
+           else{
+    load();
+    }
+
+
+});
+
+        
+
+
+
+    </script>
+
+</body>
+
+</html>
