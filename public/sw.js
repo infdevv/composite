@@ -92,7 +92,11 @@ function addLogEntry(entry) {
     }
 
     // Also log to console for immediate debugging
-    console.group(`🔍 Fetch Debug: ${entry.method} ${entry.url}`);
+    const statusInfo = entry.response ?
+        `[${entry.response.status} ${entry.response.statusText || ''}]` :
+        (entry.error ? `[FETCH_ERROR: ${entry.error.message}]` : '[PENDING]');
+
+    console.group(`🔍 Fetch Debug: ${entry.method} ${entry.url} ${statusInfo}`);
     console.log('Request:', entry.request);
     if (entry.response) {
         console.log('Response:', entry.response);
@@ -194,12 +198,21 @@ self.addEventListener('fetch', event => {
             } catch (error) {
                 const endTime = performance.now();
 
-                // Log error details
+                // Log error details with more information
                 if (DEBUG_CONFIG.logErrors) {
                     errorData = {
                         name: error.name,
                         message: error.message,
                         stack: error.stack
+                    };
+                }
+
+                // Try to extract HTTP status if available from the error/response
+                let failedResponse = null;
+                if (error.response) {
+                    failedResponse = {
+                        status: error.response.status,
+                        statusText: error.response.statusText
                     };
                 }
 
@@ -209,6 +222,7 @@ self.addEventListener('fetch', event => {
                     method: request.method,
                     url: url,
                     request: requestData,
+                    response: failedResponse,
                     error: errorData,
                     timing: DEBUG_CONFIG.logTiming ? {
                         duration: Math.round(endTime - startTime),

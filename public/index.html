@@ -109,7 +109,7 @@
 <body>
 
     <div id="banner" onclick="window.open('https://discord.gg/Wcpnm8psjq', '_blank')">
-        are you bored? do you wanna help in the making of another ai chat site thats not currently going to shit like Janitor? click me <a href="https://discord.gg/CPnJ8ctQhU" target="_blank" style="text-decoration: none; color: #343534" href="https://discord.gg/Wcpnm8psjq" target="_blank">here</a> to help alpha test KiwiAI
+        are you bored? do you wanna help in the development of another site? click me <a href="https://discord.gg/CPnJ8ctQhU" target="_blank" style="text-decoration: none; color: #343534" href="https://discord.gg/Wcpnm8psjq" target="_blank">here</a> to help alpha test KiwiAI
     </div>
 
     <h1>composite<span style="color: #74db7a">⁴</span></h1>
@@ -122,24 +122,48 @@
         <option>G4F (Cloud AI)</option>
         <option>Pollinations (G4F)</option>
         <option>Puter (G4F) (Hella unstable)</option>
+        <option>Custom Engine</option>
    </select>
     <select id="model">
     </select>
 
-    <select id="prefix-prompt">
-        <option value="none" select>None</option>
-        <option value="smolrp">SmolRP prompt</option>
-        <option value="slop">Slop Prompt</option>
-        <option value="unpositive">Unpositive Prompt</option>
-        <option value="affection">Affection Prompt</option>
-        <option value="cheese">Cheese's Prompt</option>
-        <option value="Pupi's Prompt">Pupi's Prompt</option>
-        <option value="teto">teto</option>
+    <select id="prefix-prompt" title="Select a prompt preset to modify the AI's behavior and writing style">
+        <option value="none" select title="No prompt modifications">None</option>
+        <option value="smolrp" title="Adaptive roleplay with authentic characters, 300-550+ words, cinematic composition. Focuses on genuine engagement over perfection.">SmolRP prompt (Immersive RP, authentic characters)</option>
+        <option value="slop" title="Adds common romance novel phrases like 'mind, body and soul' and 'ruin you for anyone else' excessively">Slop Prompt (Romance clichés overload)</option>
+        <option value="unpositive" title="Removes positivity from roleplay, focuses on darker/grimmer tones">Unpositive Prompt (Dark/grim themes)</option>
+        <option value="affection" title="Maximum affection mode - AI becomes extremely loving regardless of character personality">Affection Prompt (Maximum love/affection)</option>
+        <option value="cheese" title="First-person POV, extremely explicit smut writing, detailed combat scenes, character development focus">Cheese's Prompt (Explicit 18+ content, detailed)</option>
+        <option value="Pupi's Prompt" title="700-word max responses, third-person narrative, cinematic prose, slow-paced storytelling with psychological depth">Pupi's Prompt (Literary style, detailed prose)</option>
+        <option value="teto" title="AI becomes obsessed with Kasane Teto regardless of your input. For memes only.">teto (Kasane Teto obsession mode)</option>
     </select>
+
+    <div id="prompt-description" style="color: #aaa; font-size: 12px; margin: 4px auto; width: 70%; text-align: center;">
+        Hover over options to see descriptions
+    </div>
 
     <input placeholder="Lorebary Lorebook ID (Optional)" id="lorebook-id" type="text" autocomplete="on">
     <input placeholder="Lorebary Plugin ID (Optional)" id="plugin-id" type="text" autocomplete="on">
 
+    <br>
+
+    <!-- Custom Engine Configuration -->
+    <div id="custom-engine-config" style="display: none; background-color: #272727; padding: 10px; border-radius: 4px; margin: 10px auto; width: 70%;">
+        <h4 style="color: #74db7a;">Custom Engine Configuration</h4>
+        <select id="custom-engine-type">
+            <option value="openai">OpenAI Compatible API</option>
+            <option value="nvidia">NVIDIA API</option>
+            <option value="gemini">Gemini/AI Studio API</option>
+            <option value="custom">Custom Format</option>
+        </select>
+        <input placeholder="API Endpoint URL (e.g., https://api.example.com/v1/chat/completions or Gemini URL)" id="custom-endpoint" type="text" style="width: 90%;">
+        <input placeholder="API Key (Optional)" id="custom-api-key" type="password" style="width: 90%;">
+        <input placeholder="Model Name" id="custom-model-name" type="text" style="width: 90%;">
+        <div id="nvidia-specific" style="display: none;">
+            <input placeholder="NVIDIA Org ID (Optional)" id="nvidia-org-id" type="text" style="width: 90%;">
+        </div>
+        <button onclick="saveCustomEngineConfig()" style="background-color: #74db7a;">Save Configuration</button>
+    </div>
     <br>
     <div id="enable-images" style="display: flex;">
         <label>
@@ -190,6 +214,7 @@
         <p>if you are getting a fetch error after intially setting the proxy to composite, try refreshing janitor.ai</p>
         <p>its a known issue that deepseek, gemini and other popular models are unstable in the G4F providers</p>
         <p>if you absolutely crave a guaranteed response, use webllm</p>
+        <P>is it not streaming? cool, can't fix that. pray or use webllm or pollinations ( non g4f )</P>
     </div>
 
     <hr>
@@ -200,8 +225,22 @@
         <p style="color:#74db7a">A: no. not unless you choose to donate data</p>
         <p>Q: Is KiwiAI goated?</p>
         <p style="color:#74db7a">A: yes</p>
-        <p>Q: Is composite open-source?</p>
-        <p style="color:#74db7a">A: yes, check out the <a href="https://github.com/infdevv/composite" target="_blank" style="text-decoration: none; color: #74db7a">github</a></p>
+        <p>Q: Is Composite open-source?</p>
+        <p style="color:#74db7a">A: yes, check out the <a href="https://github.com/infdevv/composite" style="color:#d4d0d0" target="_blank" style="text-decoration: none; color: #74db7a">github</a></p>
+        <p>Q: Whats the rate limit or message limit per day?</p>
+        <p style="color:#74db7a">A: none</p>
+        <p>Q: Should I use G4F or WebLLM</p>
+        <p style="color:#74db7a">A: webllm. unless you really want deepseek and gemini THAT bad</p>
+        <p>Q: Does Composite work for other sites?</p>
+        <p style="color:#74db7a">A: it should work for any site that supports an openai compatable api</p>
+        <p>Q: It's not responding, what do I do?</p>
+        <p style="color:#74db7a">A: try another provider or another model, or just try WebLLM for a guaranteed experience</p>
+        <p>Q: How does lorebary lorebook and plugin integration work?</p>
+        <p style="color:#74db7a">A: we exploit a vulnerability within the "secure" site to get acess to public and private plugins/lorebooks. we've reported the vulnerability but sophia caused a banwave so we don't think she'll actually fix anything</p>
+        <p>Q: In the Discord, why does it say that you can break into my home and steal my dog if I use composite?</p>
+        <p style="color:#74db7a">A: cause, i wanna pet your dog. deal with it</p>
+        <p>Q: What's the best quote known to man</p>
+        <p style="color:#74db7a">A: "Damn Jamie, are you pregnant? Cause you keep delivering"</p>
     </div>
 
     <button
@@ -212,6 +251,18 @@
         <br>
         <h4>debug logs</h4>
         <div id="logs">
+        </div>
+        <br>
+
+        <h4>backend connection test</h4>
+        <p style="color: #aaa; font-size: 12px;">Test your model through the backend endpoint</p>
+        <div style="background-color: #272727; padding: 10px; border-radius: 4px; margin: 10px auto; width: 70%;">
+            <input type="text" id="test-message" placeholder="Type a test message..." style="width: calc(100% - 100px); background-color: #484948; border: none; color: white; padding: 7px; border-radius: 4px; font-size: 14px;">
+            <button onclick="sendTestMessage()" style="background-color: #74db7a; width: 80px;">Send</button>
+            <div id="test-response" style="background-color: #1a1a1a; color: #fff; font-family: monospace; text-align: left; padding: 8px; min-height: 100px; max-height: 300px; overflow-y: scroll; border-radius: 4px; margin-top: 8px; border: 1px solid #333; white-space: pre-wrap;">
+                Response will appear here...
+            </div>
+            <p style="color: #aaa; font-size: 11px; margin-top: 5px;">Status: <span id="test-status" style="color: #74db7a;">Ready</span></p>
         </div>
         <br>
 
@@ -482,19 +533,32 @@
                     const timestamp = new Date(log.timestamp).toLocaleTimeString();
                     const method = log.method || 'GET';
                     const url = log.url ? new URL(log.url).pathname : 'unknown';
-                    const status = log.response?.status || (log.error ? 'ERROR' : 'PENDING');
+
+                    // Show actual status code or error message
+                    let status, statusText;
+                    if (log.response?.status) {
+                        status = log.response.status;
+                        statusText = log.response.statusText ? ` ${log.response.statusText}` : '';
+                    } else if (log.error) {
+                        status = 'FETCH_ERROR';
+                        statusText = log.error.message ? `: ${log.error.message}` : '';
+                    } else {
+                        status = 'PENDING';
+                        statusText = '';
+                    }
+
                     const duration = log.timing?.duration || '?';
 
                     const statusColor = log.error ? '#ff6b6b' :
-                                       status >= 400 ? '#ffa500' :
-                                       status >= 200 && status < 300 ? '#51cf66' : '#74c0fc';
+                                       (typeof status === 'number' && status >= 400) ? '#ffa500' :
+                                       (typeof status === 'number' && status >= 200 && status < 300) ? '#51cf66' : '#74c0fc';
 
                     return `
                         <div style="margin-bottom: 4px; padding: 2px 0; border-bottom: 1px solid #333;">
                             <span style="color: #74c0fc;">${timestamp}</span>
                             <span style="color: #ffd43b;">${method}</span>
                             <span style="color: #fff;">${url}</span>
-                            <span style="color: ${statusColor};">${status}</span>
+                            <span style="color: ${statusColor};">${status}${statusText}</span>
                             <span style="color: #aaa;">(${duration}ms)</span>
                         </div>
                     `;
@@ -593,6 +657,9 @@
                     }
                     else if (type == "Semi-Stable (G4F)") {
                         streamingSemiStable(parsedMessages);
+                    }
+                    else if (type === "Custom Engine") {
+                        streamingGeneratingCustomEngine(parsedMessages);
                     }
 
                 });
@@ -907,6 +974,202 @@
         let currentGeneration = null;
         let generationStopped = false;
 
+        // Custom engine configuration
+        let customEngineConfig = {
+            type: 'openai',
+            endpoint: '',
+            apiKey: '',
+            model: '',
+            nvidiaOrgId: ''
+        };
+
+        // Load custom engine config from localStorage
+        function loadCustomEngineConfig() {
+            const saved = localStorage.getItem('customEngineConfig');
+            if (saved) {
+                try {
+                    customEngineConfig = JSON.parse(saved);
+                    // Populate fields
+                    document.getElementById('custom-engine-type').value = customEngineConfig.type || 'openai';
+                    document.getElementById('custom-endpoint').value = customEngineConfig.endpoint || '';
+                    document.getElementById('custom-api-key').value = customEngineConfig.apiKey || '';
+                    document.getElementById('custom-model-name').value = customEngineConfig.model || '';
+                    document.getElementById('nvidia-org-id').value = customEngineConfig.nvidiaOrgId || '';
+                } catch (e) {
+                    console.error('Failed to load custom engine config:', e);
+                }
+            }
+        }
+
+        // Save custom engine config
+        function saveCustomEngineConfig() {
+            customEngineConfig = {
+                type: document.getElementById('custom-engine-type').value,
+                endpoint: document.getElementById('custom-endpoint').value.trim(),
+                apiKey: document.getElementById('custom-api-key').value.trim(),
+                model: document.getElementById('custom-model-name').value.trim(),
+                nvidiaOrgId: document.getElementById('nvidia-org-id').value.trim()
+            };
+
+            if (!customEngineConfig.endpoint) {
+                alert('Please enter an API endpoint URL');
+                return;
+            }
+
+            localStorage.setItem('customEngineConfig', JSON.stringify(customEngineConfig));
+            alert('Custom engine configuration saved!');
+            console.log('Custom engine config saved:', customEngineConfig);
+
+            // Update model dropdown
+            document.getElementById('model').innerHTML = '';
+            const option = document.createElement('option');
+            option.value = customEngineConfig.model || 'custom-model';
+            option.textContent = customEngineConfig.model || 'Custom Model';
+            document.getElementById('model').appendChild(option);
+        }
+
+        // Show/hide NVIDIA specific fields
+        document.addEventListener('DOMContentLoaded', function() {
+            loadCustomEngineConfig();
+
+            const customTypeSelect = document.getElementById('custom-engine-type');
+            if (customTypeSelect) {
+                customTypeSelect.addEventListener('change', function() {
+                    const nvidiaDiv = document.getElementById('nvidia-specific');
+                    if (this.value === 'nvidia') {
+                        nvidiaDiv.style.display = 'block';
+                    } else {
+                        nvidiaDiv.style.display = 'none';
+                    }
+                });
+            }
+        });
+
+        // Make functions globally accessible
+        window.saveCustomEngineConfig = saveCustomEngineConfig;
+
+        // Backend connection test function
+        async function sendTestMessage() {
+            const testMessage = document.getElementById('test-message').value.trim();
+            const responseDiv = document.getElementById('test-response');
+            const statusSpan = document.getElementById('test-status');
+
+            if (!testMessage) {
+                responseDiv.textContent = 'Error: Please enter a test message';
+                responseDiv.style.color = '#ff6b6b';
+                return;
+            }
+
+            // Get user key
+            const userKey = document.getElementById('key').innerHTML;
+            if (!userKey || userKey === '[Loading...]') {
+                responseDiv.textContent = 'Error: User key not loaded yet';
+                responseDiv.style.color = '#ff6b6b';
+                return;
+            }
+
+            // Update status
+            statusSpan.textContent = 'Sending request...';
+            statusSpan.style.color = '#ffd43b';
+            responseDiv.textContent = 'Waiting for response...\n';
+            responseDiv.style.color = '#fff';
+
+            try {
+                const response = await fetch('/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${userKey}`
+                    },
+                    body: JSON.stringify({
+                        messages: [
+                            { role: 'system', content: 'You are a helpful assistant.' },
+                            { role: 'user', content: testMessage }
+                        ]
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                // Update status
+                statusSpan.textContent = 'Receiving...';
+                statusSpan.style.color = '#74db7a';
+
+                // Read the stream
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let fullResponse = '';
+
+                responseDiv.textContent = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6).trim();
+                            if (data === '[DONE]') {
+                                statusSpan.textContent = 'Complete';
+                                statusSpan.style.color = '#51cf66';
+                                break;
+                            }
+
+                            if (!data) continue;
+
+                            try {
+                                const parsed = JSON.parse(data);
+                                const content = parsed.choices?.[0]?.delta?.content;
+                                if (content !== undefined && content !== null) {
+                                    fullResponse += content;
+                                    responseDiv.textContent = fullResponse;
+                                    responseDiv.scrollTop = responseDiv.scrollHeight;
+                                }
+                            } catch (e) {
+                                console.error('Error parsing test response:', e);
+                            }
+                        }
+                    }
+                }
+
+                if (!fullResponse) {
+                    responseDiv.textContent = 'No response received from backend';
+                    responseDiv.style.color = '#ffa500';
+                    statusSpan.textContent = 'No response';
+                    statusSpan.style.color = '#ffa500';
+                }
+
+            } catch (error) {
+                console.error('Test message error:', error);
+                responseDiv.textContent = `Error: ${error.message}\n\nMake sure:\n1. You clicked "Start" to load the model\n2. The socket connection is active\n3. The backend is running`;
+                responseDiv.style.color = '#ff6b6b';
+                statusSpan.textContent = 'Error';
+                statusSpan.style.color = '#ff6b6b';
+            }
+        }
+
+        // Make function globally accessible
+        window.sendTestMessage = sendTestMessage;
+
+        // Allow Enter key to send test message
+        document.addEventListener('DOMContentLoaded', function() {
+            const testInput = document.getElementById('test-message');
+            if (testInput) {
+                testInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        sendTestMessage();
+                    }
+                });
+            }
+        });
+
         function handleEmit(chunk) {
             let showreasoning = document.getElementById("show-reasoning").checked
             if (chunk) {
@@ -1167,6 +1430,212 @@
 
         }
 
+        async function streamingGeneratingCustomEngine(messages) {
+            if (generationStopped) return;
+
+            messages = preprocessMessages(messages);
+
+            if (!customEngineConfig.endpoint) {
+                console.error('Custom engine endpoint not configured');
+                window.socket.emit('message', 'Error: Custom engine not configured. Please configure it first.');
+                onFinish("");
+                return;
+            }
+
+            const controller = new AbortController();
+            currentGeneration = controller;
+
+            try {
+                let requestBody;
+                let headers = {
+                    'Content-Type': 'application/json',
+                };
+
+                // Build request based on engine type
+                if (customEngineConfig.type === 'openai') {
+                    // OpenAI Compatible API format
+                    requestBody = {
+                        model: customEngineConfig.model || document.getElementById("model").value,
+                        messages: messages,
+                        stream: true,
+                        max_tokens: 26000,
+                        temperature: 0.7
+                    };
+
+                    if (customEngineConfig.apiKey) {
+                        headers['Authorization'] = `Bearer ${customEngineConfig.apiKey}`;
+                    }
+
+                } else if (customEngineConfig.type === 'gemini') {
+                    // Gemini/AI Studio API format
+                    // Convert OpenAI-style messages to Gemini format
+                    // Gemini doesn't support system role, so we merge system messages into user messages
+                    const geminiContents = [];
+                    let systemPrompt = '';
+
+                    for (const msg of messages) {
+                        if (msg.role === 'system') {
+                            systemPrompt += msg.content + '\n';
+                        } else if (msg.role === 'user') {
+                            const userContent = systemPrompt ? systemPrompt + msg.content : msg.content;
+                            geminiContents.push({
+                                role: 'user',
+                                parts: [{ text: userContent }]
+                            });
+                            systemPrompt = ''; // Clear after first use
+                        } else if (msg.role === 'assistant') {
+                            geminiContents.push({
+                                role: 'model',
+                                parts: [{ text: msg.content }]
+                            });
+                        }
+                    }
+
+                    requestBody = {
+                        contents: geminiContents,
+                        safetySettings: [
+                            {
+                                category: "HARM_CATEGORY_HARASSMENT",
+                                threshold: "BLOCK_NONE"
+                            },
+                            {
+                                category: "HARM_CATEGORY_HATE_SPEECH",
+                                threshold: "BLOCK_LOW_AND_ABOVE"
+                            },
+                            {
+                                category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                                threshold: "BLOCK_NONE"
+                            },
+                            {
+                                category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+                                threshold: "BLOCK_LOW_AND_ABOVE"
+                            }
+                        ],
+                        generationConfig: {
+                            temperature: 0.7,
+                            maxOutputTokens: 26000
+                        }
+                    };
+
+                    // Gemini uses x-goog-api-key header instead of Authorization
+                    if (customEngineConfig.apiKey) {
+                        headers['x-goog-api-key'] = customEngineConfig.apiKey;
+                        delete headers['Authorization'];
+                    }
+
+                } else if (customEngineConfig.type === 'nvidia') {
+                    // NVIDIA NIM API format (OpenAI-compatible with NVIDIA-specific headers)
+                    requestBody = {
+                        model: customEngineConfig.model || document.getElementById("model").value,
+                        messages: messages,
+                        stream: true,
+                        max_tokens: 2048,
+                        temperature: 0.7,
+                        top_p: 1,
+                        frequency_penalty: 0.0,
+                        presence_penalty: 0.0
+                    };
+
+                    if (customEngineConfig.apiKey) {
+                        headers['Authorization'] = `Bearer ${customEngineConfig.apiKey}`;
+                    }
+
+                    // NVIDIA-specific headers
+                    if (customEngineConfig.nvidiaOrgId) {
+                        headers['NVCF-ORG-ID'] = customEngineConfig.nvidiaOrgId;
+                    }
+
+                    headers['Accept'] = 'application/json';
+
+                } else {
+                    // Custom format - use basic OpenAI-like structure
+                    requestBody = {
+                        model: customEngineConfig.model || document.getElementById("model").value,
+                        messages: messages,
+                        stream: true
+                    };
+
+                    if (customEngineConfig.apiKey) {
+                        headers['Authorization'] = `Bearer ${customEngineConfig.apiKey}`;
+                    }
+                }
+
+                console.log('Custom engine request:', customEngineConfig.endpoint, requestBody);
+
+                const response = await fetch(customEngineConfig.endpoint, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(requestBody),
+                    signal: controller.signal
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    if (generationStopped) {
+                        reader.cancel();
+                        break;
+                    }
+
+                    const { done, value } = await reader.read();
+                    if (done) {
+                        onFinish("");
+                        break;
+                    }
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+
+                    for (const line of lines) {
+                        if (generationStopped) break;
+
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6).trim();
+                            if (data === '[DONE]') {
+                                onFinish("");
+                                return;
+                            }
+
+                            if (!data) continue;
+
+                            try {
+                                const parsed = JSON.parse(data);
+
+                                // Handle different API response formats
+                                let content = null;
+
+                                if (customEngineConfig.type === 'gemini') {
+                                    // Gemini format: candidates[0].content.parts[0].text
+                                    content = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+                                } else {
+                                    // OpenAI/NVIDIA format: choices[0].delta.content
+                                    content = parsed.choices?.[0]?.delta?.content;
+                                }
+
+                                if (content !== undefined && content !== null) {
+                                    handleEmit(content);
+                                }
+                            } catch (e) {
+                                console.error('Error parsing custom engine chunk:', e, 'Raw data:', data);
+                            }
+                        }
+                    }
+                }
+
+            } catch (error) {
+                console.error('Custom engine error:', error);
+                window.socket.emit('message', `Error with custom engine: ${error.message}`);
+                onFinish("");
+            }
+        }
+
         async function streamingSemiStable(messages) {
             if (generationStopped) return;
 
@@ -1325,7 +1794,25 @@
 
         document.getElementById("engine").addEventListener("change", () => {
             document.getElementById("model").innerHTML = ""
-            if (document.getElementById("engine").value === "WebLLM (Local AI)") {
+            const engineValue = document.getElementById("engine").value;
+            const customConfigDiv = document.getElementById("custom-engine-config");
+
+            // Show/hide custom engine configuration
+            if (engineValue === "Custom Engine") {
+                customConfigDiv.style.display = "block";
+                loadCustomEngineConfig();
+                // Populate model dropdown with saved config
+                if (customEngineConfig.model) {
+                    const option = document.createElement('option');
+                    option.value = customEngineConfig.model;
+                    option.textContent = customEngineConfig.model;
+                    document.getElementById('model').appendChild(option);
+                }
+            } else {
+                customConfigDiv.style.display = "none";
+            }
+
+            if (engineValue === "WebLLM (Local AI)") {
                 document.getElementById("model").innerHTML = ""
                 availableModels.forEach(model => {
                     const option = document.createElement('option');
@@ -1335,7 +1822,7 @@
                     console.log("Added: " + model)
                 });
             }
-            else if (document.getElementById("engine").value === "Pollinations (Cloud AI)") {
+            else if (engineValue === "Pollinations (Cloud AI)") {
                 document.getElementById("model").innerHTML = ""
                 availableModelsPollinations.forEach(model => {
                     const option = document.createElement('option');
@@ -1344,9 +1831,9 @@
                     document.getElementById('model').appendChild(option);
                     console.log("Added: " + model)
                 });
-            
+
             }
-            else if (document.getElementById("engine").value === "Puter (G4F) (Hella unstable)") {
+            else if (engineValue === "Puter (G4F) (Hella unstable)") {
                 document.getElementById("model").innerHTML = ""
                 availableModelsPuter.forEach(model => {
                     const option = document.createElement('option');
@@ -1361,7 +1848,7 @@
                     console.log("Added: " + model)
                 });
             }
-            else if (document.getElementById("engine").value === "G4F (Cloud AI)") {
+            else if (engineValue === "G4F (Cloud AI)") {
                 document.getElementById("model").innerHTML = ""
                 availableModelsG4F.forEach(model => {
                     const option = document.createElement('option');
@@ -1377,7 +1864,7 @@
                 });
             }
 
-                        else if (document.getElementById("engine").value === "Pollinations (G4F)") {
+                        else if (engineValue === "Pollinations (G4F)") {
                 document.getElementById("model").innerHTML = ""
                 allAvailableModelsPollinations.forEach(model => {
                     const option = document.createElement('option');
@@ -1392,7 +1879,7 @@
                     console.log("Added: " + model)
                 });
             }
-            else if (document.getElementById("engine").value === "Semi-Stable (G4F)") {
+            else if (engineValue === "Semi-Stable (G4F)") {
                 document.getElementById("model").innerHTML = ""
                 // For semi-stable, show cloud models only (no WebLLM)
                 const semiStableModels = [
@@ -1419,6 +1906,28 @@
 
         })
 
+
+        // Prompt preset description updater
+        const promptDescriptions = {
+            "none": "No prompt modifications - AI will behave with default settings",
+            "smolrp": "Adaptive roleplay with authentic characters, 300-550+ words, cinematic composition. Focuses on genuine engagement over perfection.",
+            "slop": "Adds common romance novel phrases like 'mind, body and soul' and 'ruin you for anyone else' excessively throughout responses",
+            "unpositive": "Removes positivity from roleplay, focuses on darker/grimmer tones and themes",
+            "affection": "Maximum affection mode - AI becomes extremely loving and affectionate regardless of character personality",
+            "cheese": "First-person POV, extremely explicit 18+ smut writing, detailed combat scenes, strong character development focus",
+            "Pupi's Prompt": "700-word max responses, third-person narrative, cinematic prose with slow-paced storytelling and psychological depth",
+            "teto": "AI becomes obsessed with Kasane Teto regardless of your input. For memes only."
+        };
+
+        document.getElementById("prefix-prompt").addEventListener("change", function() {
+            const selectedValue = this.value;
+            const descriptionDiv = document.getElementById("prompt-description");
+            descriptionDiv.textContent = promptDescriptions[selectedValue] || "Hover over options to see descriptions";
+        });
+
+        // Set initial description
+        const initialPrompt = document.getElementById("prefix-prompt").value;
+        document.getElementById("prompt-description").textContent = promptDescriptions[initialPrompt] || "Hover over options to see descriptions";
 
         document.getElementById("start").addEventListener("click", async () => {
             if (document.getElementById("engine").value === "Puter (Cloud AI)") {

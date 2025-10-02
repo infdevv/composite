@@ -36,6 +36,12 @@ server.get("/v1/chat/images/:description", async (request, reply) => {
     reply.status(301).redirect(`https://image.pollinations.ai/prompt/${request.params.description}?model=turbo&nologo=true`);
 });
 
+server.get("/plugin-parse.js", async (request, reply) => {
+    const filePath = path.join(__dirname, 'public/plugin-parse.js');
+    const fileContent = await fs.promises.readFile(filePath, 'utf8');
+    reply.type('application/javascript').send(fileContent);
+});
+
 // Helper function to normalize message content for comparison
 function normalizeMessageContent(message) {
     if (!message || typeof message !== 'object') return '';
