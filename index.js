@@ -12,6 +12,7 @@ server.register(require('@fastify/static'), {
     prefix: '/'
 });
 
+
 const io = new Server(server.server);
 
 let connected_users = new Map(); // userkey -> { socket: socket, connected_at: timestamp }
@@ -70,7 +71,7 @@ function calculateMessagesSimilarity(messages1, messages2) {
     // If length difference is too large, likely different conversations
     if (Math.abs(len1 - len2) > Math.max(len1, len2) * 0.3) return 0;
 
-    const compareLength = Math.min(len1, len2, 10); // Compare up to 10 messages
+    const compareLength = Math.min(len1, len2, 5); // Compare up to 5 messages for performance
     let similarityScore = 0;
 
     for (let i = 0; i < compareLength; i++) {
@@ -134,14 +135,22 @@ server.post("/donate", async (request, reply) => {
     const fileContent = await fs.promises.readFile(filePath, 'utf8');
     let data = JSON.parse(fileContent);
 
-    // Enhanced deduplication logic
+    // Enhanced deduplication logic - only check recent entries for performance
     const similarityThreshold = 0.90; // 90% similarity threshold
+    const recentCheckLimit = 100; // Only check last 100 entries for duplicates
 
-    // Filter out highly similar chats
-    data = data.filter(existingChat => {
+    // Only check recent chats for duplicates to improve performance
+    const recentChats = data.slice(-recentCheckLimit);
+    const isDuplicate = recentChats.some(existingChat => {
         const similarity = calculateMessagesSimilarity(messages, existingChat);
-        return similarity < similarityThreshold;
+        return similarity >= similarityThreshold;
     });
+
+    // Skip adding if it's a duplicate
+    if (isDuplicate) {
+        reply.send("duplicate skipped");
+        return;
+    }
 
     // Only store the messages (limit to reasonable size for storage)
     const messagesToStore = messages.slice(0, 15); // Store up to 15 messages instead of 5
@@ -247,9 +256,11 @@ server.post("/v1/chat/completions", async (request, reply) => {
                 // Handle large content by splitting into smaller chunks
                 if (content.length > 8000) {
                     console.warn(`Content large (${content.length} chars), splitting into chunks`);
-                    const chunks = content.match(/.{1,8000}/g) || [content];
-                    for (const smallChunk of chunks) {
+                    // More efficient chunking without regex
+                    const chunkSize = 8000;
+                    for (let i = 0; i < content.length; i += chunkSize) {
                         if (!generationActive) break;
+                        const smallChunk = content.slice(i, i + chunkSize);
                         try {
                             const payload = JSON.stringify({
                                 choices: [{
@@ -415,7 +426,7 @@ ioSocket.on('connection', (socket) => {
     });
 });
 
-server.listen({ port: 3005 }, (err, address) => {
+server.listen({ port: 3000 }, (err, address) => {
   if (err) {
     console.error(err);
     process.exit(1);
