@@ -13,7 +13,10 @@ server.register(require('@fastify/static'), {
 });
 
 
-const io = new Server(server.server);
+const io = new Server(server.server, {
+    perMessageDeflate: false, // Disable compression to reduce latency
+    transports: ['websocket', 'polling'] // Prefer websocket for lower latency
+});
 
 let connected_users = new Map(); // userkey -> { socket: socket, connected_at: timestamp }
 
@@ -173,7 +176,7 @@ server.get("/puter.json", async (request, reply) => {
 });
 
 server.get("/puter2.json", async (request, reply) => {
-    const filePath = path.join(__dirname, 'public/puter.json');
+    const filePath = path.join(__dirname, 'public/puter2.json');
     const fileContent = await fs.promises.readFile(filePath, 'utf8');
     reply.type('application/json').send(fileContent);
 });
@@ -242,9 +245,13 @@ server.post("/v1/chat/completions", async (request, reply) => {
     let generationActive = true;
     let errorCount = 0;
     const MAX_ERRORS = 3;
+    let doneTimeout = null;
+    let lastMessageTime = Date.now();
 
     const onMessage = (chunk) => {
         if (generationActive && chunk !== null && chunk !== undefined) {
+            lastMessageTime = Date.now(); // Track when we last received a message
+
             let content = typeof chunk === 'string' ? chunk : chunk.toString();
             try {
                 // Validate content before serialization
@@ -326,14 +333,36 @@ server.post("/v1/chat/completions", async (request, reply) => {
 
     const onDone = () => {
         if (generationActive) {
-            try {
-                reply.raw.write('data: [DONE]\n\n');
-                reply.raw.end();
-            } catch (error) {
-                console.log(`Client already disconnected for user ${userKey.substring(0, userKey.length - 10)}**********`);
+            // Clear any existing timeout
+            if (doneTimeout) {
+                clearTimeout(doneTimeout);
             }
+
+            // Debounce: wait for inactivity before sending [DONE]
+            // This resets every time a new chunk comes in via onMessage updating lastMessageTime
+            const checkAndClose = () => {
+                const timeSinceLastMessage = Date.now() - lastMessageTime;
+                if (timeSinceLastMessage >= 2000) {
+                    // No messages for 2 seconds, safe to close
+                    if (generationActive) {
+                        try {
+                            reply.raw.write('data: [DONE]\n\n');
+                            reply.raw.end();
+                        } catch (error) {
+                            console.log(`Client already disconnected for user ${userKey.substring(0, userKey.length - 10)}**********`);
+                        }
+                    }
+                    cleanup();
+                } else {
+                    // Still receiving messages, check again later
+                    doneTimeout = setTimeout(checkAndClose, 2000 - timeSinceLastMessage);
+                }
+            };
+
+            doneTimeout = setTimeout(checkAndClose, 2000);
+        } else {
+            cleanup();
         }
-        cleanup();
     };
 
     const cleanup = () => {

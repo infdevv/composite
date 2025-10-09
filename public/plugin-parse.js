@@ -8,6 +8,7 @@ class PluginParser {
         this.messageCount = 0;
         this.variables = {};
         this.stageHistory = new Map();
+        this.plugins = []; // Array of loaded plugins
     }
 
     /**
@@ -24,6 +25,11 @@ class PluginParser {
         this.messageCount = messages.length;
         this.variables = { ...plugin.variables };
 
+        // Check if plugin is disabled
+        if (plugin.enabled === false) {
+            return messages;
+        }
+
         // Check if plugin should trigger
         if (!this.shouldTrigger(plugin, messages)) {
             return messages;
@@ -31,6 +37,131 @@ class PluginParser {
 
         // Execute plugin actions
         return this.executeActions(plugin, messages);
+    }
+
+    /**
+     * Parse and execute multiple plugins on a set of messages
+     * @param {Array} plugins - Array of plugin configuration objects
+     * @param {Array} messages - Array of message objects
+     * @returns {Array} Modified messages array
+     */
+    parsePlugins(plugins, messages) {
+        if (!Array.isArray(plugins) || !Array.isArray(messages)) {
+            return messages;
+        }
+
+        // Sort plugins by priority (higher priority = executed first)
+        const sortedPlugins = [...plugins].sort((a, b) => {
+            const priorityA = a.priority !== undefined ? a.priority : 0;
+            const priorityB = b.priority !== undefined ? b.priority : 0;
+            return priorityB - priorityA;
+        });
+
+        let modifiedMessages = [...messages];
+
+        for (const plugin of sortedPlugins) {
+            if (plugin.enabled !== false) {
+                modifiedMessages = this.parsePlugin(plugin, modifiedMessages);
+                this.reset(); // Reset state between plugins
+            }
+        }
+
+        return modifiedMessages;
+    }
+
+    /**
+     * Add a plugin to the parser
+     * @param {Object} plugin - Plugin configuration
+     */
+    addPlugin(plugin) {
+        if (!plugin || typeof plugin !== 'object') {
+            console.warn('Invalid plugin object');
+            return;
+        }
+
+        // Set default values
+        if (plugin.enabled === undefined) {
+            plugin.enabled = true;
+        }
+        if (plugin.priority === undefined) {
+            plugin.priority = 0;
+        }
+        if (!plugin.id) {
+            plugin.id = 'plugin_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        this.plugins.push(plugin);
+    }
+
+    /**
+     * Remove a plugin by ID
+     * @param {string} pluginId - ID of the plugin to remove
+     * @returns {boolean} Whether the plugin was removed
+     */
+    removePlugin(pluginId) {
+        const initialLength = this.plugins.length;
+        this.plugins = this.plugins.filter(p => p.id !== pluginId);
+        return this.plugins.length < initialLength;
+    }
+
+    /**
+     * Enable a plugin by ID
+     * @param {string} pluginId - ID of the plugin to enable
+     * @returns {boolean} Whether the plugin was found and enabled
+     */
+    enablePlugin(pluginId) {
+        const plugin = this.plugins.find(p => p.id === pluginId);
+        if (plugin) {
+            plugin.enabled = true;
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Disable a plugin by ID
+     * @param {string} pluginId - ID of the plugin to disable
+     * @returns {boolean} Whether the plugin was found and disabled
+     */
+    disablePlugin(pluginId) {
+        const plugin = this.plugins.find(p => p.id === pluginId);
+        if (plugin) {
+            plugin.enabled = false;
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Get all plugins
+     * @returns {Array} Array of all plugins
+     */
+    getPlugins() {
+        return [...this.plugins];
+    }
+
+    /**
+     * Get enabled plugins only
+     * @returns {Array} Array of enabled plugins
+     */
+    getEnabledPlugins() {
+        return this.plugins.filter(p => p.enabled !== false);
+    }
+
+    /**
+     * Clear all plugins
+     */
+    clearPlugins() {
+        this.plugins = [];
+    }
+
+    /**
+     * Process messages with all loaded plugins
+     * @param {Array} messages - Array of message objects
+     * @returns {Array} Modified messages array
+     */
+    processWithAllPlugins(messages) {
+        return this.parsePlugins(this.getEnabledPlugins(), messages);
     }
 
     /**
@@ -486,9 +617,20 @@ if (typeof module !== 'undefined' && module.exports) {
 
 // Example usage:
 /*
+// Single plugin usage
 const parser = new PluginParser();
 const plugin = {
-    // ... your plugin configuration
+    id: 'my-plugin',
+    enabled: true,
+    priority: 10,
+    triggerGroups: [
+        { type: 'KEYWORD', keywords: ['hello', 'hi'] }
+    ],
+    actions: {
+        default: [
+            { type: 'ADD_TO_LAST_USER', pool: ['How are you?'] }
+        ]
+    }
 };
 const messages = [
     { role: 'user', content: 'Hello world' },
@@ -497,4 +639,35 @@ const messages = [
 
 const modifiedMessages = parser.parsePlugin(plugin, messages);
 console.log(modifiedMessages);
+
+// Multiple plugins usage (Method 1: Using parsePlugins)
+const plugin1 = {
+    id: 'plugin-1',
+    enabled: true,
+    priority: 10,
+    triggerGroups: [{ type: 'KEYWORD', keywords: ['hello'] }],
+    actions: { default: [{ type: 'ADD_TO_LAST_USER', pool: ['Nice to meet you!'] }] }
+};
+
+const plugin2 = {
+    id: 'plugin-2',
+    enabled: true,
+    priority: 5,
+    triggerGroups: [{ type: 'KEYWORD', keywords: ['world'] }],
+    actions: { default: [{ type: 'ADD_TO_LAST_USER', pool: ['What a wonderful world!'] }] }
+};
+
+const modifiedMessages2 = parser.parsePlugins([plugin1, plugin2], messages);
+
+// Multiple plugins usage (Method 2: Using plugin management)
+parser.addPlugin(plugin1);
+parser.addPlugin(plugin2);
+
+const modifiedMessages3 = parser.processWithAllPlugins(messages);
+
+// Disable a plugin
+parser.disablePlugin('plugin-2');
+
+// Get all enabled plugins
+console.log(parser.getEnabledPlugins());
 */

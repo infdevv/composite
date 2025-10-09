@@ -118,7 +118,7 @@
     <p>Engine:</p>
     <p>wondering how to use? click <a href="#docs" style="text-decoration: none; color: #74db7a">here</a></p>
     <select id="engine">
-        <option>WebLLM (Local AI)</option>
+        <option selected>WebLLM (Local AI)</option>
         <option>Pollinations (Cloud AI)</option>
         <option>G4F (Cloud AI)</option>
         <option>Pollinations (G4F)</option>
@@ -621,7 +621,10 @@
                 window.socket = io('/socket', {
                     query: {
                         key: document.getElementById("key").innerHTML
-                    }
+                    },
+                    transports: ['websocket', 'polling'], // Prefer websocket for lower latency
+                    upgrade: true,
+                    rememberUpgrade: true
                 });
 
                 window.socket.on('connect', () => {
@@ -633,6 +636,7 @@
                 });
 
                 window.socket.on('start_generate', async (data) => {
+                    console.log('Received start_generate signal from server');
                     const { messages } = data;
                     let parsedMessages = JSON.parse(messages);
 
@@ -662,29 +666,43 @@
                         }
                     }
                     let type = document.getElementById("engine").value
+                    console.log('Engine type:', type);
                     if (type === "WebLLM (Local AI)") {
+                        console.log('Starting WebLLM generation');
                         streamingGenerating(parsedMessages);
                     }
                     else if (type === "Pollinations (Cloud AI)") {
+                        console.log('Starting Pollinations generation');
                         streamingGeneratingPollinations(parsedMessages);
                     }
                     else if (type === "G4F (Cloud AI)") {
+                        console.log('Starting G4F generation');
                         streamingGeneratingG4f(parsedMessages, g4f);
                     }
                     else if (type === "Pollinations (G4F)") {
+                        console.log('Starting Pollinations (G4F) generation');
                         streamingGeneratingG4f(parsedMessages, pollinations);
                     }
-                    else if (type === "Puter (G4F Hella Unstable)") {
+                    else if (type === "Puter (G4F) (Hella unstable)") {
+                        console.log('Starting Puter generation');
                         streamingGeneratingG4f(parsedMessages, puter);
                     }
-                    else if (type == "Semi-Stable (G4F)") {
+                    else if (type === "Semi-Stable (G4F)") {
+                        console.log('Starting Semi-Stable generation');
                         streamingSemiStable(parsedMessages);
                     }
                     else if (type === "Hyper (Auto)") {
+                        console.log('Starting Hyper generation');
                         streamingGeneratingHyper(parsedMessages);
                     }
                     else if (type === "Custom Engine") {
+                        console.log('Starting Custom Engine generation');
                         streamingGeneratingCustomEngine(parsedMessages);
+                    }
+                    else {
+                        console.error('Unknown engine type:', type);
+                        window.socket.emit('message', `Error: Unknown engine type: ${type}`);
+                        window.socket.emit('done');
                     }
 
                 });
@@ -868,12 +886,41 @@
             });
 
 
-        // Initialize models for default engine (WebLLM) on page load
+        // Initialize models for default engine (Hyper) on page load
         function initializeDefaultModels() {
             // Wait for DOM to be ready, then populate models for the default selected engine
-            document.addEventListener('DOMContentLoaded', function() {
+            document.addEventListener('DOMContentLoaded', async function() {
                 const defaultEngine = document.getElementById("engine").value;
-                if (defaultEngine === "WebLLM (Local AI)") {
+                const modelSelector = document.getElementById("model");
+
+                if (defaultEngine === "Hyper (Auto)") {
+                    // Disable model selector for Hyper
+                    modelSelector.disabled = true;
+                    modelSelector.title = "Model selection is automatic when using Hyper (Auto)";
+
+                    // Initialize Hyper instance
+                    if (!hyperInstance) {
+                        hyperInstance = new Hyper();
+                        console.log("Hyper Engine initialized on page load");
+                    }
+
+                    // Start Hyper autochecks
+                    if (!hyperCheckInterval) {
+                        console.log("Running initial Hyper autoCheck...");
+                        await hyperInstance.autoCheck();
+                        hyperCheckInterval = setInterval(() => hyperInstance.autoCheck(), 1000 * 160);
+                        console.log("Hyper autochecks started");
+                    }
+
+                    // Populate Hyper models
+                    hyperInstance.models.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model;
+                        option.textContent = model;
+                        document.getElementById('model').appendChild(option);
+                        console.log("Added Hyper model: " + model);
+                    });
+                } else if (defaultEngine === "WebLLM (Local AI)") {
                     availableModels.forEach(model => {
                         const option = document.createElement('option');
                         option.value = model;
@@ -1360,6 +1407,8 @@
                 onFinish("");
             } catch (error) {
                 console.error("Hyper streaming error:", error);
+                console.error("Current Hyper model selection:", hyperInstance.current_best_model);
+                console.error("Hyper model statuses:", hyperInstance.status_models);
                 handleEmit("\n\n[Error: Failed to generate response with Hyper engine]");
                 onFinish("");
             }
@@ -1868,11 +1917,21 @@
             document.getElementById("model").innerHTML = ""
             const engineValue = document.getElementById("engine").value;
             const customConfigDiv = document.getElementById("custom-engine-config");
+            const modelSelector = document.getElementById("model");
 
             // Stop Hyper autochecks if switching away from Hyper
             if (engineValue !== "Hyper (Auto)" && hyperCheckInterval) {
                 clearInterval(hyperCheckInterval);
                 hyperCheckInterval = null;
+            }
+
+            // Disable/enable model selector based on engine
+            if (engineValue === "Hyper (Auto)") {
+                modelSelector.disabled = true;
+                modelSelector.title = "Model selection is automatic when using Hyper (Auto)";
+            } else {
+                modelSelector.disabled = false;
+                modelSelector.title = "";
             }
 
             // Show/hide custom engine configuration

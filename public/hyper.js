@@ -39,6 +39,7 @@ class Hyper {
       "deepseek-reasoning": "pollig4f",
       "mistral": "pollig4f",
       "moonshotai/kimi-k2-instruct": "groq",
+      "grok-4-fast-non-reasoning": "grok",
       "qwen3-coder:480b": "ollama",
       "deepseek-v3.1:671b": "ollama",
     };
@@ -46,12 +47,14 @@ class Hyper {
     this.endpoints = {
       "pollig4f": "https://g4f.dev/api/pollinations.ai",
       "groq": "https://g4f.dev/api/groq",
+      "grok": "https://g4f.dev/api/grok",
       "ollama": "https://g4f.dev/api/ollama"
     };
   }
 
   async autoCheck() {
-    for (let model of this.models) {
+    for (let i = 0; i < this.models.length; i++) {
+      let model = this.models[i];
       let model_engine = this.conversion[model];
       let endpoint = this.endpoints[model_engine] + "/chat/completions";
 
@@ -82,6 +85,11 @@ class Hyper {
         console.log(`Error handling model: ${model} - ${e}`);
         this.status[model_engine] = [-1, Date.now()];
         this.status_models[model] = [-1, Date.now()];
+      }
+
+      // Add delay between requests to avoid rate limiting (except after the last request)
+      if (i < this.models.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
 
