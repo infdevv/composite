@@ -18,7 +18,7 @@ const io = new Server(server.server, {
     transports: ['websocket', 'polling'] // Prefer websocket for lower latency
 });
 
-let connected_users = new Map(); // userkey -> { socket: socket, connected_at: timestamp }
+let connected_users = new Map(); // userkeys -> { socket: socket, connected_at: timestamp }
 
 server.get('/', async (request, reply) => {
     const filePath = path.join(__dirname, 'public/index.html');

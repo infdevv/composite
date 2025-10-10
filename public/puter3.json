@@ -1,0 +1,17 @@
+{
+    "models": [
+"models/gemini-2.5-flash",
+"models/gemini-2.5-pro",
+"qwen3-coder-plus",
+"grok-4",
+"grok-3",
+"claude-sonnet-4-latest",
+"claude-3-5-sonnet-latest",
+"claude-3-5-haiku-latest",
+"deepseek-ai/DeepSeek-V3.1",
+"deepseek-ai/DeepSeek-V3.1-Terminus",
+"deepseek-ai/DeepSeek-V3.2-Exp",
+"zai-org/GLM-4.6",
+"deepseek-ai/DeepSeek-V3-0324-Turbo"
+    ]
+}
