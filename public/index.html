@@ -1364,6 +1364,20 @@
             currentGeneration = controller;
 
             try {
+                // Get the available models and show which one will be used
+                const availableModels = hyperInstance.getAvailableModels();
+                const selectedModel = availableModels.length > 0 ? availableModels[0] : hyperInstance.current_best_model;
+
+                if (selectedModel) {
+                    // Show model info at the start
+                    handleEmit(`[Using model: ${selectedModel}]\n\n`);
+                    console.log(`Hyper using model: ${selectedModel}`);
+                } else {
+                    handleEmit("[Warning: No model selected, attempting generation...]\n\n");
+                }
+
+                let isFirstChunk = true;
+
                 // Use Hyper's generateResponse with streaming
                 await hyperInstance.generateResponse(messages, true, (chunk) => {
                     if (generationStopped) {
@@ -1372,6 +1386,13 @@
                     }
 
                     if (chunk) {
+                        // After first chunk, we know the model worked, so we can log it
+                        if (isFirstChunk) {
+                            const actualModel = hyperInstance.current_best_model;
+                            console.log(`Hyper successfully using model: ${actualModel}`);
+                            isFirstChunk = false;
+                        }
+
                         handleEmit(chunk);
                         console.log("Hyper Sent chunk | Delta data: " + chunk);
                     }

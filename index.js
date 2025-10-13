@@ -3,8 +3,118 @@ const path = require('path');
 const { Server } = require("socket.io");
 const fs = require('fs');
 const cors = require('@fastify/cors');
-const server = fastify();
+
+// Security: Create server with custom error handler
+const server = fastify({
+    logger: false, // Disable default logger in production to prevent info leakage
+    trustProxy: true
+});
+
+// Security: Determine if we're in production
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Security: Custom error handler to prevent information leakage
+server.setErrorHandler((error, request, reply) => {
+    // Log full error server-side
+    console.error('Server error:', {
+        message: error.message,
+        stack: isProduction ? '[hidden]' : error.stack,
+        url: request.url,
+        method: request.method
+    });
+
+    // Send sanitized error to client
+    const statusCode = error.statusCode || 500;
+
+    const sanitizedError = {
+        error: true,
+        message: statusCode === 404 ? 'Resource not found' :
+                 statusCode === 401 ? 'Unauthorized' :
+                 statusCode === 400 ? 'Bad request' :
+                 statusCode === 403 ? 'Forbidden' :
+                 statusCode >= 500 ? 'Internal server error' : 'An error occurred',
+        statusCode: statusCode
+    };
+
+    // Never send stack traces or file paths to client
+    reply.status(statusCode).send(sanitizedError);
+});
+
+// Security: Set Not Found handler to prevent path leakage
+server.setNotFoundHandler((request, reply) => {
+    console.log(`404 Not Found: ${request.method} ${request.url}`);
+    reply.status(404).send({
+        error: true,
+        message: 'Resource not found',
+        statusCode: 404
+    });
+});
+
 server.register(cors, { origin: true });
+
+// Security: Add rate limiting
+const rateLimitStore = new Map();
+
+function rateLimit(maxRequests, windowMs, skipPaths = []) {
+    return async (request, reply) => {
+        // Skip rate limiting for certain paths
+        if (skipPaths.some(path => request.url.startsWith(path))) {
+            return;
+        }
+
+        const identifier = request.ip || request.headers['x-forwarded-for'] || 'unknown';
+        const now = Date.now();
+        const key = `${identifier}:${request.url}`;
+
+        if (!rateLimitStore.has(key)) {
+            rateLimitStore.set(key, { count: 1, resetTime: now + windowMs });
+        } else {
+            const record = rateLimitStore.get(key);
+
+            // Reset if window expired
+            if (now > record.resetTime) {
+                record.count = 1;
+                record.resetTime = now + windowMs;
+            } else {
+                record.count++;
+
+                if (record.count > maxRequests) {
+                    reply.status(429).send({
+                        error: true,
+                        message: 'Too many requests. Please try again later.',
+                        statusCode: 429
+                    });
+                    return reply;
+                }
+            }
+        }
+    };
+}
+
+// Clean up old rate limit entries every 5 minutes
+setInterval(() => {
+    const now = Date.now();
+    for (const [key, record] of rateLimitStore.entries()) {
+        if (now > record.resetTime) {
+            rateLimitStore.delete(key);
+        }
+    }
+}, 5 * 60 * 1000);
+
+// Apply rate limiting: 100 requests per minute per IP
+server.addHook('preHandler', rateLimit(100, 60000, ['/health', '/api/stats']));
+
+// Security: Add security headers
+server.addHook('onSend', async (_request, reply) => {
+    reply.header('X-Content-Type-Options', 'nosniff');
+    reply.header('X-Frame-Options', 'DENY');
+    reply.header('X-XSS-Protection', '1; mode=block');
+    reply.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+
+    // Remove server header to avoid exposing server info
+    reply.removeHeader('X-Powered-By');
+    reply.removeHeader('Server');
+});
 
 // Register static file serving for /public directory
 server.register(require('@fastify/static'), {
@@ -20,10 +130,37 @@ const io = new Server(server.server, {
 
 let connected_users = new Map(); // userkeys -> { socket: socket, connected_at: timestamp }
 
+// Security: Helper function for safe file reading
+async function safeReadFile(filePath, encoding = 'utf8') {
+    try {
+        // Validate path is within allowed directories
+        const resolvedPath = path.resolve(filePath);
+        const allowedDir = path.resolve(__dirname);
+
+        if (!resolvedPath.startsWith(allowedDir)) {
+            throw new Error('Access denied');
+        }
+
+        return await fs.promises.readFile(resolvedPath, encoding);
+    } catch (error) {
+        // Log detailed error server-side
+        console.error('File read error:', error.message);
+
+        // Throw sanitized error
+        const sanitizedError = new Error('File not found');
+        sanitizedError.statusCode = 404;
+        throw sanitizedError;
+    }
+}
+
 server.get('/', async (request, reply) => {
-    const filePath = path.join(__dirname, 'public/index.html');
-    const fileContent = await fs.promises.readFile(filePath, 'utf8');
-    reply.type('text/html').send(fileContent);
+    try {
+        const filePath = path.join(__dirname, 'public/index.html');
+        const fileContent = await safeReadFile(filePath, 'utf8');
+        reply.type('text/html').send(fileContent);
+    } catch (error) {
+        throw error; // Will be caught by global error handler
+    }
 }); 
 
 server.get("/health", async (request, reply) => {
@@ -31,9 +168,13 @@ server.get("/health", async (request, reply) => {
 })
 
 server.get("/example.png", async (request, reply) => {
-    const filePath = path.join(__dirname, 'public/example.png');
-    const fileContent = await fs.promises.readFile(filePath);
-    reply.type('image/png').send(fileContent);
+    try {
+        const filePath = path.join(__dirname, 'public/example.png');
+        const fileContent = await safeReadFile(filePath, null);
+        reply.type('image/png').send(fileContent);
+    } catch (error) {
+        throw error; // Will be caught by global error handler
+    }
 });
 
 server.get("/v1/chat/images/:description", async (request, reply) => {
@@ -41,9 +182,13 @@ server.get("/v1/chat/images/:description", async (request, reply) => {
 });
 
 server.get("/plugin-parse.js", async (request, reply) => {
-    const filePath = path.join(__dirname, 'public/plugin-parse.js');
-    const fileContent = await fs.promises.readFile(filePath, 'utf8');
-    reply.type('application/javascript').send(fileContent);
+    try {
+        const filePath = path.join(__dirname, 'public/plugin-parse.js');
+        const fileContent = await safeReadFile(filePath, 'utf8');
+        reply.type('application/javascript').send(fileContent);
+    } catch (error) {
+        throw error; // Will be caught by global error handler
+    }
 });
 
 // Helper function to normalize message content for comparison
@@ -126,65 +271,104 @@ function calculateStringSimilarity(str1, str2) {
 }
 
 server.post("/donate", async (request, reply) => {
-    // get messages
-    let messages = request.body.messages;
-    if (!Array.isArray(messages)) {
-        reply.status(400).send("invalid messages format");
-        return;
+    try {
+        // get messages
+        let messages = request.body.messages;
+        if (!Array.isArray(messages)) {
+            const error = new Error('Invalid messages format');
+            error.statusCode = 400;
+            throw error;
+        }
+
+        // load donate.json
+        const filePath = path.join(__dirname, 'donate.json');
+
+        let fileContent;
+        try {
+            fileContent = await safeReadFile(filePath, 'utf8');
+        } catch (error) {
+            // If file doesn't exist, create it with empty array
+            fileContent = '[]';
+        }
+
+        let data;
+        try {
+            data = JSON.parse(fileContent);
+        } catch (error) {
+            console.error('Failed to parse donate.json, resetting to empty array');
+            data = [];
+        }
+
+        // Enhanced deduplication logic - only check recent entries for performance
+        const similarityThreshold = 0.90; // 90% similarity threshold
+        const recentCheckLimit = 100; // Only check last 100 entries for duplicates
+
+        // Only check recent chats for duplicates to improve performance
+        const recentChats = data.slice(-recentCheckLimit);
+        const isDuplicate = recentChats.some(existingChat => {
+            const similarity = calculateMessagesSimilarity(messages, existingChat);
+            return similarity >= similarityThreshold;
+        });
+
+        // Skip adding if it's a duplicate
+        if (isDuplicate) {
+            reply.send("duplicate skipped");
+            return;
+        }
+
+        // Only store the messages (limit to reasonable size for storage)
+        const messagesToStore = messages.slice(0, 15); // Store up to 15 messages instead of 5
+        data.push(messagesToStore);
+
+        // Keep only the most recent 1000 chats to prevent file from growing too large
+        if (data.length > 1000) {
+            data = data.slice(-1000);
+        }
+
+        // save
+        try {
+            await fs.promises.writeFile(filePath, JSON.stringify(data, null, 2));
+        } catch (error) {
+            console.error('Failed to write donate.json:', error.message);
+            const writeError = new Error('Failed to save data');
+            writeError.statusCode = 500;
+            throw writeError;
+        }
+
+        reply.send("ok");
+    } catch (error) {
+        throw error; // Will be caught by global error handler
     }
-
-    // load donate.json
-    const filePath = path.join(__dirname, 'donate.json');
-    const fileContent = await fs.promises.readFile(filePath, 'utf8');
-    let data = JSON.parse(fileContent);
-
-    // Enhanced deduplication logic - only check recent entries for performance
-    const similarityThreshold = 0.90; // 90% similarity threshold
-    const recentCheckLimit = 100; // Only check last 100 entries for duplicates
-
-    // Only check recent chats for duplicates to improve performance
-    const recentChats = data.slice(-recentCheckLimit);
-    const isDuplicate = recentChats.some(existingChat => {
-        const similarity = calculateMessagesSimilarity(messages, existingChat);
-        return similarity >= similarityThreshold;
-    });
-
-    // Skip adding if it's a duplicate
-    if (isDuplicate) {
-        reply.send("duplicate skipped");
-        return;
-    }
-
-    // Only store the messages (limit to reasonable size for storage)
-    const messagesToStore = messages.slice(0, 15); // Store up to 15 messages instead of 5
-    data.push(messagesToStore);
-
-    // Keep only the most recent 1000 chats to prevent file from growing too large
-    if (data.length > 1000) {
-        data = data.slice(-1000);
-    }
-
-    // save
-    await fs.promises.writeFile(filePath, JSON.stringify(data, null, 2));
-    reply.send("ok");
 });
 
 server.get("/puter.json", async (request, reply) => {
-    const filePath = path.join(__dirname, 'public/puter.json');
-    const fileContent = await fs.promises.readFile(filePath, 'utf8');
-    reply.type('application/json').send(fileContent);
+    try {
+        const filePath = path.join(__dirname, 'public/puter.json');
+        const fileContent = await safeReadFile(filePath, 'utf8');
+        reply.type('application/json').send(fileContent);
+    } catch (error) {
+        throw error; // Will be caught by global error handler
+    }
 });
 
 server.get("/puter2.json", async (request, reply) => {
-    const filePath = path.join(__dirname, 'public/puter2.json');
-    const fileContent = await fs.promises.readFile(filePath, 'utf8');
-    reply.type('application/json').send(fileContent);
+    try {
+        const filePath = path.join(__dirname, 'public/puter2.json');
+        const fileContent = await safeReadFile(filePath, 'utf8');
+        reply.type('application/json').send(fileContent);
+    } catch (error) {
+        throw error; // Will be caught by global error handler
+    }
 });
 
 server.get("/statistics.html", async (request, reply) => {
-    const filePath = path.join(__dirname, 'public/statistics.html');
-    const fileContent = await fs.promises.readFile(filePath, 'utf8');
-    reply.type('text/html').send(fileContent);
+    try {
+        const filePath = path.join(__dirname, 'public/statistics.html');
+        const fileContent = await safeReadFile(filePath, 'utf8');
+        reply.type('text/html').send(fileContent);
+    } catch (error) {
+        throw error; // Will be caught by global error handler
+    }
 });
 
 let total_messages = 0;
