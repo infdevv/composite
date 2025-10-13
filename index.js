@@ -385,34 +385,54 @@ server.get("/api/stats", async (request, reply) => {
 server.post("/v1/chat/completions", async (request, reply) => {
     /* this is an openai api endpoint */
 
+    const requestId = Math.random().toString(36).substring(7);
+    const timestamp = new Date().toISOString();
+
     // check api key
     const authHeader = request.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        console.error(`[401] [${timestamp}] [${requestId}] Missing or invalid authorization header`);
+        console.error(`  → Authorization header present: ${!!authHeader}`);
+        console.error(`  → Header starts with 'Bearer ': ${authHeader ? authHeader.startsWith('Bearer ') : 'N/A'}`);
         reply.status(401).send("invalid authorization header");
         return;
     }
+
     const userKey = authHeader.split(" ")[1].trim();
-    //if (!connected_users.has(userKey)) {
-    //    reply.status(401).send("please actually put your key in :(")
-    //    return
-    //}
-        
+    const obfuscatedKey = userKey.length > 10
+        ? userKey.substring(0, Math.max(6, userKey.length - 10)) + '*'.repeat(10)
+        : '*'.repeat(userKey.length);
 
     // get messages
     let messages = request.body.messages;
     if (!Array.isArray(messages)) {
+        console.error(`[400] [${timestamp}] [${requestId}] Invalid messages format for key ${obfuscatedKey}`);
+        console.error(`  → Messages type: ${typeof messages}`);
         reply.status(400).send("invalid messages format");
         return;
     }
-    
+
     const userInfo = connected_users.get(userKey);
     let userSocket = userInfo ? userInfo.socket : null;
 
-
     if (!userSocket) {
+        console.error(`[401] [${timestamp}] [${requestId}] No connected frontend for key ${obfuscatedKey}`);
+        console.error(`  → Total connected users: ${connected_users.size}`);
+
+        // Show all registered keys
+        if (connected_users.size > 0) {
+            const allRegisteredKeys = Array.from(connected_users.keys())
+                .map(k => k.length > 10 ? k.substring(0, Math.max(6, k.length - 10)) + '*'.repeat(10) : '*'.repeat(k.length));
+            console.error(`  → All registered keys: ${allRegisteredKeys.join(', ')}`);
+        } else {
+            console.error(`  → No users currently connected via WebSocket`);
+        }
+
         reply.status(401).send("no connected frontend for this user. are you using the right key?");
         return;
     }
+
+    console.log(`[200] [${timestamp}] [${requestId}] Request accepted for key ${obfuscatedKey}`);
 
     total_messages += 1;
 
