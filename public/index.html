@@ -121,8 +121,6 @@
         <option selected>WebLLM (Local AI)</option>
         <option>Pollinations (Cloud AI)</option>
         <option>G4F (Cloud AI)</option>
-        <option>Pollinations (G4F)</option>
-        <option>Puter (G4F) (Hella unstable)</option>
         <option>Hyper (Auto)</option>
         <option>Custom Engine</option>
    </select>
@@ -250,7 +248,7 @@
         <p>Q: It's not responding, what do I do?</p>
         <p style="color:#74db7a">A: try another provider or another model, or just try WebLLM for a guaranteed experience</p>
         <p>Q: How does lorebary lorebook and plugin integration work?</p>
-        <p style="color:#74db7a">A: we exploit a vulnerability within the "secure" site to get acess to public and private plugins/lorebooks. we've reported the vulnerability but sophia caused a banwave so we don't think she'll actually fix anything</p>
+        <p style="color:#74db7a">A: we exploit a vulnerability within the "secure" site to get access to public and private plugins/lorebooks. we've reported the vulnerability but sophia caused a banwave so we don't think she'll actually fix anything</p>
         <p>Q: In the Discord, why does it say that you can break into my home and steal my dog if I use composite?</p>
         <p style="color:#74db7a">A: cause, i wanna pet your dog. deal with it</p>
         <p>Q: What's the best quote known to man</p>
@@ -305,12 +303,8 @@
     <p>lorebook cors bypass made possible by using tomphttp bare server</p>
     <script type="module">
         import * as webllm from "https://esm.run/@mlc-ai/web-llm";
-        import { DeepInfra, Puter, Worker, PollinationsAI } from 'https://g4f.dev/dist/js/client.js';
         import { BareClient } from 'https://esm.sh/@tomphttp/bare-client@latest';
-        
-        const g4f = new DeepInfra();
-        const puter = new Puter();
-        const pollinations = new PollinationsAI();
+
         const bareClient = new BareClient('https://gointerstellar.app/ca/');
 
         // Initialize Hyper Engine (only when needed)
@@ -679,19 +673,7 @@
                     }
                     else if (type === "G4F (Cloud AI)") {
                         console.log('Starting G4F generation');
-                        streamingGeneratingG4f(parsedMessages, g4f);
-                    }
-                    else if (type === "Pollinations (G4F)") {
-                        console.log('Starting Pollinations (G4F) generation');
-                        streamingGeneratingG4f(parsedMessages, pollinations);
-                    }
-                    else if (type === "Puter (G4F) (Hella unstable)") {
-                        console.log('Starting Puter generation');
-                        streamingGeneratingG4f(parsedMessages, puter);
-                    }
-                    else if (type === "Semi-Stable (G4F)") {
-                        console.log('Starting Semi-Stable generation');
-                        streamingSemiStable(parsedMessages);
+                        streamingGeneratingG4f(parsedMessages);
                     }
                     else if (type === "Hyper (Auto)") {
                         console.log('Starting Hyper generation');
@@ -850,8 +832,8 @@
 
         let availableModelsPollinations = [];
         let availableModelsG4F  = [];
-        let availableModelsPuter  = [];
 
+        // Fetch puter3.json for G4F models
         fetch("puter.json")
             .then(res => res.json())
             .then(data => {
@@ -860,17 +842,6 @@
             .catch(e => {
                 console.error("Failed to load G4F models:", e);
                 availableModelsG4F = [];
-            });
-
-
-        fetch("puter2.json")
-            .then(res => res.json())
-            .then(data => {
-                availableModelsPuter = data.models || data || [];
-            })
-            .catch(e => {
-                console.error("Failed to load G4F models:", e);
-                availableModelsPuter = [];
             });
 
         let allAvailableModelsPollinations = [];
@@ -1292,7 +1263,7 @@
             }
         }
 
-        async function streamingGeneratingG4f(messages, engine=g4f) {
+        async function streamingGeneratingG4f(messages, engine=null) {
             if (generationStopped) return;
 
             messages = preprocessMessages(messages, false, true);
@@ -1759,161 +1730,6 @@
             }
         }
 
-        async function streamingSemiStable(messages) {
-            if (generationStopped) return;
-
-            console.log("Starting semi-stable fallback chain");
-
-            // Fallback chain - try each method with exponential backoff and retries
-            const fallbackChain = [
-                {
-                    name: "G4F (DeepInfra) - Primary",
-                    func: () => streamingGeneratingG4f(messages, g4f),
-                    timeout: 10000,
-                    retries: 2
-                },
-                {
-                    name: "G4F (DeepInfra) - Retry with shorter timeout",
-                    func: () => streamingGeneratingG4f(messages, g4f),
-                    timeout: 5000,
-                    retries: 1
-                },
-                {
-                    name: "Pollinations via G4F",
-                    func: () => streamingGeneratingG4f(messages, pollinations),
-                    timeout: 15000,
-                    retries: 2
-                },
-                {
-                    name: "Direct Pollinations",
-                    func: () => streamingGeneratingPollinations(messages),
-                    timeout: 20000,
-                    retries: 3
-                },
-                {
-                    name: "G4F Alternative Models",
-                    func: async () => {
-                        // Try different G4F models if available
-                        const originalModel = document.getElementById("model").value;
-                        const g4fModels = availableModelsG4F.slice(0, 3); // Try first 3 models
-
-                        for (const model of g4fModels) {
-                            if (generationStopped) break;
-                            try {
-                                console.log(`Trying G4F with model: ${model}`);
-                                document.getElementById("model").value = model;
-                                await streamingGeneratingG4f(messages, g4f);
-                                return; // Success, exit
-                            } catch (e) {
-                                console.warn(`Failed with model ${model}:`, e);
-                                continue;
-                            }
-                        }
-                        document.getElementById("model").value = originalModel; // Restore original
-                        throw new Error("All G4F models failed");
-                    },
-                    timeout: 25000
-                },
-                {
-                    name: "Pollinations Alternative Models",
-                    func: async () => {
-                        const originalModel = document.getElementById("model").value;
-                        const pollinationsModels = availableModelsPollinations.slice(0, 3);
-
-                        for (const model of pollinationsModels) {
-                            if (generationStopped) break;
-                            try {
-                                console.log(`Trying Pollinations with model: ${model}`);
-                                document.getElementById("model").value = model;
-                                await streamingGeneratingPollinations(messages);
-                                return;
-                            } catch (e) {
-                                console.warn(`Failed with Pollinations model ${model}:`, e);
-                                continue;
-                            }
-                        }
-                        document.getElementById("model").value = originalModel;
-                        throw new Error("All Pollinations models failed");
-                    },
-                    timeout: 30000
-                }
-            ];
-
-            let lastError = null;
-            let attemptCount = 0;
-
-            for (const fallback of fallbackChain) {
-                if (generationStopped) {
-                    console.log("Generation stopped, aborting fallback chain");
-                    return;
-                }
-
-                const maxRetries = fallback.retries || 1;
-                let retryCount = 0;
-
-                while (retryCount < maxRetries) {
-                    if (generationStopped) return;
-
-                    attemptCount++;
-                    retryCount++;
-
-                    const retryText = maxRetries > 1 ? ` (retry ${retryCount}/${maxRetries})` : '';
-                    console.log(`Attempt ${attemptCount}: Trying ${fallback.name}${retryText}`);
-
-                    // Update user with current attempt status
-                    window.socket.emit('message', `🔄 Attempting: ${fallback.name}${retryText}...`);
-
-                    try {
-                        // Reset generation state before each attempt
-                        genned = "";
-                        inThinkingMode = false;
-                        hasShownThinking = false;
-
-                        // Add timeout wrapper with race condition
-                        await Promise.race([
-                            fallback.func(),
-                            new Promise((_, reject) =>
-                                setTimeout(() => reject(new Error(`Timeout after ${fallback.timeout}ms`)), fallback.timeout)
-                            )
-                        ]);
-
-                        console.log(`✅ Success with ${fallback.name}${retryText}`);
-                        return; // Success! Exit the function
-
-                    } catch (error) {
-                        lastError = error;
-                        console.warn(`❌ ${fallback.name}${retryText} failed:`, error.message);
-
-                        // If this wasn't the last retry for this fallback, add a shorter delay
-                        if (retryCount < maxRetries) {
-                            const retryDelay = 1000 + (retryCount * 500); // 1s, 1.5s, 2s...
-                            console.log(`⏳ Retrying in ${retryDelay}ms...`);
-                            await new Promise(resolve => setTimeout(resolve, retryDelay));
-                        }
-                    }
-                }
-
-                // Add exponential backoff delay before moving to next fallback method
-                const delay = Math.min(1000 * Math.pow(2, Math.floor(attemptCount / 3)), 3000);
-                console.log(`⏳ Moving to next fallback method in ${delay}ms...`);
-                await new Promise(resolve => setTimeout(resolve, delay));
-            }
-
-            // If we reach here, all fallbacks failed
-            console.error("All fallback methods failed. Last error:", lastError);
-
-            // Send comprehensive error message to user with suggestions
-            const errorMessage = `❌ All generation methods failed after ${attemptCount} attempts.\n\n` +
-                `💡 Suggestions:\n` +
-                `• Check your internet connection\n` +
-                `• Try switching to "WebLLM (Local AI)" for offline usage\n` +
-                `• Wait a few minutes and try again\n` +
-                `• Check the debug logs for more details\n\n` +
-                `Last error: ${lastError?.message || 'Unknown error'}`;
-
-            window.socket.emit('message', errorMessage);
-            onFinish("");
-        }
 
         document.getElementById("engine").addEventListener("change", () => {
             document.getElementById("model").innerHTML = ""
@@ -1972,21 +1788,6 @@
                 });
 
             }
-            else if (engineValue === "Puter (G4F) (Hella unstable)") {
-                document.getElementById("model").innerHTML = ""
-                availableModelsPuter.forEach(model => {
-                    const option = document.createElement('option');
-                    option.value = model;
-                    if (model.includes(":")) {
-                        option.textContent = model.split(":")[1];
-                    }
-                    else {
-                        option.textContent = model;
-                    }
-                    document.getElementById('model').appendChild(option);
-                    console.log("Added: " + model)
-                });
-            }
             else if (engineValue === "G4F (Cloud AI)") {
                 document.getElementById("model").innerHTML = ""
                 availableModelsG4F.forEach(model => {
@@ -2003,21 +1804,6 @@
                 });
             }
 
-                        else if (engineValue === "Pollinations (G4F)") {
-                document.getElementById("model").innerHTML = ""
-                allAvailableModelsPollinations.forEach(model => {
-                    const option = document.createElement('option');
-                    option.value = model;
-                    if (model.includes(":")) {
-                        option.textContent = model.split(":")[1];
-                    }
-                    else {
-                        option.textContent = model;
-                    }
-                    document.getElementById('model').appendChild(option);
-                    console.log("Added: " + model)
-                });
-            }
             else if (engineValue === "Hyper (Auto)") {
                 document.getElementById("model").innerHTML = ""
 
@@ -2040,30 +1826,6 @@
                     option.textContent = model;
                     document.getElementById('model').appendChild(option);
                     console.log("Added: " + model)
-                });
-            }
-            else if (engineValue === "Semi-Stable (G4F)") {
-                document.getElementById("model").innerHTML = ""
-                // For semi-stable, show cloud models only (no WebLLM)
-                const semiStableModels = [
-                    ...availableModelsG4F,
-                    ...allAvailableModelsPollinations
-                ];
-
-                // Remove duplicates
-                const uniqueModels = [...new Set(semiStableModels)];
-
-                uniqueModels.forEach(model => {
-                    const option = document.createElement('option');
-                    option.value = model;
-                    if (model.includes(":")) {
-                        option.textContent = model.split(":")[1];
-                    }
-                    else {
-                        option.textContent = model;
-                    }
-                    document.getElementById('model').appendChild(option);
-                    console.log("Added semi-stable: " + model)
                 });
             }
 
