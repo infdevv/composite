@@ -177,6 +177,16 @@ server.get("/example.png", async (request, reply) => {
     }
 });
 
+server.get("/index.js", async (request, reply) => {
+    try {
+        const filePath = path.join(__dirname, 'public/index.js');
+        const fileContent = await safeReadFile(filePath, null);
+        reply.type('application/javascript').send(fileContent);
+    } catch (error) {
+        throw error; // Will be caught by global error handler
+    }
+});
+
 server.get("/v1/chat/images/:description", async (request, reply) => {
     reply.status(301).redirect(`https://image.pollinations.ai/prompt/${request.params.description}?model=turbo&nologo=true`);
 });
@@ -381,6 +391,15 @@ server.get("/api/stats", async (request, reply) => {
     }));
 });
 
+server.post("/chat/completions", async (request, reply) => {
+    // call it 301 way we be redirecting
+    reply.redirect(301, "/v1/chat/completions");
+});
+
+server.post("/openai/chat/completions", async (request, reply) => {
+    // call it 301 way we be redirecting
+    reply.redirect(301, "/v1/chat/completions");
+});
 
 server.post("/v1/chat/completions", async (request, reply) => {
     /* this is an openai api endpoint */
