@@ -56,10 +56,18 @@ export function saveCustomEngineConfig() {
 // Initialize WebLLM Engine
 export async function initializeWebLLMEngine(engine) {
     let selectedModel = document.getElementById("model").value;
+
+    // compute dynamic length
+
+    let memory = navigator.deviceMemory;
+    let context_len = 30000;
+
+    context_len = Math.min(128000, 90000 + (memory - 4) * 10000);
+
     const config = {
         temperature: 0.7,
         top_p: 1,
-        context_window_size: 30000,
+        context_window_size: context_len,
     };
     await engine.reload(selectedModel, config);
 }
