@@ -290,6 +290,7 @@ export async function streamingGeneratingHyper(messages, hyperInstance, settings
 // Pollinations generation
 export async function streamingGeneratingPollinations(messages, settings = {}) {
     if (generationStopped) return;
+    const wantsNonStream = document.getElementById('non-stream-response') ? document.getElementById('non-stream-response').checked : false;
 
     messages = preprocessMessages(messages, true);
     const endpoint = "https://text.pollinations.ai/openai";
@@ -310,7 +311,8 @@ export async function streamingGeneratingPollinations(messages, settings = {}) {
             top_p: settings.top_p !== undefined ? settings.top_p : 1,
             frequency_penalty: settings.frequency_penalty || 0,
             presence_penalty: settings.presence_penalty || 0,
-            stream: true
+            stream: wantsNonStream ? false : true,
+            non_stream: wantsNonStream ? true : undefined
         }),
         signal: controller.signal
     });
@@ -411,11 +413,14 @@ export async function streamingGeneratingCustomEngine(messages, customEngineConf
         };
 
         // Build request based on engine type
+        const wantsNonStream = document.getElementById('non-stream-response') ? document.getElementById('non-stream-response').checked : false;
+
         if (customEngineConfig.type === 'openai') {
             requestBody = {
                 model: customEngineConfig.model || document.getElementById("model").value,
                 messages: messages,
-                stream: true,
+                stream: wantsNonStream ? false : true,
+                non_stream: wantsNonStream ? true : undefined,
                 max_tokens: settings.max_tokens || 26000,
                 temperature: settings.temperature !== undefined ? settings.temperature : 0.7,
                 top_p: settings.top_p !== undefined ? settings.top_p : 1,
@@ -495,7 +500,8 @@ export async function streamingGeneratingCustomEngine(messages, customEngineConf
             requestBody = {
                 model: customEngineConfig.model || document.getElementById("model").value,
                 messages: messages,
-                stream: true
+                stream: wantsNonStream ? false : true,
+                non_stream: wantsNonStream ? true : undefined
             };
 
             if (customEngineConfig.apiKey) {

@@ -464,13 +464,18 @@ server.post("/v1/chat/completions", async (request, reply) => {
         repetition_penalty: request.body.repetition_penalty !== undefined ? request.body.repetition_penalty : 1
     };
 
-    reply.raw.writeHead(200, {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Cache-Control'
-    });
+    // Support non-stream responses: client can request `stream: false` or `non_stream: true`
+    const wantsNonStream = (request.body && (request.body.stream === false || request.body.non_stream === true));
+
+    if (!wantsNonStream) {
+        reply.raw.writeHead(200, {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': 'Cache-Control'
+        });
+    }
 
     userSocket.emit('start_generate', {
         messages: JSON.stringify(messages),
@@ -483,11 +488,13 @@ server.post("/v1/chat/completions", async (request, reply) => {
     let doneTimeout = null;
     let lastMessageTime = Date.now();
 
+    // Aggregation buffer for non-stream responses
+    let aggregatedContent = "";
+
 
     const onMessage = (chunk) => {
         if (generationActive && chunk !== null && chunk !== undefined) {
             lastMessageTime = Date.now(); // Track when we last received a message
-
             let content = typeof chunk === 'string' ? chunk : chunk.toString();
             try {
                 // Validate content before serialization
@@ -496,12 +503,17 @@ server.post("/v1/chat/completions", async (request, reply) => {
                     return;
                 }
 
-                total_message_len +=  content.length
+                total_message_len += content.length;
 
-                // Handle large content by splitting into smaller chunks
+                // If client requested a non-stream response, accumulate the content
+                if (wantsNonStream) {
+                    aggregatedContent += content;
+                    return;
+                }
+
+                // Handle large content by splitting into smaller chunks for SSE
                 if (content.length > 8000) {
                     console.warn(`Content large (${content.length} chars), splitting into chunks`);
-                    // More efficient chunking without regex
                     const chunkSize = 8000;
                     for (let i = 0; i < content.length; i += chunkSize) {
                         if (!generationActive) break;
@@ -531,13 +543,13 @@ server.post("/v1/chat/completions", async (request, reply) => {
                     }]
                 });
 
-
                 // Validate the generated JSON
                 if (!payload || payload === 'null') {
                     console.error('Failed to generate valid JSON payload');
                     return;
                 }
 
+                // Write SSE data for streaming clients
                 reply.raw.write(`data: ${payload}\n\n`);
                 errorCount = 0; // Reset error count on successful write
             } catch (error) {
@@ -562,7 +574,8 @@ server.post("/v1/chat/completions", async (request, reply) => {
                             }
                         }]
                     });
-                    reply.raw.write(`data: ${errorPayload}\n\n`);
+                    // Only write SSE fallback if streaming
+                    if (!wantsNonStream) reply.raw.write(`data: ${errorPayload}\n\n`);
                 } catch (fallbackError) {
                     console.warn(`Fallback error response failed (attempt ${errorCount}/${MAX_ERRORS})`);
                 }
@@ -585,8 +598,30 @@ server.post("/v1/chat/completions", async (request, reply) => {
                     // No messages for 2 seconds, safe to close
                     if (generationActive) {
                         try {
-                            reply.raw.write('data: [DONE]\n\n');
-                            reply.raw.end();
+                            if (wantsNonStream) {
+                                // Send aggregated JSON response as a single non-stream reply
+                                try {
+                                    const result = {
+                                        id: requestId,
+                                        object: 'chat.completion',
+                                        created: Date.now(),
+                                        choices: [
+                                            {
+                                                message: {
+                                                    role: 'assistant',
+                                                    content: aggregatedContent
+                                                }
+                                            }
+                                        ]
+                                    };
+                                    reply.type('application/json').send(result);
+                                } catch (sendError) {
+                                    console.error('Failed to send non-stream response:', sendError.message);
+                                }
+                            } else {
+                                reply.raw.write('data: [DONE]\n\n');
+                                reply.raw.end();
+                            }
                         } catch (error) {
                             console.log(`Client already disconnected for user ${userKey.substring(0, userKey.length - 10)}**********`);
                         }
