@@ -4,16 +4,13 @@ const { Server } = require("socket.io");
 const fs = require('fs');
 const cors = require('@fastify/cors');
 
-// Security: Create server with custom error handler
 const server = fastify({
-    logger: false, // Disable default logger in production to prevent info leakage
+    logger: false, 
     trustProxy: true
 });
 
-// Security: Determine if we're in production
 const isProduction = process.env.NODE_ENV === 'production';
 
-// Security: Custom error handler to prevent information leakage
 server.setErrorHandler((error, request, reply) => {
     // Log full error server-side
     console.error('Server error:', {
@@ -382,12 +379,14 @@ server.get("/statistics.html", async (request, reply) => {
 });
 
 let total_messages = 0;
+let total_message_len = 0; // char
 
 server.get("/api/stats", async (request, reply) => {
     // return stats
     reply.type('application/json').send(JSON.stringify({
         "connected_users": connected_users.size, // number of connected users
         "total_handled_messages": total_messages, // number of messages handled by the server
+        "average_message_length": total_message_len / total_messages
     }));
 });
 
@@ -471,6 +470,7 @@ server.post("/v1/chat/completions", async (request, reply) => {
     let doneTimeout = null;
     let lastMessageTime = Date.now();
 
+
     const onMessage = (chunk) => {
         if (generationActive && chunk !== null && chunk !== undefined) {
             lastMessageTime = Date.now(); // Track when we last received a message
@@ -482,6 +482,8 @@ server.post("/v1/chat/completions", async (request, reply) => {
                     console.error('Invalid content type:', typeof content);
                     return;
                 }
+
+                total_message_len +=  content.length
 
                 // Handle large content by splitting into smaller chunks
                 if (content.length > 8000) {
@@ -515,6 +517,7 @@ server.post("/v1/chat/completions", async (request, reply) => {
                         }
                     }]
                 });
+
 
                 // Validate the generated JSON
                 if (!payload || payload === 'null') {
