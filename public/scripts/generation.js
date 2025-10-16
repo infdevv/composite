@@ -162,14 +162,19 @@ export function preprocessMessages(messages, pollinations = false, g4f = false) 
 }
 
 // WebLLM generation
-export async function streamingGenerating(messages, engine) {
+export async function streamingGenerating(messages, engine, settings = {}) {
     if (generationStopped) return;
 
     messages = preprocessMessages(messages);
 
     const completion = await engine.chat.completions.create({
         stream: true,
-        max_tokens: 26000,
+        max_tokens: settings.max_tokens || 26000,
+        temperature: settings.temperature !== undefined ? settings.temperature : 0.7,
+        top_p: settings.top_p !== undefined ? settings.top_p : 1,
+        frequency_penalty: settings.frequency_penalty || 0,
+        presence_penalty: settings.presence_penalty || 0,
+        repetition_penalty: settings.repetition_penalty || 1,
         messages,
     });
 
@@ -191,7 +196,7 @@ export async function streamingGenerating(messages, engine) {
 }
 
 // G4F generation
-export async function streamingGeneratingG4f(messages, deepinfraclient) {
+export async function streamingGeneratingG4f(messages, deepinfraclient, settings = {}) {
     if (generationStopped) return;
 
     messages = preprocessMessages(messages, false, true);
@@ -202,7 +207,12 @@ export async function streamingGeneratingG4f(messages, deepinfraclient) {
     const stream = await deepinfraclient.chat.completions.create({
         model: document.getElementById("model").value,
         messages: messages,
-        stream: true
+        stream: true,
+        temperature: settings.temperature !== undefined ? settings.temperature : 0.7,
+        max_tokens: settings.max_tokens || 26000,
+        top_p: settings.top_p !== undefined ? settings.top_p : 1,
+        frequency_penalty: settings.frequency_penalty || 0,
+        presence_penalty: settings.presence_penalty || 0
     });
 
     for await (const chunk of stream) {
@@ -222,7 +232,7 @@ export async function streamingGeneratingG4f(messages, deepinfraclient) {
 }
 
 // Hyper generation
-export async function streamingGeneratingHyper(messages, hyperInstance) {
+export async function streamingGeneratingHyper(messages, hyperInstance, settings = {}) {
     if (generationStopped) return;
 
     if (!hyperInstance) {
@@ -278,7 +288,7 @@ export async function streamingGeneratingHyper(messages, hyperInstance) {
 }
 
 // Pollinations generation
-export async function streamingGeneratingPollinations(messages) {
+export async function streamingGeneratingPollinations(messages, settings = {}) {
     if (generationStopped) return;
 
     messages = preprocessMessages(messages, true);
@@ -295,8 +305,11 @@ export async function streamingGeneratingPollinations(messages) {
         body: JSON.stringify({
             messages: messages,
             model: document.getElementById("model").value,
-            max_tokens: 26000,
-            temperature: 0.7,
+            max_tokens: settings.max_tokens || 26000,
+            temperature: settings.temperature !== undefined ? settings.temperature : 0.7,
+            top_p: settings.top_p !== undefined ? settings.top_p : 1,
+            frequency_penalty: settings.frequency_penalty || 0,
+            presence_penalty: settings.presence_penalty || 0,
             stream: true
         }),
         signal: controller.signal
@@ -376,7 +389,7 @@ export async function streamingGeneratingPollinations(messages) {
 }
 
 // Custom engine generation
-export async function streamingGeneratingCustomEngine(messages, customEngineConfig) {
+export async function streamingGeneratingCustomEngine(messages, customEngineConfig, settings = {}) {
     if (generationStopped) return;
 
     messages = preprocessMessages(messages);
@@ -403,8 +416,11 @@ export async function streamingGeneratingCustomEngine(messages, customEngineConf
                 model: customEngineConfig.model || document.getElementById("model").value,
                 messages: messages,
                 stream: true,
-                max_tokens: 26000,
-                temperature: 0.7
+                max_tokens: settings.max_tokens || 26000,
+                temperature: settings.temperature !== undefined ? settings.temperature : 0.7,
+                top_p: settings.top_p !== undefined ? settings.top_p : 1,
+                frequency_penalty: settings.frequency_penalty || 0,
+                presence_penalty: settings.presence_penalty || 0
             };
 
             if (customEngineConfig.apiKey) {
@@ -442,8 +458,9 @@ export async function streamingGeneratingCustomEngine(messages, customEngineConf
                     { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_LOW_AND_ABOVE" }
                 ],
                 generationConfig: {
-                    temperature: 0.7,
-                    maxOutputTokens: 26000
+                    temperature: settings.temperature !== undefined ? settings.temperature : 0.7,
+                    maxOutputTokens: settings.max_tokens || 26000,
+                    topP: settings.top_p !== undefined ? settings.top_p : 1
                 }
             };
 
@@ -457,11 +474,11 @@ export async function streamingGeneratingCustomEngine(messages, customEngineConf
                 model: customEngineConfig.model || document.getElementById("model").value,
                 messages: messages,
                 stream: true,
-                max_tokens: 2048,
-                temperature: 0.7,
-                top_p: 1,
-                frequency_penalty: 0.0,
-                presence_penalty: 0.0
+                max_tokens: settings.max_tokens || 2048,
+                temperature: settings.temperature !== undefined ? settings.temperature : 0.7,
+                top_p: settings.top_p !== undefined ? settings.top_p : 1,
+                frequency_penalty: settings.frequency_penalty || 0.0,
+                presence_penalty: settings.presence_penalty || 0.0
             };
 
             if (customEngineConfig.apiKey) {

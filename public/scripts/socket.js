@@ -122,8 +122,11 @@ export function initializeSocket() {
 
         window.socket.on('start_generate', async (data) => {
             console.log('Received start_generate signal from server');
-            const { messages } = data;
+            const { messages, settings } = data;
             let parsedMessages = JSON.parse(messages);
+
+            // Log received settings
+            console.log('Generation settings:', settings);
 
             // Apply plugin processing if plugin is loaded
             if (window.plugin && window.pluginParser) {
@@ -154,19 +157,19 @@ export function initializeSocket() {
 
             if (type === "WebLLM (Local AI)") {
                 console.log('Starting WebLLM generation');
-                streamingGenerating(parsedMessages, window.webllmEngine);
+                streamingGenerating(parsedMessages, window.webllmEngine, settings);
             } else if (type === "Pollinations (Cloud AI)") {
                 console.log('Starting Pollinations generation');
-                streamingGeneratingPollinations(parsedMessages);
+                streamingGeneratingPollinations(parsedMessages, settings);
             } else if (type === "G4F (Cloud AI)") {
                 console.log('Starting G4F generation');
-                streamingGeneratingG4f(parsedMessages, window.deepinfraclient);
+                streamingGeneratingG4f(parsedMessages, window.deepinfraclient, settings);
             } else if (type === "Hyper (Auto)") {
                 console.log('Starting Hyper generation');
-                streamingGeneratingHyper(parsedMessages, window.hyperInstance);
+                streamingGeneratingHyper(parsedMessages, window.hyperInstance, settings);
             } else if (type === "Custom Engine") {
                 console.log('Starting Custom Engine generation');
-                streamingGeneratingCustomEngine(parsedMessages, window.customEngineConfig);
+                streamingGeneratingCustomEngine(parsedMessages, window.customEngineConfig, settings);
             } else {
                 console.error('Unknown engine type:', type);
                 window.socket.emit('message', `Error: Unknown engine type: ${type}`);

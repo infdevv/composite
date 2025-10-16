@@ -454,6 +454,16 @@ server.post("/v1/chat/completions", async (request, reply) => {
 
     total_messages += 1;
 
+    // Extract generation settings from request body
+    const generationSettings = {
+        temperature: request.body.temperature !== undefined ? request.body.temperature : 0.7,
+        max_tokens: request.body.max_tokens !== undefined ? request.body.max_tokens : 26000,
+        top_p: request.body.top_p !== undefined ? request.body.top_p : 1,
+        frequency_penalty: request.body.frequency_penalty !== undefined ? request.body.frequency_penalty : 0,
+        presence_penalty: request.body.presence_penalty !== undefined ? request.body.presence_penalty : 0,
+        repetition_penalty: request.body.repetition_penalty !== undefined ? request.body.repetition_penalty : 1
+    };
+
     reply.raw.writeHead(200, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
@@ -462,7 +472,10 @@ server.post("/v1/chat/completions", async (request, reply) => {
         'Access-Control-Allow-Headers': 'Cache-Control'
     });
 
-    userSocket.emit('start_generate', { messages: JSON.stringify(messages) });
+    userSocket.emit('start_generate', {
+        messages: JSON.stringify(messages),
+        settings: generationSettings
+    });
 
     let generationActive = true;
     let errorCount = 0;
