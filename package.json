@@ -10,6 +10,7 @@
   "description": "",
   "dependencies": {
     "@fastify/cors": "^11.1.0",
+    "@fastify/rate-limit": "^10.3.0",
     "@fastify/static": "^8.2.0",
     "fastify": "^5.6.0",
     "socket.io": "^4.8.1"

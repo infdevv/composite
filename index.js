@@ -9,6 +9,11 @@ const server = fastify({
     trustProxy: true
 });
 
+server.register(require('@fastify/rate-limit'), {
+    max: 100,
+    timeWindow: '1 minute'
+});
+
 const isProduction = process.env.NODE_ENV === 'production';
 
 server.setErrorHandler((error, request, reply) => {
