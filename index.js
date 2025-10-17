@@ -508,7 +508,7 @@ server.post("/v1/chat/completions", async (request, reply) => {
                     return;
                 }
 
-                total_message_len += content.length;
+
 
                 // If client requested a non-stream response, accumulate the content
                 if (wantsNonStream) {
@@ -585,6 +585,7 @@ server.post("/v1/chat/completions", async (request, reply) => {
                     console.warn(`Fallback error response failed (attempt ${errorCount}/${MAX_ERRORS})`);
                 }
             }
+            if (typeof content === 'string') total_message_len += content.length;
         }
     };
 
@@ -595,8 +596,6 @@ server.post("/v1/chat/completions", async (request, reply) => {
                 clearTimeout(doneTimeout);
             }
 
-            // Debounce: wait for inactivity before sending [DONE]
-            // This resets every time a new chunk comes in via onMessage updating lastMessageTime
             const checkAndClose = () => {
                 const timeSinceLastMessage = Date.now() - lastMessageTime;
                 if (timeSinceLastMessage >= 2000) {
