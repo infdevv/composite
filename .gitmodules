@@ -1,0 +1,3 @@
+[submodule "public/yuzu"]
+	path = public/yuzu
+	url = https://github.com/infdevv/yuzu.git
