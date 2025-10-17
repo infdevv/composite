@@ -293,6 +293,9 @@ export async function sendTestMessage() {
     responseDiv.style.color = '#fff';
 
     try {
+        // Allow requesting a non-stream response by checking a checkbox `non-stream-response`
+        const wantsNonStream = document.getElementById('non-stream-response') ? document.getElementById('non-stream-response').checked : false;
+
         const response = await fetch('/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -300,6 +303,8 @@ export async function sendTestMessage() {
                 'Authorization': `Bearer ${userKey}`
             },
             body: JSON.stringify({
+                stream: wantsNonStream ? false : undefined,
+                non_stream: wantsNonStream ? true : undefined,
                 messages: [
                     { role: 'system', content: 'You are a helpful assistant.' },
                     { role: 'user', content: testMessage }
@@ -314,42 +319,64 @@ export async function sendTestMessage() {
         statusSpan.textContent = 'Receiving...';
         statusSpan.style.color = '#74db7a';
 
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
+        // Handle either streaming SSE-like responses or a single non-stream JSON response
+        const contentType = response.headers.get('content-type') || '';
         let fullResponse = '';
 
-        responseDiv.textContent = '';
+        if (wantsNonStream || contentType.includes('application/json')) {
+            // Non-stream aggregated JSON response
+            try {
+                const json = await response.json();
+                const content = json?.choices?.[0]?.message?.content || json?.choices?.[0]?.delta?.content || '';
+                fullResponse = content || JSON.stringify(json);
+                responseDiv.textContent = fullResponse;
+                responseDiv.scrollTop = responseDiv.scrollHeight;
+                statusSpan.textContent = 'Complete';
+                statusSpan.style.color = '#51cf66';
+            } catch (e) {
+                console.error('Error parsing non-stream JSON response:', e);
+                responseDiv.textContent = 'Error parsing JSON response';
+                statusSpan.textContent = 'Error';
+                statusSpan.style.color = '#ff6b6b';
+            }
+        } else {
+            // Streaming path (SSE chunks)
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
 
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+            responseDiv.textContent = '';
 
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
 
-            for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                    const data = line.slice(6).trim();
-                    if (data === '[DONE]') {
-                        statusSpan.textContent = 'Complete';
-                        statusSpan.style.color = '#51cf66';
-                        break;
-                    }
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
 
-                    if (!data) continue;
-
-                    try {
-                        const parsed = JSON.parse(data);
-                        const content = parsed.choices?.[0]?.delta?.content;
-                        if (content !== undefined && content !== null) {
-                            fullResponse += content;
-                            responseDiv.textContent = fullResponse;
-                            responseDiv.scrollTop = responseDiv.scrollHeight;
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const data = line.slice(6).trim();
+                        if (data === '[DONE]') {
+                            statusSpan.textContent = 'Complete';
+                            statusSpan.style.color = '#51cf66';
+                            break;
                         }
-                    } catch (e) {
-                        console.error('Error parsing test response:', e);
+
+                        if (!data) continue;
+
+                        try {
+                            const parsed = JSON.parse(data);
+                            const content = parsed.choices?.[0]?.delta?.content;
+                            if (content !== undefined && content !== null) {
+                                fullResponse += content;
+                                responseDiv.textContent = fullResponse;
+                                responseDiv.scrollTop = responseDiv.scrollHeight;
+                            }
+                        } catch (e) {
+                            console.error('Error parsing test response:', e);
+                        }
                     }
                 }
             }
