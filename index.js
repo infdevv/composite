@@ -391,7 +391,7 @@ server.get("/api/stats", async (request, reply) => {
     reply.type('application/json').send(JSON.stringify({
         "connected_users": connected_users.size, // number of connected users
         "total_handled_messages": total_messages, // number of messages handled by the server
-        "average_message_length": total_message_len / total_messages
+        "average_message_length": total_messages > 0 ? Math.round(total_message_len / total_messages) : 0
     }));
 });
 
