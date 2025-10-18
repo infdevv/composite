@@ -15,12 +15,19 @@ export function loadCustomEngineConfig() {
     const saved = localStorage.getItem('customEngineConfig');
     if (saved) {
         try {
-            customEngineConfig = JSON.parse(saved);
-            document.getElementById('custom-engine-type').value = customEngineConfig.type || 'openai';
-            document.getElementById('custom-endpoint').value = customEngineConfig.endpoint || '';
-            document.getElementById('custom-api-key').value = customEngineConfig.apiKey || '';
-            document.getElementById('custom-model-name').value = customEngineConfig.model || '';
-            document.getElementById('nvidia-org-id').value = customEngineConfig.nvidiaOrgId || '';
+            const parsed = JSON.parse(saved);
+            // Update properties instead of reassigning to maintain reference
+            customEngineConfig.type = parsed.type || 'openai';
+            customEngineConfig.endpoint = parsed.endpoint || '';
+            customEngineConfig.apiKey = parsed.apiKey || '';
+            customEngineConfig.model = parsed.model || '';
+            customEngineConfig.nvidiaOrgId = parsed.nvidiaOrgId || '';
+
+            document.getElementById('custom-engine-type').value = customEngineConfig.type;
+            document.getElementById('custom-endpoint').value = customEngineConfig.endpoint;
+            document.getElementById('custom-api-key').value = customEngineConfig.apiKey;
+            document.getElementById('custom-model-name').value = customEngineConfig.model;
+            document.getElementById('nvidia-org-id').value = customEngineConfig.nvidiaOrgId;
         } catch (e) {
             console.error('Failed to load custom engine config:', e);
         }
@@ -29,16 +36,20 @@ export function loadCustomEngineConfig() {
 
 // Save custom engine config
 export function saveCustomEngineConfig() {
-    customEngineConfig = {
-        type: document.getElementById('custom-engine-type').value,
-        endpoint: document.getElementById('custom-endpoint').value.trim(),
-        apiKey: document.getElementById('custom-api-key').value.trim(),
-        model: document.getElementById('custom-model-name').value.trim(),
-        nvidiaOrgId: document.getElementById('nvidia-org-id').value.trim()
-    };
+    // Update properties instead of reassigning to maintain reference
+    customEngineConfig.type = document.getElementById('custom-engine-type').value;
+    customEngineConfig.endpoint = document.getElementById('custom-endpoint').value.trim();
+    customEngineConfig.apiKey = document.getElementById('custom-api-key').value.trim();
+    customEngineConfig.model = document.getElementById('custom-model-name').value.trim();
+    customEngineConfig.nvidiaOrgId = document.getElementById('nvidia-org-id').value.trim();
 
     if (!customEngineConfig.endpoint) {
         alert('Please enter an API endpoint URL');
+        return;
+    }
+
+    if (!customEngineConfig.model) {
+        alert('Please enter a model name');
         return;
     }
 
