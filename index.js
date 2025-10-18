@@ -159,7 +159,11 @@ async function safeReadFile(filePath, encoding = 'utf8') {
 server.get('/', async (request, reply) => {
     try {
         const filePath = path.join(__dirname, 'public/index.html');
-        const fileContent = await safeReadFile(filePath, 'utf8');
+        let fileContent = await safeReadFile(filePath, 'utf8');
+
+        reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+        reply.header('Pragma', 'no-cache');
+        reply.header('Expires', '0');
         reply.type('text/html').send(fileContent);
     } catch (error) {
         throw error; // Will be caught by global error handler
@@ -183,7 +187,15 @@ server.get("/example.png", async (request, reply) => {
 server.get("/index.js", async (request, reply) => {
     try {
         const filePath = path.join(__dirname, 'public/index.js');
-        const fileContent = await safeReadFile(filePath, null);
+        let fileContent = await safeReadFile(filePath, 'utf8');
+
+        // Inject cache-busting version
+        const version = Date.now();
+        fileContent = fileContent.replace(/\{\{VERSION\}\}/g, version);
+
+        reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+        reply.header('Pragma', 'no-cache');
+        reply.header('Expires', '0');
         reply.type('application/javascript').send(fileContent);
     } catch (error) {
         throw error; // Will be caught by global error handler
@@ -197,7 +209,33 @@ server.get("/v1/chat/images/:description", async (request, reply) => {
 server.get("/plugin-parse.js", async (request, reply) => {
     try {
         const filePath = path.join(__dirname, 'public/plugin-parse.js');
-        const fileContent = await safeReadFile(filePath, 'utf8');
+        let fileContent = await safeReadFile(filePath, 'utf8');
+
+        // Inject cache-busting version
+        const version = Date.now();
+        fileContent = fileContent.replace(/\{\{VERSION\}\}/g, version);
+
+        reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+        reply.header('Pragma', 'no-cache');
+        reply.header('Expires', '0');
+        reply.type('application/javascript').send(fileContent);
+    } catch (error) {
+        throw error; // Will be caught by global error handler
+    }
+});
+
+server.get("/hyper.js", async (request, reply) => {
+    try {
+        const filePath = path.join(__dirname, 'public/hyper.js');
+        let fileContent = await safeReadFile(filePath, 'utf8');
+
+        // Inject cache-busting version
+        const version = Date.now();
+        fileContent = fileContent.replace(/\{\{VERSION\}\}/g, version);
+
+        reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+        reply.header('Pragma', 'no-cache');
+        reply.header('Expires', '0');
         reply.type('application/javascript').send(fileContent);
     } catch (error) {
         throw error; // Will be caught by global error handler
@@ -358,6 +396,9 @@ server.get("/puter.json", async (request, reply) => {
     try {
         const filePath = path.join(__dirname, 'public/puter.json');
         const fileContent = await safeReadFile(filePath, 'utf8');
+        reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+        reply.header('Pragma', 'no-cache');
+        reply.header('Expires', '0');
         reply.type('application/json').send(fileContent);
     } catch (error) {
         throw error; // Will be caught by global error handler
@@ -368,6 +409,9 @@ server.get("/puter2.json", async (request, reply) => {
     try {
         const filePath = path.join(__dirname, 'public/puter2.json');
         const fileContent = await safeReadFile(filePath, 'utf8');
+        reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+        reply.header('Pragma', 'no-cache');
+        reply.header('Expires', '0');
         reply.type('application/json').send(fileContent);
     } catch (error) {
         throw error; // Will be caught by global error handler
@@ -378,6 +422,9 @@ server.get("/statistics.html", async (request, reply) => {
     try {
         const filePath = path.join(__dirname, 'public/statistics.html');
         const fileContent = await safeReadFile(filePath, 'utf8');
+        reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+        reply.header('Pragma', 'no-cache');
+        reply.header('Expires', '0');
         reply.type('text/html').send(fileContent);
     } catch (error) {
         throw error; // Will be caught by global error handler
@@ -387,9 +434,17 @@ server.get("/statistics.html", async (request, reply) => {
 // Specific route for scripts directory (ES6 modules)
 server.get("/scripts/*", async (request, reply) => {
     try {
-        const scriptPath = request.url.replace('/scripts/', '');
+        const scriptPath = request.url.replace('/scripts/', '').split('?')[0]; // Remove query params
         const filePath = path.join(__dirname, 'public/scripts', scriptPath);
-        const fileContent = await safeReadFile(filePath, 'utf8');
+        let fileContent = await safeReadFile(filePath, 'utf8');
+
+        // Inject cache-busting version
+        const version = Date.now();
+        fileContent = fileContent.replace(/\{\{VERSION\}\}/g, version);
+
+        reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+        reply.header('Pragma', 'no-cache');
+        reply.header('Expires', '0');
         reply.type('application/javascript').send(fileContent);
     } catch (error) {
         throw error;
@@ -399,9 +454,17 @@ server.get("/scripts/*", async (request, reply) => {
 // Specific route for yuzu directory
 server.get("/yuzu/*", async (request, reply) => {
     try {
-        const yuzuPath = request.url.replace('/yuzu/', '');
+        const yuzuPath = request.url.replace('/yuzu/', '').split('?')[0]; // Remove query params
         const filePath = path.join(__dirname, 'public/yuzu', yuzuPath);
-        const fileContent = await safeReadFile(filePath, 'utf8');
+        let fileContent = await safeReadFile(filePath, 'utf8');
+
+        // Inject cache-busting version
+        const version = Date.now();
+        fileContent = fileContent.replace(/\{\{VERSION\}\}/g, version);
+
+        reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+        reply.header('Pragma', 'no-cache');
+        reply.header('Expires', '0');
         reply.type('application/javascript').send(fileContent);
     } catch (error) {
         throw error;

@@ -1,11 +1,12 @@
 // Main entry point - imports all modular scripts
-import { debug } from "./scripts/constants.js";
-import { setupDeviceInfo, initializeAPIKey, checkConnectivity } from "./scripts/utils.js";
-import { initializeUI } from "./scripts/ui.js";
-import { customEngineConfig } from "./scripts/engines.js";
+// Cache-busting: {{VERSION}} is injected by server on each request
+import { debug } from "./scripts/constants.js?v={{VERSION}}";
+import { setupDeviceInfo, initializeAPIKey, checkConnectivity } from "./scripts/utils.js?v={{VERSION}}";
+import { initializeUI } from "./scripts/ui.js?v={{VERSION}}";
+import { customEngineConfig } from "./scripts/engines.js?v={{VERSION}}";
 import * as webllm from "https://esm.run/@mlc-ai/web-llm";
 import { BareClient } from 'https://esm.sh/@tomphttp/bare-client@latest';
-import "/scripts/logger.js";
+import "/scripts/logger.js?v={{VERSION}}";
 
 // Initialize clients
 const bareClient = new BareClient('https://gointerstellar.app/ca/');

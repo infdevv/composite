@@ -8,20 +8,20 @@ import {
     loadSavedConfig,
     load,
     customEngineConfig
-} from './engines.js';
+} from './engines.js?v={{VERSION}}';
 import {
     initializeSocket,
     manualConnect,
     manualDisconnect,
     checkConnectionStatus,
     sendTestMessage
-} from './socket.js';
+} from './socket.js?v={{VERSION}}';
 import {
     registerServiceWorker,
     clearFetchLogs,
     toggleFetchDebugger,
     downloadFetchLogs
-} from './service-worker.js';
+} from './service-worker.js?v={{VERSION}}';
 
 // Setup all UI event listeners
 export function setupUIEventListeners(engine, bareClient) {
