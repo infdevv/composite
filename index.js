@@ -4,111 +4,6 @@ const { Server } = require("socket.io");
 const fs = require('fs');
 const cors = require('@fastify/cors');
 
-// File cache system with JSON-based reset
-const fileCache = new Map();
-let currentCacheVersion = 0;
-
-// Load initial cache version
-async function loadCacheVersion() {
-    try {
-        const cacheConfigPath = path.join(__dirname, 'cache.json');
-        const data = await fs.promises.readFile(cacheConfigPath, 'utf8');
-        const config = JSON.parse(data);
-        currentCacheVersion = config.version || 0;
-        console.log(`Cache initialized with version: ${currentCacheVersion}`);
-    } catch (error) {
-        console.log('Cache config not found, initializing with version 0');
-        currentCacheVersion = 0;
-    }
-}
-
-// Watch cache.json for changes to reset cache
-async function watchCacheConfig() {
-    const cacheConfigPath = path.join(__dirname, 'cache.json');
-
-    fs.watch(cacheConfigPath, async (eventType) => {
-        if (eventType === 'change') {
-            try {
-                const data = await fs.promises.readFile(cacheConfigPath, 'utf8');
-                const config = JSON.parse(data);
-                const newVersion = config.version || 0;
-
-                if (newVersion !== currentCacheVersion) {
-                    console.log(`Cache version changed from ${currentCacheVersion} to ${newVersion}, clearing cache...`);
-                    fileCache.clear();
-                    currentCacheVersion = newVersion;
-
-                    // Reset the version back to current version after clearing
-                    config.lastReset = new Date().toISOString();
-                    await fs.promises.writeFile(cacheConfigPath, JSON.stringify(config, null, 2));
-                    console.log(`Cache cleared successfully. ${fileCache.size} entries remaining.`);
-                }
-            } catch (error) {
-                console.error('Error processing cache config change:', error.message);
-            }
-        }
-    });
-}
-
-// Initialize cache system
-loadCacheVersion().then(() => {
-    watchCacheConfig();
-});
-
-// Cache middleware for file serving
-function getCachedFile(filePath, encoding = 'utf8') {
-    const cacheKey = `${filePath}:${encoding}:${currentCacheVersion}`;
-
-    if (fileCache.has(cacheKey)) {
-        return fileCache.get(cacheKey);
-    }
-
-    return null;
-}
-
-function setCachedFile(filePath, content, encoding = 'utf8') {
-    const cacheKey = `${filePath}:${encoding}:${currentCacheVersion}`;
-    fileCache.set(cacheKey, content);
-}
-
-// Enhanced safeReadFile with caching
-async function safeReadFileWithCache(filePath, encoding = 'utf8') {
-    const startTime = Date.now();
-
-    // Check cache first
-    const cached = getCachedFile(filePath, encoding);
-    if (cached !== null) {
-        const duration = Date.now() - startTime;
-        console.log(`[CACHE HIT] ${filePath} (${duration}ms)`);
-        return cached;
-    }
-
-    // Read from disk if not cached
-    const resolvedPath = path.resolve(filePath);
-    const allowedDir = path.resolve(__dirname);
-
-    if (!resolvedPath.startsWith(allowedDir)) {
-        throw new Error('Access denied');
-    }
-
-    try {
-        const content = await fs.promises.readFile(resolvedPath, encoding);
-        const duration = Date.now() - startTime;
-
-        // Cache the content
-        setCachedFile(filePath, content, encoding);
-
-        const sizeKB = Buffer.byteLength(content, encoding || 'utf8') / 1024;
-        console.log(`[CACHE MISS] ${filePath} (${duration}ms, ${sizeKB.toFixed(2)}KB) - now cached`);
-
-        return content;
-    } catch (error) {
-        console.error('File read error:', error.message);
-        const sanitizedError = new Error('File not found');
-        sanitizedError.statusCode = 404;
-        throw sanitizedError;
-    }
-}
 
 const server = fastify({
     logger: false, 
@@ -264,7 +159,7 @@ async function safeReadFile(filePath, encoding = 'utf8') {
 server.get('/', async (request, reply) => {
     try {
         const filePath = path.join(__dirname, 'public/index.html');
-        const fileContent = await safeReadFileWithCache(filePath, 'utf8');
+        const fileContent = await safeReadFile(filePath, 'utf8');
         reply.type('text/html').send(fileContent);
     } catch (error) {
         throw error; // Will be caught by global error handler
@@ -278,7 +173,7 @@ server.get("/health", async (request, reply) => {
 server.get("/example.png", async (request, reply) => {
     try {
         const filePath = path.join(__dirname, 'public/example.png');
-        const fileContent = await safeReadFileWithCache(filePath, null);
+        const fileContent = await safeReadFile(filePath, null);
         reply.type('image/png').send(fileContent);
     } catch (error) {
         throw error; // Will be caught by global error handler
@@ -288,7 +183,7 @@ server.get("/example.png", async (request, reply) => {
 server.get("/index.js", async (request, reply) => {
     try {
         const filePath = path.join(__dirname, 'public/index.js');
-        const fileContent = await safeReadFileWithCache(filePath, null);
+        const fileContent = await safeReadFile(filePath, null);
         reply.type('application/javascript').send(fileContent);
     } catch (error) {
         throw error; // Will be caught by global error handler
@@ -302,7 +197,7 @@ server.get("/v1/chat/images/:description", async (request, reply) => {
 server.get("/plugin-parse.js", async (request, reply) => {
     try {
         const filePath = path.join(__dirname, 'public/plugin-parse.js');
-        const fileContent = await safeReadFileWithCache(filePath, 'utf8');
+        const fileContent = await safeReadFile(filePath, 'utf8');
         reply.type('application/javascript').send(fileContent);
     } catch (error) {
         throw error; // Will be caught by global error handler
@@ -462,7 +357,7 @@ server.post("/donate", async (request, reply) => {
 server.get("/puter.json", async (request, reply) => {
     try {
         const filePath = path.join(__dirname, 'public/puter.json');
-        const fileContent = await safeReadFileWithCache(filePath, 'utf8');
+        const fileContent = await safeReadFile(filePath, 'utf8');
         reply.type('application/json').send(fileContent);
     } catch (error) {
         throw error; // Will be caught by global error handler
@@ -472,7 +367,7 @@ server.get("/puter.json", async (request, reply) => {
 server.get("/puter2.json", async (request, reply) => {
     try {
         const filePath = path.join(__dirname, 'public/puter2.json');
-        const fileContent = await safeReadFileWithCache(filePath, 'utf8');
+        const fileContent = await safeReadFile(filePath, 'utf8');
         reply.type('application/json').send(fileContent);
     } catch (error) {
         throw error; // Will be caught by global error handler
@@ -482,7 +377,7 @@ server.get("/puter2.json", async (request, reply) => {
 server.get("/statistics.html", async (request, reply) => {
     try {
         const filePath = path.join(__dirname, 'public/statistics.html');
-        const fileContent = await safeReadFileWithCache(filePath, 'utf8');
+        const fileContent = await safeReadFile(filePath, 'utf8');
         reply.type('text/html').send(fileContent);
     } catch (error) {
         throw error; // Will be caught by global error handler
@@ -494,7 +389,7 @@ server.get("/scripts/*", async (request, reply) => {
     try {
         const scriptPath = request.url.replace('/scripts/', '');
         const filePath = path.join(__dirname, 'public/scripts', scriptPath);
-        const fileContent = await safeReadFileWithCache(filePath, 'utf8');
+        const fileContent = await safeReadFile(filePath, 'utf8');
         reply.type('application/javascript').send(fileContent);
     } catch (error) {
         throw error;
@@ -506,7 +401,7 @@ server.get("/yuzu/*", async (request, reply) => {
     try {
         const yuzuPath = request.url.replace('/yuzu/', '');
         const filePath = path.join(__dirname, 'public/yuzu', yuzuPath);
-        const fileContent = await safeReadFileWithCache(filePath, 'utf8');
+        const fileContent = await safeReadFile(filePath, 'utf8');
         reply.type('application/javascript').send(fileContent);
     } catch (error) {
         throw error;
@@ -525,41 +420,6 @@ server.get("/api/stats", async (request, reply) => {
     }));
 });
 
-server.post("/api/cache/reset", async (request, reply) => {
-    try {
-        const cacheConfigPath = path.join(__dirname, 'cache.json');
-        const newVersion = currentCacheVersion + 1;
-
-        const config = {
-            version: newVersion,
-            lastReset: new Date().toISOString()
-        };
-
-        await fs.promises.writeFile(cacheConfigPath, JSON.stringify(config, null, 2));
-
-        reply.type('application/json').send({
-            success: true,
-            message: 'Cache reset initiated',
-            oldVersion: currentCacheVersion,
-            newVersion: newVersion,
-            cacheSize: fileCache.size
-        });
-    } catch (error) {
-        console.error('Cache reset error:', error.message);
-        reply.status(500).send({
-            success: false,
-            message: 'Failed to reset cache'
-        });
-    }
-});
-
-server.get("/api/cache/status", async (request, reply) => {
-    reply.type('application/json').send({
-        currentVersion: currentCacheVersion,
-        cachedFiles: fileCache.size,
-        cacheKeys: Array.from(fileCache.keys())
-    });
-});
 
 server.post("/chat/completions", async (request, reply) => {
     // call it 301 way we be redirecting

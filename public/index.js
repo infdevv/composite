@@ -22,6 +22,7 @@ window.customEngineConfig = customEngineConfig;
 
 // Expose clients globally
 window.webllmEngine = engine;
+window.bareClient = bareClient;
 
 // Set engine progress callback
 import { updateEngineInitProgressCallback } from "./scripts/engines.js";

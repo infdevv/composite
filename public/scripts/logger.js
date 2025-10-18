@@ -1,24 +1,37 @@
 const log = console.log
         const error = console.error
         const info = console.info
+        const warn = console.warn
 
-        console.log = (message) => {
-            log(message)
+        console.log = (...args) => {
+            log(...args)
+            const message = args.map(arg =>
+                typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+            ).join(' ')
             document.getElementById("logs").innerHTML += `<span>log: ${message}</span><br>`
         }
 
-        console.error = (message) => {
-            error(message)
+        console.error = (...args) => {
+            error(...args)
+            const message = args.map(arg =>
+                typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+            ).join(' ')
             document.getElementById("logs").innerHTML += `<span style="color: red">error: ${message}</span><br>`
         }
 
-        console.info = (message) => {
-            info(message)
+        console.info = (...args) => {
+            info(...args)
+            const message = args.map(arg =>
+                typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+            ).join(' ')
             document.getElementById("logs").innerHTML += `<span style="color: yellow">info: ${message}</span><br>`
         }
 
-        console.warn = (message) => {
-            info(message)
+        console.warn = (...args) => {
+            warn(...args)
+            const message = args.map(arg =>
+                typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+            ).join(' ')
             document.getElementById("logs").innerHTML += `<span style="color: orange">warn: ${message}</span><br>`
         }
 

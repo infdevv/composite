@@ -6,8 +6,7 @@ export let customEngineConfig = {
     type: 'openai',
     endpoint: '',
     apiKey: '',
-    model: '',
-    nvidiaOrgId: ''
+    model: ''
 };
 
 // Load custom engine config from localStorage
@@ -21,13 +20,11 @@ export function loadCustomEngineConfig() {
             customEngineConfig.endpoint = parsed.endpoint || '';
             customEngineConfig.apiKey = parsed.apiKey || '';
             customEngineConfig.model = parsed.model || '';
-            customEngineConfig.nvidiaOrgId = parsed.nvidiaOrgId || '';
 
             document.getElementById('custom-engine-type').value = customEngineConfig.type;
             document.getElementById('custom-endpoint').value = customEngineConfig.endpoint;
             document.getElementById('custom-api-key').value = customEngineConfig.apiKey;
             document.getElementById('custom-model-name').value = customEngineConfig.model;
-            document.getElementById('nvidia-org-id').value = customEngineConfig.nvidiaOrgId;
         } catch (e) {
             console.error('Failed to load custom engine config:', e);
         }
@@ -41,7 +38,6 @@ export function saveCustomEngineConfig() {
     customEngineConfig.endpoint = document.getElementById('custom-endpoint').value.trim();
     customEngineConfig.apiKey = document.getElementById('custom-api-key').value.trim();
     customEngineConfig.model = document.getElementById('custom-model-name').value.trim();
-    customEngineConfig.nvidiaOrgId = document.getElementById('nvidia-org-id').value.trim();
 
     if (!customEngineConfig.endpoint) {
         alert('Please enter an API endpoint URL');
@@ -97,7 +93,10 @@ export async function loadLorebookAndPlugin(bareClient) {
 
     // Load lorebook
     if (document.getElementById("lorebook-id").value != "") {
-        window.lorebook = bareClient.fetch("https://lorebary.sophiamccarty.com/api/lorebook/load", {
+        const lorebookUrl = "https://lorebary.sophiamccarty.com/api/lorebook/load";
+        console.log("Fetching lorebook via bare client:", lorebookUrl);
+
+        window.lorebook = bareClient.fetch(lorebookUrl, {
             "headers": {
                 "accept": "*/*",
                 "accept-language": "en-US,en;q=0.5",
@@ -112,23 +111,31 @@ export async function loadLorebookAndPlugin(bareClient) {
         });
 
         window.lorebook.then((response) => {
+            console.log("Lorebook response status:", response.status, response.statusText);
+            console.log("Lorebook response URL:", response.url);
             if (response.ok) {
                 response.json().then((lorebook) => {
                     window.lorebook = lorebook;
                     console.log("Loaded lorebook: " + lorebook["lorebook"]["name"]);
                 });
             } else {
+                console.error("Lorebook fetch failed with status:", response.status);
+                response.text().then(text => console.error("Response body:", text));
                 alert("Issue loading lorebook, check debug logs.");
             }
+        }).catch((error) => {
+            console.error("Error fetching lorebook:", error);
+            alert("Error fetching lorebook: " + error.message);
         });
     }
 
     // Load plugin
     if (document.getElementById("plugin-id").value != "") {
         const pluginId = document.getElementById("plugin-id").value;
-        console.log("Fetching plugin:", pluginId);
+        const pluginUrl = "https://lorebary.sophiamccarty.com/api/plugin/" + pluginId;
+        console.log("Fetching plugin via bare client:", pluginUrl);
 
-        window.plugin = bareClient.fetch("https://lorebary.sophiamccarty.com/api/plugin/" + pluginId, {
+        window.plugin = bareClient.fetch(pluginUrl, {
             "headers": {
                 "accept": "*/*",
                 "accept-language": "en-US,en;q=0.5",
@@ -147,12 +154,16 @@ export async function loadLorebookAndPlugin(bareClient) {
         });
 
         window.plugin.then((response) => {
+            console.log("Plugin response status:", response.status, response.statusText);
+            console.log("Plugin response URL:", response.url);
             if (response.ok) {
                 response.json().then((plugin) => {
                     window.plugin = plugin;
                     console.log("Loaded plugin: " + (plugin.meta?.name || "Unknown Plugin"));
                 });
             } else {
+                console.error("Plugin fetch failed with status:", response.status);
+                response.text().then(text => console.error("Response body:", text));
                 console.error("Issue loading plugin, check debug logs.");
                 alert("Issue loading plugin, check debug logs.");
             }

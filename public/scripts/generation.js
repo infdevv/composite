@@ -661,28 +661,6 @@ export async function streamingGeneratingCustomEngine(messages, customEngineConf
                 delete headers['Authorization'];
             }
 
-        } else if (customEngineConfig.type === 'nvidia') {
-            requestBody = {
-                model: customEngineConfig.model || document.getElementById("model").value,
-                messages: messages,
-                stream: true,
-                max_tokens: settings.max_tokens || 2048,
-                temperature: settings.temperature !== undefined ? settings.temperature : 0.7,
-                top_p: settings.top_p !== undefined ? settings.top_p : 1,
-                frequency_penalty: settings.frequency_penalty || 0.0,
-                presence_penalty: settings.presence_penalty || 0.0
-            };
-
-            if (customEngineConfig.apiKey) {
-                headers['Authorization'] = `Bearer ${customEngineConfig.apiKey}`;
-            }
-
-            if (customEngineConfig.nvidiaOrgId) {
-                headers['NVCF-ORG-ID'] = customEngineConfig.nvidiaOrgId;
-            }
-
-            headers['Accept'] = 'application/json';
-
         } else {
             requestBody = {
                 model: customEngineConfig.model || document.getElementById("model").value,
@@ -696,8 +674,9 @@ export async function streamingGeneratingCustomEngine(messages, customEngineConf
             }
         }
 
-        console.log('Custom engine request:', customEngineConfig.endpoint, requestBody);
+        console.log('Custom engine request: ' + customEngineConfig.endpoint);
 
+        // Make direct request
         const response = await fetch(customEngineConfig.endpoint, {
             method: 'POST',
             headers: headers,
@@ -706,7 +685,9 @@ export async function streamingGeneratingCustomEngine(messages, customEngineConf
         });
 
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            const errorBody = await response.text();
+            console.error('Response error body: ' + errorBody);
+            throw new Error(`HTTP error! status: ${response.status}, body: ${errorBody.substring(0, 500)}`);
         }
 
         const reader = response.body.getReader();

@@ -1,5 +1,5 @@
 // Service Worker for Fetch Debugging Middleware
-const SW_VERSION = 'v1.0.0';
+const SW_VERSION = 'v1.0.1';
 const CACHE_NAME = `fetch-debugger-${SW_VERSION}`;
 
 // Configuration for debugging
