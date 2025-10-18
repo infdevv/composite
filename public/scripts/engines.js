@@ -324,43 +324,34 @@ export function handleEngineChange() {
 
 // Load saved config from localStorage
 export function loadSavedConfig() {
+    // Track if user has manually changed the engine
+    let userChangedEngine = false;
+
+    // Listen for manual engine changes
+    const engineSelect = document.getElementById("engine");
+    if (engineSelect) {
+        engineSelect.addEventListener("change", () => {
+            userChangedEngine = true;
+            console.log("User manually changed engine, will not override with saved config");
+        });
+    }
+
     setTimeout(function() {
         if (localStorage.getItem("engine")) {
-            // Render models
-            if (localStorage.getItem("engine") === "WebLLM (Local AI)") {
-                document.getElementById("model").innerHTML = "";
-                availableModels.forEach(model => {
-                    const option = document.createElement('option');
-                    option.value = model;
-                    option.textContent = model;
-                    document.getElementById('model').appendChild(option);
-                    console.log("Added: " + model);
-                });
-            } else if (localStorage.getItem("engine") === "Pollinations (Cloud AI)") {
-                document.getElementById("model").innerHTML = "";
-                availableModelsPollinations.forEach(model => {
-                    const option = document.createElement('option');
-                    option.value = model;
-                    option.textContent = model;
-                    document.getElementById('model').appendChild(option);
-                    console.log("Added: " + model);
-                });
-            } else if (localStorage.getItem("engine") === "Yuzu (Cloud AI)" || localStorage.getItem("engine") === "G4F (Cloud AI)") {
-                document.getElementById("model").innerHTML = "";
-                availableModelsYuzu.forEach(model => {
-                    const option = document.createElement('option');
-                    option.value = model;
-                    if (model.includes(":")) {
-                        option.textContent = model.split(":")[1];
-                    } else {
-                        option.textContent = model;
-                    }
-                    document.getElementById('model').appendChild(option);
-                    console.log("Added: " + model);
-                });
+            // Only restore saved engine if user hasn't manually changed it
+            const savedEngine = localStorage.getItem("engine");
+
+            if (!userChangedEngine) {
+                console.log("Restoring saved engine:", savedEngine);
+                document.getElementById("engine").value = savedEngine;
+
+                // Trigger the engine change handler to populate models correctly
+                handleEngineChange();
+            } else {
+                console.log("User changed engine, not restoring saved engine:", savedEngine);
             }
-            document.getElementById("engine").value = localStorage.getItem("engine");
         }
+
         if (localStorage.getItem("model")) {
             document.getElementById("model").value = localStorage.getItem("model");
         }

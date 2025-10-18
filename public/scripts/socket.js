@@ -154,7 +154,10 @@ export function initializeSocket() {
             }
 
             let type = document.getElementById("engine").value;
-            console.log('Engine type:', type);
+            console.log('=== ENGINE ROUTING DEBUG ===');
+            console.log('Selected engine type:', type);
+            console.log('Custom engine config:', window.customEngineConfig);
+            console.log('=========================');
 
             if (type === "WebLLM (Local AI)") {
                 console.log('Starting WebLLM generation');
@@ -173,6 +176,8 @@ export function initializeSocket() {
                 streamingGeneratingHyper(parsedMessages, window.hyperInstance, settings);
             } else if (type === "Custom Engine") {
                 console.log('Starting Custom Engine generation');
+                console.log('Custom config endpoint:', window.customEngineConfig.endpoint);
+                console.log('Custom config model:', window.customEngineConfig.model);
                 streamingGeneratingCustomEngine(parsedMessages, window.customEngineConfig, settings);
             } else {
                 console.error('Unknown engine type:', type);

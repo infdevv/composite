@@ -38,10 +38,14 @@ export function setupUIEventListeners(engine, bareClient) {
 
     // Start button
     document.getElementById("start").addEventListener("click", async () => {
+        // Log the current engine selection for debugging
+        const currentEngine = document.getElementById("engine").value;
+        console.log("Start clicked with engine:", currentEngine);
+
         await load(engine, bareClient);
 
-        // Save config
-        localStorage.setItem("engine", document.getElementById("engine").value);
+        // Save config - this will be loaded on next page refresh
+        localStorage.setItem("engine", currentEngine);
         localStorage.setItem("model", document.getElementById("model").value);
         localStorage.setItem("prefix-prompt", document.getElementById("prefix-prompt").value);
     });

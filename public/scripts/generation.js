@@ -567,9 +567,25 @@ export async function streamingGeneratingCustomEngine(messages, customEngineConf
 
     messages = preprocessMessages(messages);
 
+    // Verify that Custom Engine is actually selected
+    const selectedEngine = document.getElementById("engine")?.value;
+    if (selectedEngine !== "Custom Engine") {
+        console.error('Custom engine generation called but not selected');
+        window.socket.emit('message', 'Error: Custom engine was triggered but is not selected. Please refresh the page.');
+        onFinish("");
+        return;
+    }
+
     if (!customEngineConfig.endpoint) {
         console.error('Custom engine endpoint not configured');
         window.socket.emit('message', 'Error: Custom engine not configured. Please configure it first.');
+        onFinish("");
+        return;
+    }
+
+    if (!customEngineConfig.model) {
+        console.error('Custom engine model not configured');
+        window.socket.emit('message', 'Error: Custom engine model not configured. Please configure it first.');
         onFinish("");
         return;
     }
