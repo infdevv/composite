@@ -1,5 +1,5 @@
 // Engine initialization and management
-import { availableModels, availableModelsPollinations, availableModelsG4F } from './constants.js';
+import { availableModels, availableModelsPollinations, availableModelsYuzu } from './constants.js';
 
 // Custom engine configuration
 export let customEngineConfig = {
@@ -269,8 +269,8 @@ export function handleEngineChange() {
             document.getElementById('model').appendChild(option);
             console.log("Added: " + model);
         });
-    } else if (engineValue === "G4F (Cloud AI)") {
-        availableModelsG4F.forEach(model => {
+    } else if (engineValue === "Yuzu (Cloud AI)") {
+        availableModelsYuzu.forEach(model => {
             const option = document.createElement('option');
             option.value = model;
             if (model.includes(":")) {
@@ -326,9 +326,9 @@ export function loadSavedConfig() {
                     document.getElementById('model').appendChild(option);
                     console.log("Added: " + model);
                 });
-            } else if (localStorage.getItem("engine") === "G4F (Cloud AI)") {
+            } else if (localStorage.getItem("engine") === "Yuzu (Cloud AI)" || localStorage.getItem("engine") === "G4F (Cloud AI)") {
                 document.getElementById("model").innerHTML = "";
-                availableModelsG4F.forEach(model => {
+                availableModelsYuzu.forEach(model => {
                     const option = document.createElement('option');
                     option.value = model;
                     if (model.includes(":")) {

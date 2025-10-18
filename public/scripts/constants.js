@@ -26,17 +26,17 @@ const availableModels = [
             "Qwen3-8B-q4f16_1-MLC"]
 
                   let availableModelsPollinations = [];
-        let availableModelsG4F  = [];
+        let availableModelsYuzu  = [];
 
-        // Fetch puter3.json for G4F models
+        // Fetch puter.json for Yuzu models
         fetch("puter.json")
             .then(res => res.json())
             .then(data => {
-                availableModelsG4F = data.models || data || [];
+                availableModelsYuzu = data.models || data || [];
             })
             .catch(e => {
-                console.error("Failed to load G4F models:", e);
-                availableModelsG4F = [];
+                console.error("Failed to load Yuzu models:", e);
+                availableModelsYuzu = [];
             });
 
         let allAvailableModelsPollinations = [];
@@ -55,4 +55,4 @@ const availableModels = [
 
 let debug = false;
 
-        export { prompts, availableModels, availableModelsPollinations, availableModelsG4F, allAvailableModelsPollinations, debug };
+        export { prompts, availableModels, availableModelsPollinations, availableModelsYuzu, allAvailableModelsPollinations, debug };

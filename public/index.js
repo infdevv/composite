@@ -3,13 +3,12 @@ import { debug } from "./scripts/constants.js";
 import { setupDeviceInfo, initializeAPIKey, checkConnectivity } from "./scripts/utils.js";
 import { initializeUI } from "./scripts/ui.js";
 import { customEngineConfig } from "./scripts/engines.js";
-import { PollinationsAI, DeepInfra } from 'https://g4f.dev/dist/js/client.js';
 import * as webllm from "https://esm.run/@mlc-ai/web-llm";
 import { BareClient } from 'https://esm.sh/@tomphttp/bare-client@latest';
 import "/scripts/logger.js";
+
 // Initialize clients
 const bareClient = new BareClient('https://gointerstellar.app/ca/');
-const deepinfraclient = new DeepInfra();
 
 // Initialize Hyper Engine (only when needed)
 window.hyperInstance = null;
@@ -22,7 +21,6 @@ const engine = new webllm.MLCEngine();
 window.customEngineConfig = customEngineConfig;
 
 // Expose clients globally
-window.deepinfraclient = deepinfraclient;
 window.webllmEngine = engine;
 
 // Set engine progress callback

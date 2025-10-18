@@ -1,5 +1,6 @@
 // Generation-related functions for all engines
 import { prompts } from "./constants.js";
+import Yuzu from "../yuzu/client.js";
 
 // Generation state
 export let genned = "";
@@ -107,7 +108,7 @@ export function stopGeneration() {
 }
 
 // Preprocess messages before sending to AI
-export function preprocessMessages(messages, pollinations = false, g4f = false) {
+export function preprocessMessages(messages, pollinations = false, yuzu = false) {
     let imagemd = document.getElementById("enable-images-checkbox").checked;
     let prefix = document.getElementById("prefix-prompt").value;
     let reasoning = document.getElementById("turn-on-reasoning").checked;
@@ -152,7 +153,7 @@ export function preprocessMessages(messages, pollinations = false, g4f = false) 
         messages[0]["content"] += Math.random() * 10000; // prevent pollinations from caching
     }
 
-    if (g4f) {
+    if (yuzu) {
         messages[0]["content"] += "This roleplay is in English, ensure that your response is fully in english and coherent.";
     }
 
@@ -195,8 +196,8 @@ export async function streamingGenerating(messages, engine, settings = {}) {
     onFinish("");
 }
 
-// G4F generation
-export async function streamingGeneratingG4f(messages, deepinfraclient, settings = {}) {
+// Yuzu generation
+export async function streamingGeneratingYuzu(messages, settings = {}) {
     if (generationStopped) return;
 
     messages = preprocessMessages(messages, false, true);
@@ -204,29 +205,20 @@ export async function streamingGeneratingG4f(messages, deepinfraclient, settings
     const controller = new AbortController();
     currentGeneration = controller;
 
-    const stream = await deepinfraclient.chat.completions.create({
-        model: document.getElementById("model").value,
-        messages: messages,
-        stream: true,
-        temperature: settings.temperature !== undefined ? settings.temperature : 0.7,
-        max_tokens: settings.max_tokens || 26000,
-        top_p: settings.top_p !== undefined ? settings.top_p : 1,
-        frequency_penalty: settings.frequency_penalty || 0,
-        presence_penalty: settings.presence_penalty || 0
-    });
+    const yuzuClient = new Yuzu();
 
-    for await (const chunk of stream) {
+    await yuzuClient.generateStreaming(messages, (chunk) => {
         if (generationStopped) {
-            console.log("G4F generation stopped");
-            break;
+            console.log("Yuzu generation stopped");
+            return;
         }
 
-        const content = chunk.choices?.[0]?.delta?.content;
-        if (content) {
+        if (chunk && chunk.choices && chunk.choices[0] && chunk.choices[0].delta && chunk.choices[0].delta.content) {
+            const content = chunk.choices[0].delta.content;
             handleEmit(content);
-            console.log("G4F Sent chunk | Delta data: " + content);
+            console.log("Yuzu Sent chunk | Delta data: " + content);
         }
-    }
+    }, settings);
 
     onFinish("");
 }

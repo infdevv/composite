@@ -33,15 +33,15 @@ export async function checkConnectivity() {
             document.getElementById("hf").style.color = "red";
         }
 
-        // Check G4F/DeepInfra
+        // Check Yuzu/DeepInfra
         try {
             fetch("https://api.deepinfra.com/v1/openai/chat/completions").then(res => {
                 if (res.status == 405) {
-                    document.getElementById("g4f").style.color = "#74db7a";
+                    document.getElementById("yuzu").style.color = "#74db7a";
                 }
             });
         } catch {
-            document.getElementById("g4f").style.color = "red";
+            document.getElementById("yuzu").style.color = "red";
         }
 
         // Check health endpoint
