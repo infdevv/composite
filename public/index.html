@@ -121,6 +121,7 @@
         <option selected>WebLLM (Local AI)</option>
         <option>Pollinations (Cloud AI)</option>
         <option>Yuzu (Cloud AI)</option>
+        <option>Yuzu (AUTO)</option>
         <option>Hyper (Auto)</option>
         <option>Custom Engine</option>
    </select>
@@ -135,7 +136,7 @@
         <option value="unpositive" title="Removes positivity from roleplay, focuses on darker/grimmer tones">Unpositive Prompt (Dark/grim themes)</option>
         <option value="affection" title="Maximum affection mode - AI becomes extremely loving regardless of character personality">Affection Prompt (Maximum love/affection)</option>
         <option value="cheese" title="First-person POV, extremely explicit smut writing, detailed combat scenes, character development focus">Cheese's Prompt (Explicit 18+ content, detailed)</option>
-        <option value="Pupi's Prompt" title="700-word max responses, third-person narrative, cinematic prose, slow-paced storytelling with psychological depth">Pupi's Prompt (Literary style, detailed prose)</option>
+        <option value="pupi" title="700-word max responses, third-person narrative, cinematic prose, slow-paced storytelling with psychological depth">Pupi's Prompt (Literary style, detailed prose)</option>
         <option value="teto" title="AI becomes obsessed with Kasane Teto regardless of your input. For memes only.">teto (Kasane Teto obsession mode)</option>
         <option value="brbie" title="brbie ( General RP )">brbie ( General RP )</option>
         <option value="status" title="Shows the current status of the character">Status ( Shows current status of the character ) (brbiekiss.)</option>
@@ -177,7 +178,7 @@
         <button onclick="saveCustomEngineConfig()" style="background-color: #8b29db;">Save Configuration</button>
     </div>
     <br>
-    <div id="enable-images" style="display: flex;">
+    <div id="enable-images" style="display: none">
         <label>
             <input type="checkbox" id="enable-images-checkbox">
             enable image generation ( via Pollinations API )
@@ -185,7 +186,7 @@
     </div>
     <div id="enable-images" style="display: flex;">
         <label>
-            <input type="checkbox" id="show-reasoning">
+            <input type="checkbox" id="show-reasoning" checked>
             show llm reasoning ( only works for reasoning models )
         </label>
     </div>

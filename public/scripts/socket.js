@@ -3,6 +3,7 @@ import {
     streamingGenerating,
     streamingGeneratingPollinations,
     streamingGeneratingYuzu,
+    streamingGeneratingYuzuAuto,
     streamingGeneratingHyper,
     streamingGeneratingCustomEngine,
     stopGeneration,
@@ -164,6 +165,9 @@ export function initializeSocket() {
             } else if (type === "Yuzu (Cloud AI)") {
                 console.log('Starting Yuzu generation');
                 streamingGeneratingYuzu(parsedMessages, settings);
+            } else if (type === "Yuzu (AUTO)") {
+                console.log('Starting Yuzu AUTO generation');
+                streamingGeneratingYuzuAuto(parsedMessages, settings);
             } else if (type === "Hyper (Auto)") {
                 console.log('Starting Hyper generation');
                 streamingGeneratingHyper(parsedMessages, window.hyperInstance, settings);

@@ -230,9 +230,11 @@ export function handleEngineChange() {
     }
 
     // Disable/enable model selector based on engine
-    if (engineValue === "Hyper (Auto)") {
+    if (engineValue === "Hyper (Auto)" || engineValue === "Yuzu (AUTO)") {
         modelSelector.disabled = true;
-        modelSelector.title = "Model selection is automatic when using Hyper (Auto)";
+        modelSelector.title = engineValue === "Hyper (Auto)"
+            ? "Model selection is automatic when using Hyper (Auto)"
+            : "Model selection is automatic when using Yuzu (AUTO)";
     } else {
         modelSelector.disabled = false;
         modelSelector.title = "";
@@ -281,6 +283,12 @@ export function handleEngineChange() {
             document.getElementById('model').appendChild(option);
             console.log("Added: " + model);
         });
+    } else if (engineValue === "Yuzu (AUTO)") {
+        const option = document.createElement('option');
+        option.value = "auto";
+        option.textContent = "Automatic Model Selection";
+        document.getElementById('model').appendChild(option);
+        console.log("Added: Yuzu AUTO mode");
     } else if (engineValue === "Hyper (Auto)") {
         if (!window.hyperInstance) {
             window.hyperInstance = new Hyper();

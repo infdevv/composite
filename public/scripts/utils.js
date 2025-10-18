@@ -76,7 +76,7 @@ export const promptDescriptions = {
     "unpositive": "Removes positivity from roleplay, focuses on darker/grimmer tones and themes",
     "affection": "Maximum affection mode - AI becomes extremely loving and affectionate regardless of character personality",
     "cheese": "First-person POV, extremely explicit 18+ smut writing, detailed combat scenes, strong character development focus",
-    "Pupi's Prompt": "700-word max responses, third-person narrative, cinematic prose with slow-paced storytelling and psychological depth",
+    "pupi": "700-word max responses, third-person narrative, cinematic prose with slow-paced storytelling and psychological depth",
     "teto": "AI becomes obsessed with Kasane Teto regardless of your input. For memes only."
 };
 
