@@ -119,98 +119,9 @@ export function updateEngineInitProgressCallback(report) {
     document.getElementById("start").innerHTML = report.text;
 }
 
-// Load lorebook and plugin
-export async function loadLorebookAndPlugin(bareClient) {
-    window.lorebook = null;
-    window.plugin = null;
-    window.pluginParser = new PluginParser();
-
-    // Load lorebook
-    if (document.getElementById("lorebook-id").value != "") {
-        const lorebookUrl = "https://lorebary.sophiamccarty.com/api/lorebook/load";
-        console.log("Fetching lorebook via bare client:", lorebookUrl);
-
-        window.lorebook = bareClient.fetch(lorebookUrl, {
-            "headers": {
-                "accept": "*/*",
-                "accept-language": "en-US,en;q=0.5",
-                "content-type": "application/json",
-                "origin": "big poe",
-                "priority": "u=1, i",
-            },
-            "body": "{\"code\":\"" + document.getElementById("lorebook-id").value + "\"}",
-            "method": "POST",
-            "mode": "cors",
-            "credentials": "include"
-        });
-
-        window.lorebook.then((response) => {
-            console.log("Lorebook response status:", response.status, response.statusText);
-            console.log("Lorebook response URL:", response.url);
-            if (response.ok) {
-                response.json().then((lorebook) => {
-                    window.lorebook = lorebook;
-                    console.log("Loaded lorebook: " + lorebook["lorebook"]["name"]);
-                });
-            } else {
-                console.error("Lorebook fetch failed with status:", response.status);
-                response.text().then(text => console.error("Response body:", text));
-                alert("Issue loading lorebook, check debug logs.");
-            }
-        }).catch((error) => {
-            console.error("Error fetching lorebook:", error);
-            alert("Error fetching lorebook: " + error.message);
-        });
-    }
-
-    // Load plugin
-    if (document.getElementById("plugin-id").value != "") {
-        const pluginId = document.getElementById("plugin-id").value;
-        const pluginUrl = "https://lorebary.sophiamccarty.com/api/plugin/" + pluginId;
-        console.log("Fetching plugin via bare client:", pluginUrl);
-
-        window.plugin = bareClient.fetch(pluginUrl, {
-            "headers": {
-                "accept": "*/*",
-                "accept-language": "en-US,en;q=0.5",
-                "priority": "u=1, i",
-                "sec-ch-ua": '"Chromium";v="140", "Not=A?Brand";v="24", "Brave";v="140"',
-                "sec-ch-ua-mobile": "?0",
-                "sec-ch-ua-platform": '"Windows"',
-                "sec-fetch-dest": "empty",
-                "sec-fetch-mode": "cors",
-                "sec-fetch-site": "same-origin",
-                "sec-gpc": "1"
-            },
-            "method": "GET",
-            "mode": "cors",
-            "credentials": "include"
-        });
-
-        window.plugin.then((response) => {
-            console.log("Plugin response status:", response.status, response.statusText);
-            console.log("Plugin response URL:", response.url);
-            if (response.ok) {
-                response.json().then((plugin) => {
-                    window.plugin = plugin;
-                    console.log("Loaded plugin: " + (plugin.meta?.name || "Unknown Plugin"));
-                });
-            } else {
-                console.error("Plugin fetch failed with status:", response.status);
-                response.text().then(text => console.error("Response body:", text));
-                console.error("Issue loading plugin, check debug logs.");
-                alert("Issue loading plugin, check debug logs.");
-            }
-        }).catch((error) => {
-            console.error("Error fetching plugin:", error);
-            alert("Error fetching plugin: " + error.message);
-        });
-    }
-}
 
 // Load models and start engine
 export async function load(engine, bareClient) {
-    await loadLorebookAndPlugin(bareClient);
 
     console.log("clicked");
     document.getElementById("start").innerHTML = "Loading...";

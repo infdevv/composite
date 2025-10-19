@@ -725,11 +725,11 @@ server.post("/v1/chat/completions", async (request, reply) => {
                     cleanup();
                 } else {
                     // Still receiving messages, check again later
-                    doneTimeout = setTimeout(checkAndClose, 2000 - timeSinceLastMessage);
+                    doneTimeout = setTimeout(checkAndClose, 4000 - timeSinceLastMessage);
                 }
             };
 
-            doneTimeout = setTimeout(checkAndClose, 2000);
+            doneTimeout = setTimeout(checkAndClose, 4000);
         } else {
             cleanup();
         }

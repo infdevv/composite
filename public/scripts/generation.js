@@ -239,30 +239,6 @@ export function preprocessMessages(messages, pollinations = false, yuzu = false,
 
     let prefixContent = prompts[prefix];
 
-    if (window.lorebook) {
-        let lorebookEntries = window.lorebook["lorebook"]["entries"];
-        if (Array.isArray(lorebookEntries)) {
-            lorebookEntries.forEach(entry => {
-                if (entry && typeof entry === 'object' && entry.content && !entry.disable) {
-                    let entryLabel = "Lorebook Entry";
-                    if (entry.comment) {
-                        entryLabel = entry.comment;
-                    } else if (entry.key && Array.isArray(entry.key) && entry.key.length > 0) {
-                        entryLabel = entry.key[0];
-                    }
-                    prefixContent += "\n\n[" + entryLabel + "]: " + entry.content;
-                }
-            });
-        } else if (typeof lorebookEntries === 'object') {
-            for (const [key, value] of Object.entries(lorebookEntries)) {
-                if (value && typeof value === 'object' && value.content && !value.disable) {
-                    let entryLabel = value.comment || (value.key && value.key[0]) || key;
-                    prefixContent += "\n\n[" + entryLabel + "]: " + value.content;
-                }
-            }
-        }
-    }
-
     if (imagemd) {
         prefixContent += prompts["image"];
     }
