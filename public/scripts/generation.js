@@ -140,6 +140,7 @@ ALWAYS USE THE FULL MODEL NAME. OTHERWISE YOU WILL CAUSE A ERROR, GOOFY.
             const model = parts?.[0]?.trim() || "google/gemma-2-9b-it";
             const promptName = parts?.[1]?.trim() || "none";
 
+
             console.log("Router extracted model:", model);
             console.log("Router extracted prompt:", promptName);
 
@@ -335,6 +336,11 @@ export async function generateResponseYuzuAuto(messages, settings = {}) {
         response = await yuzuClient.generate(messages, "zai-org/GLM-4.6", settings);
     }
 
+    if (document.getElementById("show-router").checked) {
+        // edit response message, oai style
+        response.choices[0].message.content += "\n" + routerResult 
+    }
+
     return response;
 }
 
@@ -388,6 +394,12 @@ export async function streamingGeneratingYuzu(messages, settings = {}, overrideM
 
     await yuzuClient.generateStreaming(messages, (chunk) => {
         if (generationStopped) {
+            if (document.getElementById("show-router").checked) {
+
+                // one last chunk for the road ahh
+                handleEmit("\n\n" + routerResult["model"] + "\n" + routerResult["prompt"]);
+            
+            }
             console.log("Yuzu generation stopped");
             return;
         }
@@ -578,17 +590,21 @@ export async function streamingGeneratingCustomEngine(messages, customEngineConf
 
     if (!customEngineConfig.endpoint) {
         console.error('Custom engine endpoint not configured');
-        window.socket.emit('message', 'Error: Custom engine not configured. Please configure it first.');
+        console.error('Current config:', customEngineConfig);
+        window.socket.emit('message', 'Error: Custom engine endpoint not configured. Please enter your API endpoint URL in the Custom Engine Configuration section and click "Save Configuration".');
         onFinish("");
         return;
     }
 
     if (!customEngineConfig.model) {
         console.error('Custom engine model not configured');
-        window.socket.emit('message', 'Error: Custom engine model not configured. Please configure it first.');
+        console.error('Current config:', customEngineConfig);
+        window.socket.emit('message', 'Error: Custom engine model not configured. Please enter your model name in the Custom Engine Configuration section and click "Save Configuration".');
         onFinish("");
         return;
     }
+
+    console.log('Custom engine config being used:', customEngineConfig);
 
     const controller = new AbortController();
     currentGeneration = controller;
@@ -598,6 +614,7 @@ export async function streamingGeneratingCustomEngine(messages, customEngineConf
         let headers = {
             'Content-Type': 'application/json',
         };
+        let endpoint = customEngineConfig.endpoint; // Use local copy
 
         // Build request based on engine type
         const wantsNonStream = document.getElementById('non-stream-response') ? document.getElementById('non-stream-response').checked : false;
@@ -656,7 +673,14 @@ export async function streamingGeneratingCustomEngine(messages, customEngineConf
                 }
             };
 
+            // For Gemini, the API key can be in header or query param
+            // Standard Google AI Studio uses query parameter format
             if (customEngineConfig.apiKey) {
+                if (!endpoint.includes('key=')) {
+                    // Append API key as query parameter (standard Google AI Studio format)
+                    const separator = endpoint.includes('?') ? '&' : '?';
+                    endpoint = endpoint + separator + 'key=' + customEngineConfig.apiKey;
+                }
                 headers['x-goog-api-key'] = customEngineConfig.apiKey;
                 delete headers['Authorization'];
             }
@@ -674,10 +698,10 @@ export async function streamingGeneratingCustomEngine(messages, customEngineConf
             }
         }
 
-        console.log('Custom engine request: ' + customEngineConfig.endpoint);
+        console.log('Custom engine request: ' + endpoint);
 
         // Make direct request
-        const response = await fetch(customEngineConfig.endpoint, {
+        const response = await fetch(endpoint, {
             method: 'POST',
             headers: headers,
             body: JSON.stringify(requestBody),
@@ -686,8 +710,26 @@ export async function streamingGeneratingCustomEngine(messages, customEngineConf
 
         if (!response.ok) {
             const errorBody = await response.text();
-            console.error('Response error body: ' + errorBody);
-            throw new Error(`HTTP error! status: ${response.status}, body: ${errorBody.substring(0, 500)}`);
+            console.error('Custom engine API error:');
+            console.error('  Status:', response.status);
+            console.error('  Status Text:', response.statusText);
+            console.error('  Endpoint:', endpoint);
+            console.error('  Engine Type:', customEngineConfig.type);
+            console.error('  Response body:', errorBody);
+
+            let errorMessage = `Custom engine API error (${response.status}): ${response.statusText}`;
+            if (errorBody) {
+                try {
+                    const errorJson = JSON.parse(errorBody);
+                    errorMessage += `\n${JSON.stringify(errorJson, null, 2)}`;
+                } catch {
+                    errorMessage += `\n${errorBody.substring(0, 200)}`;
+                }
+            }
+
+            window.socket.emit('message', errorMessage);
+            onFinish("");
+            return;
         }
 
         const reader = response.body.getReader();

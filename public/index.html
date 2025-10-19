@@ -163,25 +163,41 @@
     <!-- Custom Engine Configuration -->
     <div id="custom-engine-config" style="display: none; background-color: #272727; padding: 10px; border-radius: 4px; margin: 10px auto; width: 70%;">
         <h4 style="color: #8b29db;">Custom Engine Configuration</h4>
+        <p style="color: #aaa; font-size: 12px; margin: 4px 0;">Select your API type and fill in the details below. Make sure to click "Save Configuration" when done!</p>
+
         <select id="custom-engine-type">
             <option value="openai">OpenAI Compatible API</option>
             <option value="nvidia">NVIDIA API</option>
             <option value="gemini">Gemini/AI Studio API</option>
             <option value="custom">Custom Format</option>
         </select>
-        <input placeholder="API Endpoint URL (e.g., https://api.example.com/v1/chat/completions or Gemini URL)" id="custom-endpoint" type="text" style="width: 90%;">
+        <input placeholder="API Endpoint URL (OpenAI: https://api.example.com/v1/chat/completions, Gemini: https://generativelanguage.googleapis.com/v1beta/models/MODEL_NAME:streamGenerateContent)" id="custom-endpoint" type="text" style="width: 90%;">
         <input placeholder="API Key (Optional)" id="custom-api-key" type="password" style="width: 90%;">
         <input placeholder="Model Name" id="custom-model-name" type="text" style="width: 90%;">
         <div id="nvidia-specific" style="display: none;">
             <input placeholder="NVIDIA Org ID (Optional)" id="nvidia-org-id" type="text" style="width: 90%;">
         </div>
         <button onclick="saveCustomEngineConfig()" style="background-color: #8b29db;">Save Configuration</button>
+
+        <div style="color: #aaa; font-size: 11px; margin-top: 10px; text-align: left;">
+            <strong>Tips:</strong><br>
+            • For Gemini/AI Studio: Replace MODEL_NAME in the URL with your actual model (e.g., gemini-1.5-pro)<br>
+            • For OpenAI-compatible APIs: Use the standard /v1/chat/completions endpoint<br>
+            • Model Name field is required for all API types<br>
+            • Check the browser console (F12) for detailed error messages if generation fails
+        </div>
     </div>
     <br>
     <div id="enable-images" style="display: none">
         <label>
             <input type="checkbox" id="enable-images-checkbox">
             enable image generation ( via Pollinations API )
+        </label>
+    </div>
+        <div id="enable-images" style="display: flex;">
+        <label>
+            <input type="checkbox" id="show-router">
+            show router picks ( only works on Yuzu (Auto) )
         </label>
     </div>
     <div id="enable-images" style="display: flex;">

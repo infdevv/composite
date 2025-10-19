@@ -21,10 +21,18 @@ export function loadCustomEngineConfig() {
             customEngineConfig.apiKey = parsed.apiKey || '';
             customEngineConfig.model = parsed.model || '';
 
-            document.getElementById('custom-engine-type').value = customEngineConfig.type;
-            document.getElementById('custom-endpoint').value = customEngineConfig.endpoint;
-            document.getElementById('custom-api-key').value = customEngineConfig.apiKey;
-            document.getElementById('custom-model-name').value = customEngineConfig.model;
+            // Only update DOM elements if they exist
+            const typeEl = document.getElementById('custom-engine-type');
+            const endpointEl = document.getElementById('custom-endpoint');
+            const apiKeyEl = document.getElementById('custom-api-key');
+            const modelEl = document.getElementById('custom-model-name');
+
+            if (typeEl) typeEl.value = customEngineConfig.type;
+            if (endpointEl) endpointEl.value = customEngineConfig.endpoint;
+            if (apiKeyEl) apiKeyEl.value = customEngineConfig.apiKey;
+            if (modelEl) modelEl.value = customEngineConfig.model;
+
+            console.log('Loaded custom engine config from localStorage:', customEngineConfig);
         } catch (e) {
             console.error('Failed to load custom engine config:', e);
         }
