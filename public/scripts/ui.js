@@ -84,6 +84,27 @@ export function exposeGlobalFunctions() {
     window.clearFetchLogs = clearFetchLogs;
     window.toggleFetchDebugger = toggleFetchDebugger;
     window.downloadFetchLogs = downloadFetchLogs;
+
+    // Debug helper for custom engine config
+    window.debugCustomEngine = function() {
+        console.log('=== CUSTOM ENGINE DEBUG INFO ===');
+        console.log('Current config object:', window.customEngineConfig);
+        console.log('LocalStorage value:', localStorage.getItem('customEngineConfig'));
+        try {
+            const parsed = JSON.parse(localStorage.getItem('customEngineConfig'));
+            console.log('Parsed localStorage:', parsed);
+        } catch (e) {
+            console.log('Failed to parse localStorage:', e);
+        }
+        console.log('Selected engine:', document.getElementById('engine')?.value);
+        console.log('DOM element values:');
+        console.log('  Type:', document.getElementById('custom-engine-type')?.value);
+        console.log('  Endpoint:', document.getElementById('custom-endpoint')?.value);
+        console.log('  Model:', document.getElementById('custom-model-name')?.value);
+        console.log('  API Key length:', document.getElementById('custom-api-key')?.value?.length || 0);
+        console.log('================================');
+        return window.customEngineConfig;
+    };
 }
 
 // Initialize all UI components

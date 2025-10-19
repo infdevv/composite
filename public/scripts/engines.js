@@ -12,14 +12,21 @@ export let customEngineConfig = {
 // Load custom engine config from localStorage
 export function loadCustomEngineConfig() {
     const saved = localStorage.getItem('customEngineConfig');
+    console.log('loadCustomEngineConfig called');
+    console.log('  localStorage has data:', !!saved);
+
     if (saved) {
         try {
             const parsed = JSON.parse(saved);
+            console.log('  Parsed config:', parsed);
+
             // Update properties instead of reassigning to maintain reference
             customEngineConfig.type = parsed.type || 'openai';
             customEngineConfig.endpoint = parsed.endpoint || '';
             customEngineConfig.apiKey = parsed.apiKey || '';
             customEngineConfig.model = parsed.model || '';
+
+            console.log('  Updated customEngineConfig object:', customEngineConfig);
 
             // Only update DOM elements if they exist
             const typeEl = document.getElementById('custom-engine-type');
@@ -32,39 +39,58 @@ export function loadCustomEngineConfig() {
             if (apiKeyEl) apiKeyEl.value = customEngineConfig.apiKey;
             if (modelEl) modelEl.value = customEngineConfig.model;
 
-            console.log('Loaded custom engine config from localStorage:', customEngineConfig);
+            console.log('  DOM elements updated:', {
+                typeEl: !!typeEl,
+                endpointEl: !!endpointEl,
+                apiKeyEl: !!apiKeyEl,
+                modelEl: !!modelEl
+            });
         } catch (e) {
             console.error('Failed to load custom engine config:', e);
         }
+    } else {
+        console.log('  No saved config found in localStorage');
+        console.log('  Current customEngineConfig:', customEngineConfig);
     }
 }
 
 // Save custom engine config
 export function saveCustomEngineConfig() {
-    // Update properties instead of reassigning to maintain reference
-    customEngineConfig.type = document.getElementById('custom-engine-type').value;
-    customEngineConfig.endpoint = document.getElementById('custom-endpoint').value.trim();
-    customEngineConfig.apiKey = document.getElementById('custom-api-key').value.trim();
-    customEngineConfig.model = document.getElementById('custom-model-name').value.trim();
+    // Get and validate values BEFORE updating the config object
+    const type = document.getElementById('custom-engine-type').value;
+    const endpoint = document.getElementById('custom-endpoint').value.trim();
+    const apiKey = document.getElementById('custom-api-key').value.trim();
+    const model = document.getElementById('custom-model-name').value.trim();
 
-    if (!customEngineConfig.endpoint) {
+    // Validate required fields first
+    if (!endpoint) {
         alert('Please enter an API endpoint URL');
         return;
     }
 
-    if (!customEngineConfig.model) {
+    if (!model) {
         alert('Please enter a model name');
         return;
     }
 
-    localStorage.setItem('customEngineConfig', JSON.stringify(customEngineConfig));
-    alert('Custom engine configuration saved!');
-    console.log('Custom engine config saved:', customEngineConfig);
+    // Only update the config object after validation passes
+    customEngineConfig.type = type;
+    customEngineConfig.endpoint = endpoint;
+    customEngineConfig.apiKey = apiKey;
+    customEngineConfig.model = model;
 
+    // Save to localStorage
+    localStorage.setItem('customEngineConfig', JSON.stringify(customEngineConfig));
+
+    console.log('Custom engine configuration saved successfully:', customEngineConfig);
+    console.log('Saved to localStorage:', localStorage.getItem('customEngineConfig'));
+    alert('Custom engine configuration saved successfully!');
+
+    // Update model dropdown
     document.getElementById('model').innerHTML = '';
     const option = document.createElement('option');
-    option.value = customEngineConfig.model || 'custom-model';
-    option.textContent = customEngineConfig.model || 'Custom Model';
+    option.value = customEngineConfig.model;
+    option.textContent = customEngineConfig.model;
     document.getElementById('model').appendChild(option);
 }
 

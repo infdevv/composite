@@ -175,9 +175,14 @@ export function initializeSocket() {
                 console.log('Starting Hyper generation');
                 streamingGeneratingHyper(parsedMessages, window.hyperInstance, settings);
             } else if (type === "Custom Engine") {
-                console.log('Starting Custom Engine generation');
-                console.log('Custom config endpoint:', window.customEngineConfig.endpoint);
-                console.log('Custom config model:', window.customEngineConfig.model);
+                console.log('=== CUSTOM ENGINE DEBUG ===');
+                console.log('window.customEngineConfig:', window.customEngineConfig);
+                console.log('localStorage customEngineConfig:', localStorage.getItem('customEngineConfig'));
+                console.log('Endpoint:', window.customEngineConfig.endpoint);
+                console.log('Model:', window.customEngineConfig.model);
+                console.log('Type:', window.customEngineConfig.type);
+                console.log('Has API Key:', !!window.customEngineConfig.apiKey);
+                console.log('=========================');
                 streamingGeneratingCustomEngine(parsedMessages, window.customEngineConfig, settings);
             } else {
                 console.error('Unknown engine type:', type);

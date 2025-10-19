@@ -184,7 +184,9 @@
             • For Gemini/AI Studio: Replace MODEL_NAME in the URL with your actual model (e.g., gemini-1.5-pro)<br>
             • For OpenAI-compatible APIs: Use the standard /v1/chat/completions endpoint<br>
             • Model Name field is required for all API types<br>
-            • Check the browser console (F12) for detailed error messages if generation fails
+            • After saving, do a hard refresh (Ctrl+Shift+R or Ctrl+F5) to ensure changes load<br>
+            • Check the browser console (F12) for detailed error messages if generation fails<br>
+            • Type <span class="code" style="background-color: #1a1a1a;">debugCustomEngine()</span> in the console to check your config
         </div>
     </div>
     <br>
@@ -202,7 +204,7 @@
     </div>
     <div id="enable-images" style="display: flex;">
         <label>
-            <input type="checkbox" id="show-reasoning" checked>
+            <input type="checkbox" id="show-reasoning">
             show llm reasoning ( only works for reasoning models )
         </label>
     </div>
