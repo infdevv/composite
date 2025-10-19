@@ -68,17 +68,8 @@ with the best overall quality/latency trade‑off for the current turn.
 | **Qwen/Qwen3-Next-80B-A3B-Thinking**                     | 80 B           | Chain‑of‑thought reasoning | **1** | |
 | **Qwen/QwQ-32B-Preview**                                 | 32 B           | Balanced reasoning / chat | **1** (if needed) | |
 | **moonshotai/Kimi-K2-Instruct-0905**                     | 70‑405 B (K2)  | High‑quality chat, decent reasoning | 4 | |
-| **zai-org/GLM-4.6**                                      | 4.6 B          | Multilingual, solid reasoning | **1** (small‑reasoning) | |
 | **zai-org/GLM-4.5**                                      | 4.5 B          | General chat, fast | 4 | |
 | **zai-org/GLM-4.5‑Air**                                  | 4.5 B          | Light‑weight, cheap inference | 4 | |
-| **NousResearch/Hermes-3-Llama-3.1-405B**                 | 405 B          | Top‑tier reasoning, coding, long context | **1** | |
-| **NousResearch/Hermes-3-Llama-3.1-70B**                  | 70 B           | Strong reasoning, fast enough for chat | **1** | |
-| **nvidia/Nemotron-4-340B-Instruct**                      | 340 B          | Heavy‑weight reasoning, large knowledge base | **1** | |
-| **nvidia/Llama-3.3-Nemotron‑Super-49B‑v1.5**             | 49 B           | Good reasoning, moderate latency | **1** | |
-| **Sao10K/L3.3-70B-Euryale‑v2.3**                          | 70 B           | General chat, fast | 4 | |
-| **Sao10K/L3.1-70B-Euryale‑v2.2**                          | 70 B           | General chat, fast | 4 | |
-| **Sao10K/L3‑70B‑Euryale‑v2.1**                           | 70 B           | General chat, fast | 4 | |
-| **KoboldAI/LLaMA2-13B‑Tiefighter**                       | 13 B           | Light‑weight, cheap, decent for simple RP | 3 / 4 | |
 | **Qwen/Qwen2.5-72B‑Instruct**                            | 72 B           | Strong reasoning, good coding | **1** | |
 | **Qwen/Qwen2.5‑Coder‑32B‑Instruct**                      | 32 B           | Code‑focused reasoning | **1** | |
 | **Qwen/Qwen2.5‑VL‑32B‑Instruct**                         | 32 B           | Multimodal (vision) + reasoning | **1** | |
@@ -89,13 +80,10 @@ with the best overall quality/latency trade‑off for the current turn.
 | **mistralai/Mistral‑Nemo‑Instruct‑2407**                | 12 B           | Fast, decent for simple RP | 3 / 4 | |
 | **mistralai/Mistral‑Small‑3.2‑24B‑Instruct‑2506**       | 24 B           | Low‑latency, good for quick chat | 4 | |
 | **mistralai/Mistral‑Small‑3.1‑24B‑Instruct‑2503**       | 24 B           | Same as above | 4 | |
-| **microsoft/WizardLM‑2‑8x22B**                           | 176 B (8×22 B) | General chat, creative | 4 | |
-| **microsoft/WizardLM‑2‑7B**                              | 7 B            | Very fast, cheap chat | 4 | |
 | **google/gemma‑3‑27b‑it**                                | 27 B           | Strong reasoning for its size, good chat | 3 / 4 | |
 | **google/gemma‑3‑12b‑it**                                | 12 B           | Fast, decent quality | 4 | |
 | **google/gemma‑2‑27b‑it**                                | 27 B           | Balanced speed/quality | 3 / 4 | |
 | **google/gemma‑2‑9b‑it**                                 | 9 B            | Very fast, low cost | 4 | |
-| **Gryphe/MythoMax‑L2‑13b‑turbo**                         | 13 B           | Chat‑oriented, cheap | 4 | |
 
 
 Prompt List ( Pick one that you think suits the senario ):
