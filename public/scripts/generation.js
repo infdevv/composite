@@ -301,7 +301,7 @@ export async function streamingGeneratingYuzuAuto(messages, settings = {}) {
     }
     catch(error){
         console.error("Yuzu AUTO fallback due to error:", error);
-        await streamingGeneratingYuzu(messages, settings, "zai-org/GLM-4.6", "none");
+        await streamingGeneratingYuzu(messages, settings, "google/gemma-2-9b-its", "none");
     }
 }
 
@@ -380,6 +380,9 @@ export async function streamingGeneratingYuzu(messages, settings = {}, overrideM
     console.log("Yuzu using model:", model);
     console.log("Yuzu using prompt:", overridePrompt || "default");
 
+    let chunk_count = 0;
+    let inReasoning = false;
+
     await yuzuClient.generateStreaming(messages, (chunk) => {
         if (generationStopped) {
             if (document.getElementById("show-router").checked) {
@@ -394,8 +397,24 @@ export async function streamingGeneratingYuzu(messages, settings = {}, overrideM
 
         if (chunk && chunk.choices && chunk.choices[0] && chunk.choices[0].delta && chunk.choices[0].delta.content) {
             const content = chunk.choices[0].delta.content;
-            handleEmit(content);
-            console.log("Yuzu Sent chunk | Delta data: " + content);
+            const reasoning_data = chunk.choices[0].reasoning_content;
+            if (reasoning_data != null && content == null) {
+                if (chunk_count == 0) {
+                    handleEmit("<think>");
+                    inReasoning = true;
+                }
+                chunk_count += 1;
+                handleEmit(reasoning_data);
+                console.log("Yuzu Sent reasoning chunk | Delta data: " + reasoning_data);
+            }
+            else {
+                if (inReasoning) {
+                    handleEmit("</think>");
+                    inReasoning = false;
+                }
+                handleEmit(content);
+                console.log("Yuzu Sent chunk | Delta data: " + content);
+            }
         }
     }, model, settings);
 
