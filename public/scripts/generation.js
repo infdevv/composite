@@ -1,5 +1,5 @@
 // Generation-related functions for all engines
-import { prompts } from "./constants.js";
+import { prompts, routerPrompt } from "./constants.js";
 import Yuzu from "../yuzu/client.js";
 
 const yuzuClient = new Yuzu();
@@ -21,124 +21,75 @@ export function resetGenerationState() {
 }
 
 
-async function router(messages, yuzuapi) {
+async function router(messages) {
     // get last 5 messages only
     messages = messages.slice(-5);
-    let prompt = `
-You are a **model router** for a role‑play platform.
-Your job is to examine the conversation history (messages) and the
-information about each available model, then select the **single best
-model** to generate the next assistant response.
-Choose the model that gives the highest quality for the required
-behaviour while also keeping latency low whenever possible.
-
-### Routing Map
-1. **Exceptional intelligence / heavy reasoning / high‑stakes scenes**  
-   → *Reasoning models (high‑parameter, strong math‑/code‑/logic abilities)*  
-
-2. **Erotic / adult role‑play scenes**  
-   → *Erotic‑optimized models (trained on explicit data, good at tone &
-   emotional nuance)*  
-
-3. **Less‑complex or low‑stakes role‑play**  
-   → *Lower‑parameter general‑purpose models (fast, low latency, enough
-   coherence for simple dialogues)*  
-
-4. **Quick‑paced back‑and‑forth conversation**  
-   → *Fast, “chatty” models (good at turn‑taking, low cost)*  
-
-When more than one rule applies, **prioritise the highest‑ranked rule**
-(1 > 2 > 3 > 4).  If several models satisfy the same rule, pick the one
-with the best overall quality/latency trade‑off for the current turn.
-
----
-
-### Model Capability Table  
-
-| Model ID (as in the list)                               | Params / Size* | Primary Strength / Typical Use | Routing Category | Notes |
-|----------------------------------------------------------|----------------|--------------------------------|------------------|-------|
-| **deepseek-ai/DeepSeek-V3.2-Exp**                        | ~635 B        | Long‑form storytelling, good narrative flow | 3 / 4 | |
-| **deepseek-ai/DeepSeek-V3.1-Terminus**                   | ~635 B        | Strong narrative, decent reasoning | 3 / 4 | |
-| **deepseek-ai/DeepSeek-V3.1**                            | ~635 B        | General purpose, fast | 3 / 4 | |
-| **deepseek-ai/DeepSeek-R1-0528‑Turbo**                   | ~635 B           | High‑parameter reasoning, fast inference | **1** | |
-| **deepseek-ai/DeepSeek-V3-0324**                          | ~635 B        | **Comedy & general‑RP** – excellent for light‑hearted, non‑specific scenes | 3 / 4 | *Great for humor, banter, and everyday role‑play* |
-| **Qwen/Qwen3-235B-A22B-Instruct-2507**                    | 235 B          | Massive knowledge, heavy reasoning | **1** | |
-| **Qwen/Qwen3-235B-A22B-Thinking-2507**                    | 235 B          | Chain‑of‑thought reasoning | **1** | |
-| **Qwen/Qwen3-Next-80B-A3B-Instruct**                     | 80 B           | Strong reasoning, good coding | **1** | |
-| **Qwen/Qwen3-Next-80B-A3B-Thinking**                     | 80 B           | Chain‑of‑thought reasoning | **1** | |
-| **Qwen/QwQ-32B-Preview**                                 | 32 B           | Balanced reasoning / chat | **1** (if needed) | |
-| **moonshotai/Kimi-K2-Instruct-0905**                     | 70‑405 B (K2)  | High‑quality chat, decent reasoning | 4 | |
-| **zai-org/GLM-4.5**                                      | 4.5 B          | General chat, fast | 4 | |
-| **zai-org/GLM-4.5‑Air**                                  | 4.5 B          | Light‑weight, cheap inference | 4 | |
-| **Qwen/Qwen2.5-72B‑Instruct**                            | 72 B           | Strong reasoning, good coding | **1** | |
-| **Qwen/Qwen2.5‑Coder‑32B‑Instruct**                      | 32 B           | Code‑focused reasoning | **1** | |
-| **Qwen/Qwen2.5‑VL‑32B‑Instruct**                         | 32 B           | Multimodal (vision) + reasoning | **1** | |
-| **Qwen/Qwen3‑VL‑30B‑A3B‑Instruct**                       | 30 B           | Vision + long context, moderate reasoning | **1** | |
-| **Qwen/Qwen3‑VL‑30B‑A3B‑Thinking**                       | 30 B           | Same as above, tuned for chain‑of‑thought | **1** | |
-| **Qwen/Qwen3‑14B**                                      | 14 B           | Mid‑size reasoning, decent speed | **1** | |
-| **mistralai/Mixtral‑8x22B‑Instruct‑v0.1**                | 140 B (8×22 B) | Strong reasoning, diverse tasks | **1** | |
-| **mistralai/Mistral‑Nemo‑Instruct‑2407**                | 12 B           | Fast, decent for simple RP | 3 / 4 | |
-| **mistralai/Mistral‑Small‑3.2‑24B‑Instruct‑2506**       | 24 B           | Low‑latency, good for quick chat | 4 | |
-| **mistralai/Mistral‑Small‑3.1‑24B‑Instruct‑2503**       | 24 B           | Same as above | 4 | |
-| **google/gemma‑3‑27b‑it**                                | 27 B           | Strong reasoning for its size, good chat | 3 / 4 | |
-| **google/gemma‑3‑12b‑it**                                | 12 B           | Fast, decent quality | 4 | |
-| **google/gemma‑2‑27b‑it**                                | 27 B           | Balanced speed/quality | 3 / 4 | |
-| **google/gemma‑2‑9b‑it**                                 | 9 B            | Very fast, low cost | 4 | |
-
-
-Prompt List ( Pick one that you think suits the senario ):
-
-
-None: No prompt modifications
-infdevv: Smart roleplay
-smolrp: Adaptive roleplay with authentic characters, 300-550+ words, cinematic composition. Focuses on genuine engagement over perfection.
-slop: Adds common romance novel phrases like 'mind, body and soul' and 'ruin you for anyone else' excessively
-unpositive: Removes positivity from roleplay, focuses on darker/grimmer tones
-affection: Maximum affection mode - AI becomes extremely loving regardless of character personality
-cheese: First-person POV, extremely explicit smut writing, detailed combat scenes, character development focus
-pupi: 700-word max responses, third-person narrative, cinematic prose, slow-paced storytelling with psychological depth
-teto: AI becomes obsessed with Kasane Teto regardless of your input. For memes only.
-brbie: brbie ( General RP )
-status: Shows the current status of the character
-
-
-
-Only return the name of the model (e.g. **Qwen/Qwen2.5-72B-Instruct**, not "Qwen 72B") and the prompt
-
-Eg: "google/gemma-2-9b-it,infdevv". 
-ALWAYS USE THE FULL MODEL NAME. OTHERWISE YOU WILL CAUSE A ERROR, GOOFY.
-
-
+    let prompt = `${routerPrompt}}
     Messages:
     "${messages.join('\n### NEXT TURN:')}"
     `
 
-    if (yuzuapi) {
-        try {
-            console.log("Router: Calling Yuzu API for model selection...");
-            const response = await yuzuapi.generate([{ "role": "user", "content": prompt }]);
-            console.log("Router response:", response);
-            const content = response.choices?.[0]?.message?.content?.trim();
-            console.log("Router raw content:", content);
+    try {
+        console.log("Router: Calling Pollinations API for model selection...");
 
-            // Parse model and prompt from response
-            // Expected format: "model-name prompt-name" (space-separated on single line)
-            // Example: "google/gemma-2-9b-it,infdevv"
-            const parts = content?.split(",") // Split by whitespace
-            const model = parts?.[0]?.trim() || "google/gemma-2-9b-it";
-            const promptName = parts?.[1]?.trim() || "none";
+        // Use Pollinations API for routing
+        const response = await fetch("https://text.pollinations.ai/openai", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                messages: [{ "role": "user", "content": prompt }],
+                model: "openai",
+                temperature: 0.7,
+                max_tokens: 500
+            })
+        });
 
+        const data = await response.json();
+        console.log("Router response:", data);
 
-            console.log("Router extracted model:", model);
-            console.log("Router extracted prompt:", promptName);
+        let content = data.choices?.[0]?.message?.content?.trim();
+        console.log("Router raw content:", content);
 
-            return { model, prompt: promptName };
-        } catch (error) {
-            console.error("Router error:", error);
-            return { model: "google/gemma-2-9b-it", prompt: "none" }; // fallback
+        // extract JSON
+        if (content.includes("```json")) {
+            const startIndex = content.indexOf("```json") + "```json".length;
+            const endIndex = content.lastIndexOf("```");
+            content = content.substring(startIndex, endIndex);
         }
-    } else {
-        return { model: "google/gemma-2-9b-it", prompt: "none" }; // fallback
+
+        // parse JSON
+        content = JSON.parse(content);
+
+        const model = content?.model || "google/gemma-2-9b-it";
+        const promptName = content?.prompt || "none";
+        const temperature = content?.temperature || 0.7;
+        const top_p = content?.top_p || 1;
+        const max_tokens = content?.max_tokens || 26000;
+
+        console.log("Router extracted model:", model);
+        console.log("Router extracted prompt:", promptName);
+        console.log("Router extracted temperature:", temperature);
+        console.log("Router extracted top_p:", top_p);
+        console.log("Router extracted max_tokens:", max_tokens);
+
+        return {
+            model,
+            prompt: promptName,
+            temperature: temperature,
+            top_p: top_p,
+            max_tokens: max_tokens
+        };
+    } catch (error) {
+        console.error("Router error:", error);
+        return {
+            model: "google/gemma-2-9b-it",
+            prompt: "none",
+            temperature: 0.7,
+            top_p: 1,
+            max_tokens: 26000
+        }; // fallback
     }
 }
 
@@ -266,14 +217,25 @@ export async function streamingGeneratingYuzuAuto(messages, settings = {}) {
     if (generationStopped) return;
 
     // hand messages over to router
-    const routerResult = await router(messages, yuzuClient);
+    const routerResult = await router(messages);
 
     console.log("Yuzu AUTO selected model:", routerResult.model);
     console.log("Yuzu AUTO selected prompt:", routerResult.prompt);
+    console.log("Yuzu AUTO selected temperature:", routerResult.temperature);
+    console.log("Yuzu AUTO selected top_p:", routerResult.top_p);
+    console.log("Yuzu AUTO selected max_tokens:", routerResult.max_tokens);
 
-    // Pass both the model and prompt to streamingGeneratingYuzu
+    // Merge router settings with provided settings
+    const mergedSettings = {
+        ...settings,
+        temperature: routerResult.temperature,
+        top_p: routerResult.top_p,
+        max_tokens: routerResult.max_tokens
+    };
+
+    // Pass the model, prompt, and merged settings to streamingGeneratingYuzu
     try {
-        await streamingGeneratingYuzu(messages, settings, routerResult.model, routerResult.prompt);
+        await streamingGeneratingYuzu(messages, mergedSettings, routerResult.model, routerResult.prompt);
     }
     catch(error){
         console.error("Yuzu AUTO fallback due to error:", error);
@@ -283,17 +245,26 @@ export async function streamingGeneratingYuzuAuto(messages, settings = {}) {
 
 export async function generateResponseYuzuAuto(messages, settings = {}) {
     // hand messages over to router
-    const routerResult = await router(messages, yuzuClient);
+    const routerResult = await router(messages);
 
     console.log("Yuzu AUTO (non-streaming) using model:", routerResult.model);
     console.log("Yuzu AUTO (non-streaming) using prompt:", routerResult.prompt);
+    console.log("Yuzu AUTO (non-streaming) using temperature:", routerResult.temperature);
+
+    // Merge router settings with provided settings
+    const mergedSettings = {
+        ...settings,
+        temperature: routerResult.temperature,
+        top_p: routerResult.top_p,
+        max_tokens: routerResult.max_tokens
+    };
 
     // Apply prompt preprocessing
     messages = preprocessMessages(messages, false, true, routerResult.prompt);
 
     let response;
     try {
-        response = await yuzuClient.generate(messages, routerResult.model, settings);
+        response = await yuzuClient.generate(messages, routerResult.model, mergedSettings);
     }
     catch(error){
         console.error("Yuzu AUTO (non-streaming) fallback due to error:", error);
@@ -302,10 +273,112 @@ export async function generateResponseYuzuAuto(messages, settings = {}) {
 
     if (document.getElementById("show-router").checked) {
         // edit response message, oai style
-        response.choices[0].message.content += "\n" + routerResult 
+        response.choices[0].message.content += "\n" + JSON.stringify(routerResult, null, 2);
     }
 
     return response;
+}
+
+export async function streamingGeneratingGemini(messages, settings = {}) {
+    if (generationStopped) return;
+
+    messages = preprocessMessages(messages);
+
+    const controller = new AbortController();
+    currentGeneration = controller;
+
+    const model = document.getElementById("model").value;
+
+    let apiKey;
+    if (window.getGeminiAPIKey) {
+        apiKey = window.getGeminiAPIKey();
+    } else {
+        apiKey = document.getElementById("key")?.textContent;
+    }
+
+    if (!apiKey || apiKey === "[Loading...]" || apiKey === "[Not Set]") {
+        handleEmit("Error: Google AI API key not set. Please enter your API key and click 'Save API Key'.");
+        onFinish("");
+        return;
+    }
+
+    try {
+        const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+                model: model,
+                messages: messages,
+                stream: true,
+                temperature: settings.temperature !== undefined ? settings.temperature : 0.7,
+                max_tokens: 26000,
+                top_p: settings.top_p !== undefined ? settings.top_p : 1
+            }),
+            signal: controller.signal
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error("Gemini API error:", response.status, errorText);
+            handleEmit(`Error: Gemini API returned ${response.status}. ${errorText}`);
+            onFinish("");
+            return;
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+            if (generationStopped) {
+                reader.cancel();
+                break;
+            }
+
+            const { done, value } = await reader.read();
+            if (done) {
+                onFinish("");
+                break;
+            }
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+                if (generationStopped) break;
+
+                if (line.startsWith('data: ')) {
+                    const data = line.slice(6).trim();
+                    if (data === '[DONE]') {
+                        onFinish("");
+                        return;
+                    }
+
+                    if (!data) continue;
+
+                    try {
+                        const parsed = JSON.parse(data);
+                        const content = parsed.choices?.[0]?.delta?.content;
+
+                        if (content !== undefined && content !== null) {
+                            handleEmit(content);
+                            console.log("Gemini Sent chunk | Delta data: " + content);
+                        }
+                    } catch (e) {
+                        console.error('Error parsing Gemini chunk:', e, 'Raw data:', data);
+                    }
+                }
+            }
+        }
+    } catch (error) {
+        console.error("Gemini streaming error:", error);
+        handleEmit(`\n\nError: ${error.message}`);
+        onFinish("");
+    }
 }
 
 // WebLLM generation
@@ -355,6 +428,7 @@ export async function streamingGeneratingYuzu(messages, settings = {}, overrideM
 
     console.log("Yuzu using model:", model);
     console.log("Yuzu using prompt:", overridePrompt || "default");
+    console.log("Yuzu using settings:", settings);
 
     let chunk_count = 0;
     let inReasoning = false;
@@ -365,7 +439,7 @@ export async function streamingGeneratingYuzu(messages, settings = {}, overrideM
 
                 // one last chunk for the road ahh
                 handleEmit("\n\n" + routerResult["model"] + "\n" + routerResult["prompt"]);
-            
+
             }
             console.log("Yuzu generation stopped");
             return;

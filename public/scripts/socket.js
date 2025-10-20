@@ -6,6 +6,7 @@ import {
     streamingGeneratingYuzuAuto,
     streamingGeneratingHyper,
     streamingGeneratingCustomEngine,
+    streamingGeneratingGemini,
     stopGeneration,
     generationStopped
 } from './generation.js';
@@ -50,15 +51,21 @@ export function updateConnectionStatus(connected) {
 
 // Initialize socket connection
 export function initializeSocket() {
-    if (window.socket && window.socket.connected) {
-        return;
+    // Don't create a new socket if one exists and is connecting/connected
+    if (window.socket) {
+        if (window.socket.connected) {
+            console.log('Socket already connected, skipping initialization');
+            return;
+        }
+        if (window.socket.io && window.socket.io.engine) {
+            console.log('Socket exists and is connecting, skipping initialization');
+            return;
+        }
+        // Clean up old listeners before creating new socket
+        window.socket.removeAllListeners();
     }
 
     if (typeof io !== 'undefined') {
-        if (window.socket) {
-            window.socket.disconnect();
-        }
-
         window.socket = io('/socket', {
             query: {
                 key: document.getElementById("key").innerHTML
@@ -87,16 +94,8 @@ export function initializeSocket() {
         window.socket.on('disconnect', (reason) => {
             console.log('Socket disconnected:', reason);
             updateConnectionStatus(false);
-
-            if (!reconnectInterval) {
-                reconnectInterval = setInterval(() => {
-                    if (!window.socket || !window.socket.connected) {
-                        reconnectAttempts++;
-                        console.log(`Attempting to reconnect... (attempt ${reconnectAttempts})`);
-                        initializeSocket();
-                    }
-                }, 3000);
-            }
+            // Socket.IO will automatically reconnect based on the config
+            // No manual intervention needed
         });
 
         window.socket.on('connect_error', (error) => {
@@ -129,15 +128,6 @@ export function initializeSocket() {
             // Log received settings
             console.log('Generation settings:', settings);
 
-            // Apply plugin processing if plugin is loaded
-            if (window.plugin && window.pluginParser) {
-                try {
-                    parsedMessages = window.pluginParser.parsePlugin(window.plugin, parsedMessages);
-                    console.log("Plugin processing applied to messages");
-                } catch (error) {
-                    console.error("Error applying plugin:", error);
-                }
-            }
 
             if (document.getElementById("donate").checked) {
                 try {
@@ -153,9 +143,12 @@ export function initializeSocket() {
                 }
             }
 
-            let type = document.getElementById("engine").value;
+            let type = document.getElementById("engine").value?.trim();
             console.log('=== ENGINE ROUTING DEBUG ===');
             console.log('Selected engine type:', type);
+            console.log('Engine type (typeof):', typeof type);
+            console.log('Engine type length:', type?.length);
+            console.log('Equals "Google Gemini"?', type === "Google Gemini");
             console.log('Custom engine config:', window.customEngineConfig);
             console.log('=========================');
 
@@ -184,6 +177,9 @@ export function initializeSocket() {
                 console.log('Has API Key:', !!window.customEngineConfig.apiKey);
                 console.log('=========================');
                 streamingGeneratingCustomEngine(parsedMessages, window.customEngineConfig, settings);
+            } else if (type === "Google Gemini") {
+                console.log('Starting Google Gemini generation');
+                streamingGeneratingGemini(parsedMessages, settings);
             } else {
                 console.error('Unknown engine type:', type);
                 window.socket.emit('message', `Error: Unknown engine type: ${type}`);

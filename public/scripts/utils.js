@@ -74,6 +74,8 @@ export const promptDescriptions = {
     "smolrp": "Adaptive roleplay with authentic characters, 300-550+ words, cinematic composition. Focuses on genuine engagement over perfection.",
     "slop": "Adds common romance novel phrases like 'mind, body and soul' and 'ruin you for anyone else' excessively throughout responses",
     "unpositive": "Removes positivity from roleplay, focuses on darker/grimmer tones and themes",
+    "dacm": "Strong RP prompt",
+    "infdev": "Dynamic RP prompt",
     "affection": "Maximum affection mode - AI becomes extremely loving and affectionate regardless of character personality",
     "cheese": "First-person POV, extremely explicit 18+ smut writing, detailed combat scenes, strong character development focus",
     "pupi": "700-word max responses, third-person narrative, cinematic prose with slow-paced storytelling and psychological depth",

@@ -1,12 +1,11 @@
 // Main entry point - imports all modular scripts
 // Cache-busting: {{VERSION}} is injected by server on each request
-import { debug } from "./scripts/constants.js?v={{VERSION}}";
-import { setupDeviceInfo, initializeAPIKey, checkConnectivity } from "./scripts/utils.js?v={{VERSION}}";
-import { initializeUI } from "./scripts/ui.js?v={{VERSION}}";
-import { customEngineConfig } from "./scripts/engines.js?v={{VERSION}}";
+import { setupDeviceInfo, initializeAPIKey, checkConnectivity } from "./scripts/utils.js";
+import { initializeUI } from "./scripts/ui.js";
+import { customEngineConfig } from "./scripts/engines.js";
 import * as webllm from "https://esm.run/@mlc-ai/web-llm";
 import { BareClient } from 'https://esm.sh/@tomphttp/bare-client@latest';
-import "/scripts/logger.js?v={{VERSION}}";
+import "/scripts/logger.js";
 
 // Initialize clients
 const bareClient = new BareClient('https://gointerstellar.app/ca/');
@@ -25,6 +24,7 @@ window.customEngineConfig = customEngineConfig;
 window.webllmEngine = engine;
 window.bareClient = bareClient;
 
+
 // Set engine progress callback
 import { updateEngineInitProgressCallback } from "./scripts/engines.js";
 engine.setInitProgressCallback(updateEngineInitProgressCallback);
@@ -41,3 +41,12 @@ console.log("hey, are you a dev? do you wanna help out? cool, you can't but goog
 
 // Initialize UI and all event listeners
 initializeUI(engine, bareClient);
+
+let gifs = [
+    "https://media1.tenor.com/m/qw_WUt9bD3EAAAAd/spinning-zako.gif",
+    "https://media1.tenor.com/m/r4JqFOCl7pkAAAAd/pippa-pipkin-pippa.gif",
+    "https://media1.tenor.com/m/rfai09nxhqcAAAAd/marimari-underscore.gif",
+    "https://media1.tenor.com/m/ezriU2ie69YAAAAC/mari-mari-dance-mari-dance.gif"
+]
+let randomIndex = Math.floor(Math.random() * gifs.length);
+document.getElementById("gif").src = gifs[randomIndex];

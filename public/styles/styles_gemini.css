@@ -1,0 +1,99 @@
+@import url("https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Jersey+10&family=Jost:ital,wght@0,100..900;1,100..900&family=Open+Sans:ital,wght@0,300..800;1,300..800&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap");
+
+#particles-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: -1;
+}
+
+body {
+  position: relative;
+  background: linear-gradient(to top, #dd0f53 0%, #6e0829 30%, #2a0310 60%, #000000 90%, #000000 100%);
+  background-size: 100% 200%;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  color: white;
+  font-family: "Inter";
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 8px;
+  animation: background 18s infinite ease-in-out alternate;
+}
+
+@keyframes background {
+    0% {
+        background-position: 0% 0%;
+    }
+    100% {
+        background-position: 0% 60%;
+    }
+}
+
+
+select {
+  background-color: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(120px);
+  -webkit-backdrop-filter: blur(10px);
+  border: none;
+  color: white;
+  padding: 7px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 4px 2px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+select option {
+  background-color: #2a2a2a;
+  color: white;
+}
+
+#end {
+  background-color: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(120px);
+  -webkit-backdrop-filter: blur(10px);
+  border: none;
+  color: white;
+  padding: 7px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 4px 2px;
+  cursor: pointer;
+  border-radius: 4px;
+  bottom: 15px;
+  width: 90%;
+  left: 5%;
+}
+
+.code {
+  font-family: monospace;
+  background-color: #272727;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+input {
+  background-color: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(120px);
+  -webkit-backdrop-filter: blur(10px);
+  border: none;
+  color: white;
+  padding: 7px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 4px 2px;
+  cursor: pointer;
+  border-radius: 4px;
+}

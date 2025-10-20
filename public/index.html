@@ -4,193 +4,195 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>composite⁴</title>
+    <title>composite⁵</title>
     <script src="https://cdn.socket.io/4.8.1/socket.io.min.js" defer></script>
-    <script src="./plugin-parse.js" defer></script>
-    <script src="./hyper.js" defer></script>
-    <style>
-        body {
-            background-color: hsl(273, 58%, 4%);
-            color: white;
-            font-family: 'Trebuchet MS', sans-serif;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            padding: 8px;
-        }
-
-        .code {
-            font-family: monospace;
-            background-color: #272727;
-            padding: 4px;
-            border-radius: 4px;
-            ;
-        }
-
-        button {
-            background-color: #484948;
-            border: none;
-            color: white;
-            padding: 7px;
-            text-align: center;
-            text-decoration: none;
-            display: inline-block;
-            font-size: 16px;
-            margin: 4px 2px;
-            cursor: pointer;
-            border-radius: 4px;
-        }
-
-        #debug {
-            display: none;
-        }
-
-        #logs {
-            background-color: #272727;
-            color: white;
-            font-family: monospace;
-            text-align: left;
-            margin-left: calc(50% - calc(70% / 2));
-            padding: 4px;
-            height: 300px;
-            width: 70%;
-            overflow-y: scroll;
-            border-radius: 4px;
-        }
-
-        select {
-            background-color: #484948;
-            border: none;
-            color: white;
-            padding: 7px;
-            text-align: center;
-            text-decoration: none;
-            display: inline-block;
-            font-size: 16px;
-            margin: 4px 2px;
-            cursor: pointer;
-            border-radius: 4px;
-        }
-
-        #enable-images {
-            align-items: center;
-            justify-content: center;
-        }
-
-        input {
-            background-color: #484948;
-            border: none;
-            color: white;
-            padding: 7px;
-            text-align: center;
-            text-decoration: none;
-            display: inline-block;
-            font-size: 16px;
-            margin: 4px 2px;
-            cursor: pointer;
-            border-radius: 4px;
-        }
-
-        #banner {
-            background-color: #7be77b;
-            border: none;
-            color: white;
-            padding: 7px;
-            text-align: center;
-            text-decoration: none;
-            display: inline-block;
-            font-size: 16px;
-            margin: 4px 2px;
-            cursor: pointer;
-            border-radius: 4px;
-        }
-    </style>
+    <script src="scripts/hyper.js" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="./styles/styles.css">
+    </link>
 </head>
 
-<body>
+<div id="top-left">Looking for the Gemini support? Click <a href="gemini.html" target="_blank" style="text-decoration: none; color: #6c89e9">here</a></div>
 
-    <div id="banner" onclick="window.open('https://discord.gg/Wcpnm8psjq', '_blank')">
-        are you bored? do you wanna help in the development of another site? click me <a href="https://discord.gg/CPnJ8ctQhU" target="_blank" style="text-decoration: none; color: #343534" href="https://discord.gg/Wcpnm8psjq" target="_blank">here</a> to help alpha test KiwiAI
-    </div>
+<h1>composite<span style="color: #6c89e9">⁵</span></h1>
+<br>
+<select id="engine">
+    <option>Yuzu (Cloud AI)</option>
+    <option>Yuzu (AUTO)</option>
+    <option>Hyper (Auto)</option>
+    <option>WebLLM (Local AI)</option>
+    <option>Pollinations (Cloud AI)</option>
+    <option>Custom Engine</option>
+</select>
+<select id="model">
+    <option value="deepseek-ai/DeepSeek-V3-0324">DeepSeek V3 0324</option>
+    <option value="deepseek-ai/DeepSeek-R1-0528">DeepSeek R1 0528</option>
+    <option value="deepseek-ai/DeepSeek-V3.2-Exp">DeepSeek V3.2 Exp</option>
+    <option value="deepseek-ai/DeepSeek-V3.1-Terminus">DeepSeek V3.1 Terminus</option>
+    <option value="deepseek-ai/DeepSeek-V3.1">DeepSeek V3.1</option>
+    <option value="Qwen/Qwen3-235B-A22B-Instruct-2507">Qwen3 235B A22B Instruct 2507</option>
+    <option value="Qwen/Qwen3-235B-A22B-Thinking-2507">Qwen3 235B A22B Thinking 2507</option>
+    <option value="Qwen/Qwen3-Next-80B-A3B-Instruct">Qwen3 Next 80B A3B Instruct</option>
+    <option value="Qwen/Qwen3-Next-80B-A3B-Thinking">Qwen3 Next 80B A3B Thinking</option>
+    <option value="Qwen/QwQ-32B">Qwen QwQ 32B</option>
+    <option value="zai-org/GLM-4.6">GLM 4.6</option>
+    <option value="zai-org/GLM-4.5">GLM 4.5</option>
+    <option value="zai-org/GLM-4.5-Air">GLM 4.5 Air</option>
+    <option value="moonshotai/Kimi-K2-Instruct-0905">Kimi K2 Instruct 0905</option>
+    <option value="Qwen/Qwen2.5-72B-Instruct">Qwen2.5 72B Instruct</option>
+    <option value="Qwen/Qwen2.5-Coder-32B-Instruct">Qwen2.5 Coder 32B Instruct</option>
+    <option value="Qwen/Qwen2.5-VL-32B-Instruct">Qwen2.5 VL 32B Instruct</option>
+    <option value="Qwen/Qwen3-VL-30B-A3B-Instruct">Qwen3 VL 30B A3B Instruct</option>
+    <option value="Qwen/Qwen3-VL-30B-A3B-Thinking">Qwen3 VL 30B A3B Thinking</option>
+    <option value="Qwen/Qwen3-14B">Qwen3 14B</option>
+    <option value="mistralai/Mistral-Small-3.2-24B-Instruct-2506">Mistral Small 3.2 24B Instruct 2506</option>
+    <option value="mistralai/Mistral-Small-3.1-24B-Instruct-2503">Mistral Small 3.1 24B Instruct 2503</option>
+    <option value="google/gemma-3-27b-it">Gemma 3 27B IT</option>
+    <option value="google/gemma-3-12b-it">Gemma 3 12B IT</option>
+    <option value="google/gemma-2-27b-it">Gemma 2 27B IT</option>
+    <option value="google/gemma-2-9b-it">Gemma 2 9B IT</option>
+</select>
 
-    <h1>composite<span style="color: #8b29db">⁴</span></h1>
+<select id="prefix-prompt" title="Select a prompt preset to modify the AI's behavior and writing style">
+    <option value="none" select title="No prompt modifications">None</option>
+    <option value="infdevv" title="Smart roleplay">Infi's prompt</option>
+    <option value="smolrp"
+        title="Adaptive roleplay with authentic characters, 300-550+ words, cinematic composition. Focuses on genuine engagement over perfection.">
+        SmolRP prompt (Immersive RP, authentic characters)</option>
+    <option value="slop"
+        title="Adds common romance novel phrases like 'mind, body and soul' and 'ruin you for anyone else' excessively">
+        Slop Prompt (Romance clichés overload)</option>
+    <option value="unpositive" title="Removes positivity from roleplay, focuses on darker/grimmer tones">Unpositive
+        Prompt (Dark/grim themes)</option>
+    <option value="affection"
+        title="Maximum affection mode - AI becomes extremely loving regardless of character personality">Affection
+        Prompt (Maximum love/affection)</option>
+    <option value="cheese"
+        title="First-person POV, extremely explicit smut writing, detailed combat scenes, character development focus">
+        Cheese's Prompt ( Writiing content, detailed)</option>
+    <option value="pupi"
+        title="700-word max responses, third-person narrative, cinematic prose, slow-paced storytelling with psychological depth">
+        Pupi's Prompt (Literary style, detailed prose)</option>
+    <option value="teto" title="AI becomes obsessed with Kasane Teto regardless of your input. For memes only.">teto
+        (Kasane Teto obsession mode)</option>
+    <option value="brbie" title="brbie ( General RP )">brbie ( General RP )</option>
+    <option value="status" title="Shows the current status of the character">Status ( Shows current status of the
+        character ) (brbiekiss.)</option>
+    <option value="anrp" title="Another general purpose prompt">ANRP</option>
+    <option value="anrp" title="D-ACM">D-ACM</option>
+    <option value="humour" title="Humor">Humor</option>
 
-    <p>Engine:</p>
-    <p>wondering how to use? click <a href="#docs" style="text-decoration: none; color: #8b29db">here</a></p>
-    <select id="engine">
-        <option selected>WebLLM (Local AI)</option>
-        <option>Pollinations (Cloud AI)</option>
-        <option>Yuzu (Cloud AI)</option>
-        <option>Yuzu (AUTO)</option>
-        <option>Hyper (Auto)</option>
-        <option>Custom Engine</option>
-   </select>
-    <select id="model">
+
+    <option value="livechat" title="Shows livestream type chat">Livechat ( Shows livestream type chat ) (brbiekiss.)
+    </option>
+</select>
+
+<p id="prompt-description"></p>
+
+
+<div id="custom-engine-config"
+    style="display: none; background-color: #272727; padding: 10px; border-radius: 4px; margin: 10px auto; width: 70%;">
+    <h4 style="color: #6c89e9;">Custom Engine Configuration</h4>
+    <p style="color: #aaa; font-size: 12px; margin: 4px 0;">Select your API type and fill in the details below. Make
+        sure to click "Save Configuration" when done!</p>
+
+    <select id="custom-engine-type">
+        <option value="openai">OpenAI Compatible API</option>
+        <option value="nvidia">NVIDIA API</option>
+        <option value="custom">Custom Format</option>
     </select>
-
-    <select id="prefix-prompt" title="Select a prompt preset to modify the AI's behavior and writing style">
-        <option value="none" select title="No prompt modifications">None</option>
-        <option value="infdevv" title="Smart roleplay">Infi's prompt</option>
-        <option value="smolrp" title="Adaptive roleplay with authentic characters, 300-550+ words, cinematic composition. Focuses on genuine engagement over perfection.">SmolRP prompt (Immersive RP, authentic characters)</option>
-        <option value="slop" title="Adds common romance novel phrases like 'mind, body and soul' and 'ruin you for anyone else' excessively">Slop Prompt (Romance clichés overload)</option>
-        <option value="unpositive" title="Removes positivity from roleplay, focuses on darker/grimmer tones">Unpositive Prompt (Dark/grim themes)</option>
-        <option value="affection" title="Maximum affection mode - AI becomes extremely loving regardless of character personality">Affection Prompt (Maximum love/affection)</option>
-        <option value="cheese" title="First-person POV, extremely explicit smut writing, detailed combat scenes, character development focus">Cheese's Prompt (Explicit 18+ content, detailed)</option>
-        <option value="pupi" title="700-word max responses, third-person narrative, cinematic prose, slow-paced storytelling with psychological depth">Pupi's Prompt (Literary style, detailed prose)</option>
-        <option value="teto" title="AI becomes obsessed with Kasane Teto regardless of your input. For memes only.">teto (Kasane Teto obsession mode)</option>
-        <option value="brbie" title="brbie ( General RP )">brbie ( General RP )</option>
-        <option value="status" title="Shows the current status of the character">Status ( Shows current status of the character ) (brbiekiss.)</option>
-        <option value="anrp" title="Another general purpose prompt">ANRP</option>
-
-        <option value="livechat" title="Shows livestream type chat">Livechat ( Shows livestream type chat ) (brbiekiss.)</option>
-    </select>
-
-    <div id="prompt-description" style="color: #aaa; font-size: 12px; margin: 4px auto; width: 70%; text-align: center;">
-        Hover over options to see descriptions
+    <input
+        placeholder="API Endpoint URL (OpenAI: https://api.example.com/v1/chat/completions, Gemini: https://generativelanguage.googleapis.com/v1beta/models/MODEL_NAME:streamGenerateContent)"
+        id="custom-endpoint" type="text" style="width: 90%;">
+    <input placeholder="API Key (Optional)" id="custom-api-key" type="password" style="width: 90%;">
+    <input placeholder="Model Name" id="custom-model-name" type="text" style="width: 90%;">
+    <div id="nvidia-specific" style="display: none;">
+        <input placeholder="NVIDIA Org ID (Optional)" id="nvidia-org-id" type="text" style="width: 90%;">
     </div>
+    <button onclick="saveCustomEngineConfig()" style="background-color: #6c89e9;">Save Configuration</button>
 
-    <br>
-
-
-    <br>
-
-    <!-- Custom Engine Configuration -->
-    <div id="custom-engine-config" style="display: none; background-color: #272727; padding: 10px; border-radius: 4px; margin: 10px auto; width: 70%;">
-        <h4 style="color: #8b29db;">Custom Engine Configuration</h4>
-        <p style="color: #aaa; font-size: 12px; margin: 4px 0;">Select your API type and fill in the details below. Make sure to click "Save Configuration" when done!</p>
-
-        <select id="custom-engine-type">
-            <option value="openai">OpenAI Compatible API</option>
-            <option value="nvidia">NVIDIA API</option>
-            <option value="gemini">Gemini/AI Studio API</option>
-            <option value="custom">Custom Format</option>
-        </select>
-        <input placeholder="API Endpoint URL (OpenAI: https://api.example.com/v1/chat/completions, Gemini: https://generativelanguage.googleapis.com/v1beta/models/MODEL_NAME:streamGenerateContent)" id="custom-endpoint" type="text" style="width: 90%;">
-        <input placeholder="API Key (Optional)" id="custom-api-key" type="password" style="width: 90%;">
-        <input placeholder="Model Name" id="custom-model-name" type="text" style="width: 90%;">
-        <div id="nvidia-specific" style="display: none;">
-            <input placeholder="NVIDIA Org ID (Optional)" id="nvidia-org-id" type="text" style="width: 90%;">
-        </div>
-        <button onclick="saveCustomEngineConfig()" style="background-color: #8b29db;">Save Configuration</button>
-
-        <div style="color: #aaa; font-size: 11px; margin-top: 10px; text-align: left;">
-            <strong>Tips:</strong><br>
-            • For Gemini/AI Studio: Replace MODEL_NAME in the URL with your actual model (e.g., gemini-1.5-pro)<br>
-            • For OpenAI-compatible APIs: Use the standard /v1/chat/completions endpoint<br>
-            • Model Name field is required for all API types<br>
-            • After saving, do a hard refresh (Ctrl+Shift+R or Ctrl+F5) to ensure changes load<br>
-            • Check the browser console (F12) for detailed error messages if generation fails<br>
-            • Type <span class="code" style="background-color: #1a1a1a;">debugCustomEngine()</span> in the console to check your config
-        </div>
+    <div style="color: #aaa; font-size: 11px; margin-top: 10px; text-align: left;">
+        <strong>Tips:</strong><br>
+        • For OpenAI-compatible APIs: Use the standard /v1/chat/completions endpoint<br>
+        • Model Name field is required for all API types<br>
+        • After saving, do a hard refresh (Ctrl+Shift+R or Ctrl+F5) to ensure changes load<br>
+        • Check the browser console (F12) for detailed error messages if generation fails<br>
+        • Type <span class="code" style="background-color: #1a1a1a;">debugCustomEngine()</span> in the console to
+        check your config
     </div>
-    <br>
+</div>
+
+
+
+<button id="start" style="padding: 8px 30px; background-color: #6c89e9;">Start</button>
+
+<br>
+<br>
+
+<button
+    onclick="document.getElementById('docs').style.display = ('block' == document.getElementById('docs').style.display ? 'none' : 'block')">setup
+    guide</button>
+
+<div id="docs">
+
+    <h3>how to use</h3>
+    <p>first, you'll need to set your <span style="color: #6c89e9">API key</span> in janitor to your key</p>
+    <h4>this is your key: <span style="color: #6c89e9" id="key" class="code">[Loading...]</span></h4>
+    <p>cool, you got your key, fantastic. now place it in the api key field</p>
+    <p>it doesn't matter what you put as the model name, so just put whatever you want, Janitor will freak out if
+        you put nothing</p>
+    <p>now, set your "Proxy URL" to <span class="code"
+            style="color: #6c89e9">https://composite.seabase.xyz/v1/chat/completions</span></p>
+    <p> at the end of it, your configuration should look like this: </p>
+    <img src="./example.png" alt="example">
+
+    <h3>common troubleshooting</h3>
+    <p>if you are getting a fetch error after intially setting the proxy to composite, try refreshing janitor.ai</p>
+    <p>its a known issue that deepseek, gemini and other popular models are unstable in cloud providers</p>
+    <p>if you absolutely crave a guaranteed response, use webllm</p>
+    <P>is it not streaming? cool, can't fix that. pray or use webllm or pollinations</P>
+    <hr>
+
+</div>
+
+
+<div id="docs">
+    <h3>common qa</h3>
+    <p>Q: Do you collect data?</p>
+    <p style="color:#6c89e9">A: no. not unless you choose to donate data</p>
+    <p>Q: Is KiwiAI goated?</p>
+    <p style="color:#6c89e9">A: yes</p>
+    <p>Q: Is Composite open-source?</p>
+    <p style="color:#6c89e9">A: yes, check out the <a href="https://github.com/infdevv/composite" style="color:#d4d0d0"
+            target="_blank" style="text-decoration: none; color: #74db7a">github</a></p>
+    <p>Q: Whats the rate limit or message limit per day?</p>
+    <p style="color:#6c89e9">A: none</p>
+    <p>Q: Should I use Yuzu or WebLLM</p>
+    <p style="color:#6c89e9">A: webllm for guaranteed offline experience, yuzu for cloud-based models like deepseek
+    </p>
+    <p>Q: Does Composite work for other sites?</p>
+    <p style="color:#6c89e9">A: it should work for any site that supports an openai compatable api</p>
+    <p>Q: It's not responding, what do I do?</p>
+    <p style="color:#6c89e9">A: try another provider or another model, or just try WebLLM for a guaranteed
+        experience</p>
+    <p>Q: In the Discord, why does it say that you can break into my home and steal my dog if I use composite?</p>
+    <p style="color:#6c89e9">A: cause, i wanna pet your dog. deal with it</p>
+</div>
+
+
+
+<button
+    onclick="document.getElementById('debug').style.display = ('block' == document.getElementById('debug').style.display ? 'none' : 'block')">show
+    debug options</button>
+
+<div id="debug">
     <div id="enable-images" style="display: none">
         <label>
             <input type="checkbox" id="enable-images-checkbox">
             enable image generation ( via Pollinations API )
         </label>
     </div>
-        <div id="enable-images" style="display: flex;">
+    <div id="enable-images" style="display: flex;">
         <label>
             <input type="checkbox" id="show-router">
             show router picks ( only works on Yuzu (Auto) )
@@ -208,125 +210,119 @@
             enable reasoning ( only good for non-reasoning models )
         </label>
     </div>
-        <div id="enable-images" style="display: flex;">
+    <div id="enable-images" style="display: flex;">
         <label>
             <input type="checkbox" id="donate">
-            donate ( anonymously logs chats for training of future LLMs (see: <a href="https://huggingface.co/lucidityai" target="_blank" style="text-decoration: none; color: #8b29db">lc.ai</a></a> )
+            donate ( anonymously logs chats for training of future LLMs (see: <a
+                href="https://huggingface.co/lucidityai" target="_blank"
+                style="text-decoration: none; color: #6c89e9">lc.ai</a></a> )
         </label>
     </div>
 
     <br>
+    <h4>debug logs</h4>
+    <div id="logs">
+    </div>
     <br>
 
-    <button id="start" style="padding: 15px; background-color: #8b29db;">Start</button>
+    <button onclick="localStorage.clear()">reset everything</button>
 
+    <h4>websocket connection controls</h4>
+    <p style="color: #aaa; font-size: 12px;">Manual controls for WebSocket connection</p>
+    <div style="background-color: #272727; padding: 10px; border-radius: 4px; margin: 10px auto; width: 70%;">
+        <button onclick="manualConnect()"
+            style="background-color: #74db7a; padding: 7px 15px; margin: 5px;">Connect</button>
+        <button onclick="manualDisconnect()"
+            style="background-color: #ff6b6b; padding: 7px 15px; margin: 5px;">Disconnect</button>
+        <button onclick="checkConnectionStatus()"
+            style="background-color: #4a9eff; padding: 7px 15px; margin: 5px;">Check Status</button>
+        <div id="connection-status-debug"
+            style="background-color: #1a1a1a; color: #fff; font-family: monospace; text-align: left; padding: 8px; min-height: 60px; border-radius: 4px; margin-top: 8px; border: 1px solid #333; white-space: pre-wrap;">
+            Connection status will appear here...
+        </div>
+    </div>
     <br>
 
-    <div id="docs">
-        <h3>how to use</h3>
-        <p>first, you'll need to set your <span style="color: #8b29db">API key</span> in janitor to your key</p>
-        <h4>this is your key: <span style="color: #8b29db" id="key" class="code">[Loading...]</span></h4>
-        <p>cool, you got your key, fantastic. now place it in the api key field</p>
-        <p>it doesn't matter what you put as the model name, so just put whatever you want, Janitor will freak out if
-            you put nothing</p>
-        <p>now, set your "Proxy URL" to <span class="code" style="color: #8b29db">https://composite.seabase.xyz/v1/chat/completions</span></p>
-        <p> at the end of it, your configuration should look like this: </p>
-        <img src="./example.png" alt="example">
-    </div>
-
-    <div id="docs">
-        <h3>common troubleshooting</h3>
-        <p>if you are getting a fetch error after intially setting the proxy to composite, try refreshing janitor.ai</p>
-        <p>its a known issue that deepseek, gemini and other popular models are unstable in cloud providers</p>
-        <p>if you absolutely crave a guaranteed response, use webllm</p>
-        <P>is it not streaming? cool, can't fix that. pray or use webllm or pollinations</P>
-    </div>
-
-    <hr>
-
-        <div id="docs">
-        <h3>common qa</h3>
-        <p>Q: Do you collect data?</p>
-        <p style="color:#8b29db">A: no. not unless you choose to donate data</p>
-        <p>Q: Is KiwiAI goated?</p>
-        <p style="color:#8b29db">A: yes</p>
-        <p>Q: Is Composite open-source?</p>
-        <p style="color:#8b29db">A: yes, check out the <a href="https://github.com/infdevv/composite" style="color:#d4d0d0" target="_blank" style="text-decoration: none; color: #74db7a">github</a></p>
-        <p>Q: Whats the rate limit or message limit per day?</p>
-        <p style="color:#8b29db">A: none</p>
-        <p>Q: Should I use Yuzu or WebLLM</p>
-        <p style="color:#8b29db">A: webllm for guaranteed offline experience, yuzu for cloud-based models like deepseek</p>
-        <p>Q: Does Composite work for other sites?</p>
-        <p style="color:#8b29db">A: it should work for any site that supports an openai compatable api</p>
-        <p>Q: It's not responding, what do I do?</p>
-        <p style="color:#8b29db">A: try another provider or another model, or just try WebLLM for a guaranteed experience</p>
-        <p>Q: In the Discord, why does it say that you can break into my home and steal my dog if I use composite?</p>
-        <p style="color:#8b29db">A: cause, i wanna pet your dog. deal with it</p>
-    </div>
-
-    
-
-    <button
-        onclick="document.getElementById('debug').style.display = ('block' == document.getElementById('debug').style.display ? 'none' : 'block')">show
-        debug options</button>
-
-    <div id="debug">
-        <br>
-        <h4>debug logs</h4>
-        <div id="logs">
+    <h4>backend connection test</h4>
+    <p style="color: #aaa; font-size: 12px;">Test your model through the backend endpoint</p>
+    <div style="background-color: #272727; padding: 10px; border-radius: 4px; margin: 10px auto; width: 70%;">
+        <input type="text" id="test-message" placeholder="Type a test message..."
+            style="width: calc(100% - 100px); background-color: #484948; border: none; color: white; padding: 7px; border-radius: 4px; font-size: 14px;">
+        <button onclick="sendTestMessage()" style="background-color: #74db7a; width: 80px;">Send</button>
+        <div id="test-response"
+            style="background-color: #1a1a1a; color: #fff; font-family: monospace; text-align: left; padding: 8px; min-height: 100px; max-height: 300px; overflow-y: scroll; border-radius: 4px; margin-top: 8px; border: 1px solid #333; white-space: pre-wrap;">
+            Response will appear here...
         </div>
-        <br>
+        <p style="color: #aaa; font-size: 11px; margin-top: 5px;">Status: <span id="test-status"
+                style="color: #74db7a;">Ready</span></p>
+    </div>
+    <br>
 
-        <button onclick="localStorage.clear()">reset everything</button>
+    <h4>fetch debugger</h4>
+    <button onclick="clearFetchLogs()">Clear Fetch Logs</button>
+    <button onclick="downloadFetchLogs()">Download Logs</button>
+    <button onclick="toggleFetchDebugger()">Toggle Debugger</button>
+    <div id="fetch-logs"
+        style="background-color: #1a1a1a; color: #00ff00; font-family: monospace; text-align: left; padding: 8px; height: 200px; width: 70%; overflow-y: scroll; border-radius: 4px; margin: 8px auto; border: 1px solid #333;">
+        <div>Fetch debugger will appear here...</div>
+    </div>
+    <br>
 
-        <h4>websocket connection controls</h4>
-        <p style="color: #aaa; font-size: 12px;">Manual controls for WebSocket connection</p>
-        <div style="background-color: #272727; padding: 10px; border-radius: 4px; margin: 10px auto; width: 70%;">
-            <button onclick="manualConnect()" style="background-color: #74db7a; padding: 7px 15px; margin: 5px;">Connect</button>
-            <button onclick="manualDisconnect()" style="background-color: #ff6b6b; padding: 7px 15px; margin: 5px;">Disconnect</button>
-            <button onclick="checkConnectionStatus()" style="background-color: #4a9eff; padding: 7px 15px; margin: 5px;">Check Status</button>
-            <div id="connection-status-debug" style="background-color: #1a1a1a; color: #fff; font-family: monospace; text-align: left; padding: 8px; min-height: 60px; border-radius: 4px; margin-top: 8px; border: 1px solid #333; white-space: pre-wrap;">
-                Connection status will appear here...
+    <h4>connectivity</h4>
+    <p id="hf">Huggingface.co</p>
+    <p id="health">backend</p>
+    <p id="pollinations">pollinations</p>
+    <p id="yuzu">yuzu (deepinfra)</p>
+    <br>
+    <h4>device infomation</h4>
+    <p id="browser">browser: </p>
+    <p id="memory">memory: </p>
+</div>
+<br>
+<br>
+<img id="gif">
+<br>
+
+<script type="module" src="./index.js"></script>
+<h3>made with real dev pain and suffering. join the discord if you wish to suffer like me or just have a issue to
+    tell me about <a href="https://discord.gg/CPnJ8ctQhU" target="_blank"
+        style="text-decoration: none; color: #6c89e9">here</a></h3>
+
+<body>
+
+    <div onclick="window.open('https://discord.gg/Wcpnm8psjq', '_blank')">
+        are you bored? do you wanna help in the development of another site? click me <a
+            href="https://discord.gg/CPnJ8ctQhU" target="_blank" style="text-decoration: none; color: #6c89e9"
+            href="https://discord.gg/Wcpnm8psjq" target="_blank">here</a> to help alpha test KiwiAI
+    </div>
+
+    <div id="chatbot-container" class="chatbot-hidden">
+        <div id="chatbot-header">
+            <span>AI Assistant</span>
+            <div class="chatbot-controls">
+                <button id="chatbot-minimize" class="chatbot-control-btn" title="Minimize">
+                    <i class="fas fa-minus"></i>
+                </button>
+                <button id="chatbot-close" class="chatbot-control-btn" title="Close">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
         </div>
-        <br>
-
-        <h4>backend connection test</h4>
-        <p style="color: #aaa; font-size: 12px;">Test your model through the backend endpoint</p>
-        <div style="background-color: #272727; padding: 10px; border-radius: 4px; margin: 10px auto; width: 70%;">
-            <input type="text" id="test-message" placeholder="Type a test message..." style="width: calc(100% - 100px); background-color: #484948; border: none; color: white; padding: 7px; border-radius: 4px; font-size: 14px;">
-            <button onclick="sendTestMessage()" style="background-color: #74db7a; width: 80px;">Send</button>
-            <div id="test-response" style="background-color: #1a1a1a; color: #fff; font-family: monospace; text-align: left; padding: 8px; min-height: 100px; max-height: 300px; overflow-y: scroll; border-radius: 4px; margin-top: 8px; border: 1px solid #333; white-space: pre-wrap;">
-                Response will appear here...
-            </div>
-            <p style="color: #aaa; font-size: 11px; margin-top: 5px;">Status: <span id="test-status" style="color: #74db7a;">Ready</span></p>
+        <div id="chatbot-messages"></div>
+        <div id="chatbot-input-area">
+            <input type="text" id="chatbot-input" placeholder="Type your message...">
+            <button id="chatbot-send" class="chatbot-send-btn">
+                <i class="fas fa-paper-plane"></i>
+            </button>
         </div>
-        <br>
-
-        <h4>fetch debugger</h4>
-        <button onclick="clearFetchLogs()">Clear Fetch Logs</button>
-        <button onclick="downloadFetchLogs()">Download Logs</button>
-        <button onclick="toggleFetchDebugger()">Toggle Debugger</button>
-        <div id="fetch-logs" style="background-color: #1a1a1a; color: #00ff00; font-family: monospace; text-align: left; padding: 8px; height: 200px; width: 70%; overflow-y: scroll; border-radius: 4px; margin: 8px auto; border: 1px solid #333;">
-            <div>Fetch debugger will appear here...</div>
-        </div>
-        <br>
-
-        <h4>connectivity</h4>
-        <p id="hf">Huggingface.co</p>
-        <p id="health">backend</p>
-        <p id="pollinations">pollinations</p>
-        <p id="yuzu">yuzu (deepinfra)</p>
-        <br>
-        <h4>device infomation</h4>
-        <p id="browser">browser: </p>
-        <p id="memory">memory: </p>
     </div>
-    <h3>made with real dev pain and suffering. join the discord if you wish to suffer like me or just have a issue to
-        tell me about <a href="https://discord.gg/CPnJ8ctQhU" target="_blank"
-            style="text-decoration: none; color: #8b29db">here</a></h3>
-            <img src="https://media1.tenor.com/m/qw_WUt9bD3EAAAAd/spinning-zako.gif">
-    <script type="module" src="./index.js"></script>
+
+    <div id="chatbot-toggle" class="chatbot-toggle-visible" title="Open Chat">
+        <i class="fas fa-comment"></i>
+        <span class="chatbot-notification" id="chatbot-notification">0</span>
+    </div>
+
+    <script src="scripts/chatbot.js"></script>
 
 </body>
 

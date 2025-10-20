@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>composite⁵</title>
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js" defer></script>
+    <script src="scripts/hyper.js" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="./styles/styles_gemini.css">
+    </link>
+</head>
+
+<body>
+<canvas id="particles-canvas"></canvas>
+
+<h1>composite<span style="color: #f03a80">⁵</span> </h1>
+<p>for <span style="display: inline; font-size: 30;"><span style="color: #4285F4; font-size: 1rem;">G</span><span style="color: #EA4335; font-size: 1rem;">o</span><span style="color: #FBBC04; font-size: 1rem;">o</span><span style="color: #4285F4; font-size: 1rem;">g</span><span style="color: #34A853; font-size: 1rem;">l</span><span style="color: #EA4335; font-size: 1rem;">e</span></span> <span style="color: #fffbfe">Gemini</span></p>
+
+<script type="module" src="./index.js"></script>
+
+<script>
+// Force engine to be Google Gemini and prevent localStorage from overriding
+window.addEventListener('DOMContentLoaded', () => {
+    const engineSelect = document.getElementById('engine');
+
+    // Set to Google Gemini
+    engineSelect.value = 'Google Gemini';
+
+    // Save to localStorage so it persists
+    localStorage.setItem('engine', 'Google Gemini');
+
+    console.log('=== GEMINI.HTML DEBUG ===');
+    console.log('Engine element:', engineSelect);
+    console.log('Engine value:', engineSelect?.value);
+    console.log('Engine disabled:', engineSelect?.disabled);
+    console.log('localStorage engine:', localStorage.getItem('engine'));
+    console.log('======================');
+});
+
+// Keep forcing it every 500ms for the first 3 seconds to override any async loading
+let checkCount = 0;
+const forceInterval = setInterval(() => {
+    const engineSelect = document.getElementById('engine');
+    if (engineSelect && engineSelect.value !== 'Google Gemini') {
+        console.log('ENGINE OVERRIDE #' + checkCount + ': Forcing Google Gemini (was:', engineSelect.value, ')');
+        engineSelect.value = 'Google Gemini';
+        localStorage.setItem('engine', 'Google Gemini');
+    }
+    checkCount++;
+    if (checkCount >= 6) { // Stop after 3 seconds (6 * 500ms)
+        clearInterval(forceInterval);
+        console.log('Engine forcing complete. Final value:', engineSelect?.value);
+    }
+}, 500);
+</script>
+
+<select id="engine" style="display: none;">
+    <option selected>Google Gemini</option>
+</select>
+<select id="model">
+
+
+    <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+    <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+    <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
+    <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+    <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash Lite</option>
+</select>
+
+<select id="prefix-prompt" title="Select a prompt preset to modify the AI's behavior and writing style">
+    <option value="none" select title="No prompt modifications">None</option>
+    <option value="infdevv" title="Smart roleplay">Infi's prompt</option>
+    <option value="smolrp"
+        title="Adaptive roleplay with authentic characters, 300-550+ words, cinematic composition. Focuses on genuine engagement over perfection.">
+        SmolRP prompt</option>
+    <option value="slop"
+        title="Adds common romance novel phrases like 'mind, body and soul' and 'ruin you for anyone else' excessively">
+        Slop Prompt</option>
+    <option value="unpositive" title="Removes positivity from roleplay, focuses on darker/grimmer tones">Unpositive
+        Prompt</option>
+    <option value="affection"
+        title="Maximum affection mode - AI becomes extremely loving regardless of character personality">Affection
+        Prompt</option>
+    <option value="cheese"
+        title="First-person POV, extremely explicit smut writing, detailed combat scenes, character development focus">
+        Cheese's Prompt</option>
+    <option value="pupi"
+        title="700-word max responses, third-person narrative, cinematic prose, slow-paced storytelling with psychological depth">
+        Pupi's Prompt</option>
+    <option value="teto" title="AI becomes obsessed with Kasane Teto regardless of your input. For memes only.">teto
+        </option>
+    <option value="brbie" title="brbie ( General RP )">brbie</option>
+    <option value="status" title="Shows the current status of the character">Status</option>
+    <option value="anrp" title="Another general purpose prompt">ANRP</option>
+    <option value="anrp" title="D-ACM">D-ACM</option>
+    <option value="humour" title="Humor">Humor</option>
+
+
+    <option value="livechat" title="Shows livestream type chat">Livechat
+    </option>
+</select>
+
+<br>
+
+
+    <h3>how to use</h3>
+    <p>first, you'll need to get your <span style="color: #f03a80">Google AI API key</span> from <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: #f03a80; text-decoration: none;">Google AI Studio</a></p>
+
+    <input type="password" id="api-key-input" placeholder="Enter your Google AI API key" style="width: 400px; max-width: 80%;">
+
+    <p style="font-size: 12px; color: #aaa;">Your API key is stored locally in your browser and never sent to our servers.</p>
+
+    <h4>Current key status: <span style="color: #f03a80" id="key" class="code">[Not Set]</span></h4>
+
+    <p>Once you've saved your key, you can use composite with Janitor AI:</p>
+    <p>it doesn't matter what you put as the model name, so just put whatever you want, Janitor will freak out if
+        you put nothing</p>
+    <p>now, set your "Proxy URL" to <span class="code"
+            style="color: #f03a80">https://composite.seabase.xyz/v1/chat/completions</span></p>
+    <p> at the end of it, your configuration should look like this: </p>
+    <img src="./example.png" alt="example">
+
+<h3 id="end">made with real dev pain and suffering. join the discord if you wish to suffer like me or just have a issue to
+    tell me about <a href="https://discord.gg/CPnJ8ctQhU" target="_blank"
+        style="text-decoration: none; color: #f03a80">here</a></h3>
+    </div>
+            <div id="logs" style="display: none;">
+<button id="start"></button>
+<div id="enable-images" style="display: none">
+        <label>
+            <input type="checkbox" id="enable-images-checkbox">
+            enable image generation ( via Pollinations API )
+        </label>
+    </div>
+    <div id="enable-images" style="display: flex;">
+        <label>
+            <input type="checkbox" id="show-router">
+            show router picks ( only works on Yuzu (Auto) )
+        </label>
+    </div>
+    <div id="enable-images" style="display: flex;">
+        <label>
+            <input type="checkbox" id="show-reasoning">
+            show llm reasoning ( only works for reasoning models )
+        </label>
+    </div>
+    <div id="enable-images" style="display: flex;">
+        <label>
+            <input type="checkbox" id="turn-on-reasoning">
+            enable reasoning ( only good for non-reasoning models )
+        </label>
+    </div>
+    <div id="enable-images" style="display: flex;">
+        <label>
+            <input type="checkbox" id="donate">
+            donate ( anonymously logs chats for training of future LLMs (see: <a
+                href="https://huggingface.co/lucidityai" target="_blank"
+                style="text-decoration: none; color: #6c89e9">lc.ai</a></a> )
+        </label>
+    </div>
+    <p id="prompt-description"></p>
+    <br>
+    <img id="gif">
+    <div id="custom-engine-config"></div>
+
+    <button onclick="localStorage.clear()">reset everything</button>
+
+    <h4>websocket connection controls</h4>
+    <p style="color: #aaa; font-size: 12px;">Manual controls for WebSocket connection</p>
+    <div style="background-color: #272727; padding: 10px; border-radius: 4px; margin: 10px auto; width: 70%;">
+        <button onclick="manualConnect()"
+            style="background-color: #74db7a; padding: 7px 15px; margin: 5px;">Connect</button>
+        <button onclick="manualDisconnect()"
+            style="background-color: #ff6b6b; padding: 7px 15px; margin: 5px;">Disconnect</button>
+        <button onclick="checkConnectionStatus()"
+            style="background-color: #4a9eff; padding: 7px 15px; margin: 5px;">Check Status</button>
+        <div id="connection-status-debug"
+            style="background-color: #1a1a1a; color: #fff; font-family: monospace; text-align: left; padding: 8px; min-height: 60px; border-radius: 4px; margin-top: 8px; border: 1px solid #333; white-space: pre-wrap;">
+            Connection status will appear here...
+        </div>
+    </div>
+    <br>
+
+    <h4>backend connection test</h4>
+    <p style="color: #aaa; font-size: 12px;">Test your model through the backend endpoint</p>
+    <div style="background-color: #272727; padding: 10px; border-radius: 4px; margin: 10px auto; width: 70%;">
+        <input type="text" id="test-message" placeholder="Type a test message..."
+            style="width: calc(100% - 100px); background-color: #484948; border: none; color: white; padding: 7px; border-radius: 4px; font-size: 14px;">
+        <button onclick="sendTestMessage()" style="background-color: #74db7a; width: 80px;">Send</button>
+        <div id="test-response"
+            style="background-color: #1a1a1a; color: #fff; font-family: monospace; text-align: left; padding: 8px; min-height: 100px; max-height: 300px; overflow-y: scroll; border-radius: 4px; margin-top: 8px; border: 1px solid #333; white-space: pre-wrap;">
+            Response will appear here...
+        </div>
+        <p style="color: #aaa; font-size: 11px; margin-top: 5px;">Status: <span id="test-status"
+                style="color: #74db7a;">Ready</span></p>
+    </div>
+    <br>
+
+    <h4>fetch debugger</h4>
+    <button onclick="clearFetchLogs()">Clear Fetch Logs</button>
+    <button onclick="downloadFetchLogs()">Download Logs</button>
+    <button onclick="toggleFetchDebugger()">Toggle Debugger</button>
+    <div id="fetch-logs"
+        style="background-color: #1a1a1a; color: #00ff00; font-family: monospace; text-align: left; padding: 8px; height: 200px; width: 70%; overflow-y: scroll; border-radius: 4px; margin: 8px auto; border: 1px solid #333;">
+        <div>Fetch debugger will appear here...</div>
+    </div>
+    <br>
+
+    <h4>connectivity</h4>
+    <p id="hf">Huggingface.co</p>
+    <p id="health">backend</p>
+    <p id="pollinations">pollinations</p>
+    <p id="yuzu">yuzu (deepinfra)</p>
+    <br>
+    <h4>device infomation</h4>
+    <p id="browser">browser: </p>
+    <p id="memory">memory: </p>
+</div>
+<script src="scripts/bg.js"></script>
+<script src="scripts/gemini.js"></script>
+</body>
+
+</html>

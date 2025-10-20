@@ -8,20 +8,20 @@ import {
     loadSavedConfig,
     load,
     customEngineConfig
-} from './engines.js?v={{VERSION}}';
+} from './engines.js';
 import {
     initializeSocket,
     manualConnect,
     manualDisconnect,
     checkConnectionStatus,
     sendTestMessage
-} from './socket.js?v={{VERSION}}';
+} from './socket.js';
 import {
     registerServiceWorker,
     clearFetchLogs,
     toggleFetchDebugger,
     downloadFetchLogs
-} from './service-worker.js?v={{VERSION}}';
+} from './service-worker.js';
 
 // Setup all UI event listeners
 export function setupUIEventListeners(engine, bareClient) {
@@ -130,8 +130,14 @@ export function initializeUI(engine, bareClient) {
     // Check on page visibility change
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden && (!window.socket || !window.socket.connected)) {
-            console.log('Page became visible and not connected, reconnecting...');
-            initializeSocket();
+            console.log('Page became visible and not connected, waiting before reconnect...');
+            // Wait a bit to see if Socket.IO reconnects automatically
+            setTimeout(() => {
+                if (!window.socket || !window.socket.connected) {
+                    console.log('Still not connected, manually initializing...');
+                    initializeSocket();
+                }
+            }, 2000);
         }
     });
 

@@ -1,5 +1,5 @@
 // Engine initialization and management
-import { availableModels, availableModelsPollinations, availableModelsYuzu } from './constants.js';
+import { availableModels, availableModelsGemini, availableModelsPollinations, availableModelsYuzu } from './constants.js';
 
 // Custom engine configuration
 export let customEngineConfig = {
@@ -179,6 +179,14 @@ export function initializeDefaultModels() {
                 document.getElementById('model').appendChild(option);
                 console.log("Added default: " + model);
             });
+        } else if (defaultEngine === "Google Gemini") {
+            availableModelsGemini.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model;
+                option.textContent = model;
+                document.getElementById('model').appendChild(option);
+                console.log("Added Gemini default: " + model);
+            });
         }
     });
 }
@@ -275,6 +283,14 @@ export function handleEngineChange() {
             document.getElementById('model').appendChild(option);
             console.log("Added: " + model);
         });
+    } else if (engineValue === "Google Gemini") {
+        availableModelsGemini.forEach(model => {
+            const option = document.createElement('option');
+            option.value = model;
+            option.textContent = model;
+            document.getElementById('model').appendChild(option);
+            console.log("Added Gemini model: " + model);
+        });
     }
 }
 
@@ -297,7 +313,7 @@ export function loadSavedConfig() {
             // Only restore saved engine if user hasn't manually changed it
             const savedEngine = localStorage.getItem("engine");
 
-            if (!userChangedEngine) {
+            if (!userChangedEngine && savedEngine != "Google Gemini") {
                 console.log("Restoring saved engine:", savedEngine);
                 document.getElementById("engine").value = savedEngine;
 

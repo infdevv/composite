@@ -55,75 +55,12 @@ server.setNotFoundHandler((request, reply) => {
 
 server.register(cors, { origin: true });
 
-// Security: Add rate limiting
-const rateLimitStore = new Map();
-
-function rateLimit(maxRequests, windowMs, skipPaths = []) {
-    return async (request, reply) => {
-        // Skip rate limiting for certain paths
-        if (skipPaths.some(path => request.url.startsWith(path))) {
-            return;
-        }
-
-        const identifier = request.ip || request.headers['x-forwarded-for'] || 'unknown';
-        const now = Date.now();
-        const key = `${identifier}:${request.url}`;
-
-        if (!rateLimitStore.has(key)) {
-            rateLimitStore.set(key, { count: 1, resetTime: now + windowMs });
-        } else {
-            const record = rateLimitStore.get(key);
-
-            // Reset if window expired
-            if (now > record.resetTime) {
-                record.count = 1;
-                record.resetTime = now + windowMs;
-            } else {
-                record.count++;
-
-                if (record.count > maxRequests) {
-                    reply.status(429).send({
-                        error: true,
-                        message: 'Too many requests. Please try again later.',
-                        statusCode: 429
-                    });
-                    return reply;
-                }
-            }
-        }
-    };
-}
-
-// Clean up old rate limit entries every 5 minutes
-setInterval(() => {
-    const now = Date.now();
-    for (const [key, record] of rateLimitStore.entries()) {
-        if (now > record.resetTime) {
-            rateLimitStore.delete(key);
-        }
-    }
-}, 5 * 60 * 1000);
-
-// Apply rate limiting: 100 requests per minute per IP
-server.addHook('preHandler', rateLimit(100, 60000, ['/health', '/api/stats']));
-
-// Security: Add security headers
-server.addHook('onSend', async (_request, reply) => {
-    reply.header('X-Content-Type-Options', 'nosniff');
-    reply.header('X-Frame-Options', 'DENY');
-    reply.header('X-XSS-Protection', '1; mode=block');
-    reply.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-
-    // Remove server header to avoid exposing server info
-    reply.removeHeader('X-Powered-By');
-    reply.removeHeader('Server');
-});
 
 // Disable the static file middleware since we'll handle caching manually
-// server.register(require('@fastify/static'), {
-//     root: path.join(__dirname, 'public'),
-//     prefix: '/'
-// });
+server.register(require('@fastify/static'), {
+     root: path.join(__dirname, 'public'),
+     prefix: '/',
+});
 
 
 const io = new Server(server.server, {
@@ -156,90 +93,14 @@ async function safeReadFile(filePath, encoding = 'utf8') {
     }
 }
 
-server.get('/', async (request, reply) => {
-    try {
-        const filePath = path.join(__dirname, 'public/index.html');
-        let fileContent = await safeReadFile(filePath, 'utf8');
 
-        reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
-        reply.header('Pragma', 'no-cache');
-        reply.header('Expires', '0');
-        reply.type('text/html').send(fileContent);
-    } catch (error) {
-        throw error; // Will be caught by global error handler
-    }
-}); 
 
 server.get("/health", async (request, reply) => {
     reply.send("ok")
 })
 
-server.get("/example.png", async (request, reply) => {
-    try {
-        const filePath = path.join(__dirname, 'public/example.png');
-        const fileContent = await safeReadFile(filePath, null);
-        reply.type('image/png').send(fileContent);
-    } catch (error) {
-        throw error; // Will be caught by global error handler
-    }
-});
-
-server.get("/index.js", async (request, reply) => {
-    try {
-        const filePath = path.join(__dirname, 'public/index.js');
-        let fileContent = await safeReadFile(filePath, 'utf8');
-
-        // Inject cache-busting version
-        const version = Date.now();
-        fileContent = fileContent.replace(/\{\{VERSION\}\}/g, version);
-
-        reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
-        reply.header('Pragma', 'no-cache');
-        reply.header('Expires', '0');
-        reply.type('application/javascript').send(fileContent);
-    } catch (error) {
-        throw error; // Will be caught by global error handler
-    }
-});
-
 server.get("/v1/chat/images/:description", async (request, reply) => {
     reply.status(301).redirect(`https://image.pollinations.ai/prompt/${request.params.description}?model=turbo&nologo=true`);
-});
-
-server.get("/plugin-parse.js", async (request, reply) => {
-    try {
-        const filePath = path.join(__dirname, 'public/plugin-parse.js');
-        let fileContent = await safeReadFile(filePath, 'utf8');
-
-        // Inject cache-busting version
-        const version = Date.now();
-        fileContent = fileContent.replace(/\{\{VERSION\}\}/g, version);
-
-        reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
-        reply.header('Pragma', 'no-cache');
-        reply.header('Expires', '0');
-        reply.type('application/javascript').send(fileContent);
-    } catch (error) {
-        throw error; // Will be caught by global error handler
-    }
-});
-
-server.get("/hyper.js", async (request, reply) => {
-    try {
-        const filePath = path.join(__dirname, 'public/hyper.js');
-        let fileContent = await safeReadFile(filePath, 'utf8');
-
-        // Inject cache-busting version
-        const version = Date.now();
-        fileContent = fileContent.replace(/\{\{VERSION\}\}/g, version);
-
-        reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
-        reply.header('Pragma', 'no-cache');
-        reply.header('Expires', '0');
-        reply.type('application/javascript').send(fileContent);
-    } catch (error) {
-        throw error; // Will be caught by global error handler
-    }
 });
 
 // Helper function to normalize message content for comparison
@@ -392,84 +253,7 @@ server.post("/donate", async (request, reply) => {
     }
 });
 
-server.get("/puter.json", async (request, reply) => {
-    try {
-        const filePath = path.join(__dirname, 'public/puter.json');
-        const fileContent = await safeReadFile(filePath, 'utf8');
-        reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
-        reply.header('Pragma', 'no-cache');
-        reply.header('Expires', '0');
-        reply.type('application/json').send(fileContent);
-    } catch (error) {
-        throw error; // Will be caught by global error handler
-    }
-});
 
-server.get("/puter2.json", async (request, reply) => {
-    try {
-        const filePath = path.join(__dirname, 'public/puter2.json');
-        const fileContent = await safeReadFile(filePath, 'utf8');
-        reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
-        reply.header('Pragma', 'no-cache');
-        reply.header('Expires', '0');
-        reply.type('application/json').send(fileContent);
-    } catch (error) {
-        throw error; // Will be caught by global error handler
-    }
-});
-
-server.get("/statistics.html", async (request, reply) => {
-    try {
-        const filePath = path.join(__dirname, 'public/statistics.html');
-        const fileContent = await safeReadFile(filePath, 'utf8');
-        reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
-        reply.header('Pragma', 'no-cache');
-        reply.header('Expires', '0');
-        reply.type('text/html').send(fileContent);
-    } catch (error) {
-        throw error; // Will be caught by global error handler
-    }
-});
-
-// Specific route for scripts directory (ES6 modules)
-server.get("/scripts/*", async (request, reply) => {
-    try {
-        const scriptPath = request.url.replace('/scripts/', '').split('?')[0]; // Remove query params
-        const filePath = path.join(__dirname, 'public/scripts', scriptPath);
-        let fileContent = await safeReadFile(filePath, 'utf8');
-
-        // Inject cache-busting version
-        const version = Date.now();
-        fileContent = fileContent.replace(/\{\{VERSION\}\}/g, version);
-
-        reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
-        reply.header('Pragma', 'no-cache');
-        reply.header('Expires', '0');
-        reply.type('application/javascript').send(fileContent);
-    } catch (error) {
-        throw error;
-    }
-});
-
-// Specific route for yuzu directory
-server.get("/yuzu/*", async (request, reply) => {
-    try {
-        const yuzuPath = request.url.replace('/yuzu/', '').split('?')[0]; // Remove query params
-        const filePath = path.join(__dirname, 'public/yuzu', yuzuPath);
-        let fileContent = await safeReadFile(filePath, 'utf8');
-
-        // Inject cache-busting version
-        const version = Date.now();
-        fileContent = fileContent.replace(/\{\{VERSION\}\}/g, version);
-
-        reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
-        reply.header('Pragma', 'no-cache');
-        reply.header('Expires', '0');
-        reply.type('application/javascript').send(fileContent);
-    } catch (error) {
-        throw error;
-    }
-});
 
 let total_messages = 0;
 let total_message_len = 0; // char
@@ -806,8 +590,12 @@ ioSocket.on('connection', (socket) => {
     // Replace existing connection or create new one
     if (connected_users.has(userkey)) {
         const existingUserInfo = connected_users.get(userkey);
-        if (existingUserInfo.socket) {
-            existingUserInfo.socket.disconnect(true);
+        if (existingUserInfo.socket && existingUserInfo.socket.id !== socket.id) {
+            console.log(`Replacing existing connection for ${obfuscated}`);
+            // Give a moment for graceful disconnect
+            setTimeout(() => {
+                existingUserInfo.socket.disconnect(true);
+            }, 100);
         }
     }
 
@@ -825,7 +613,7 @@ ioSocket.on('connection', (socket) => {
     });
 });
 
-server.listen({ port: 3000 }, (err, address) => {
+server.listen({ port: 3005 }, (err, address) => {
   if (err) {
     console.error(err);
     process.exit(1);
