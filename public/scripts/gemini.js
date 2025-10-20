@@ -38,3 +38,14 @@ document.getElementById('api-key-input').addEventListener('input', function() {
 });
 
 loadAPIKey();
+
+const vods = [
+"https://youtube.com/embed/6Xp-zh0nIf0",
+"https://youtube.com/embed/xBNOkh2EZoc"
+]
+
+let vod = vods[Math.floor(Math.random() * vods.length)];
+
+const player = document.getElementById('pippa');
+
+player.src = vod;
