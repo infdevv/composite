@@ -188,14 +188,14 @@ export function preprocessMessages(messages, pollinations = false, yuzu = false,
     let prefix = overridePrompt || document.getElementById("prefix-prompt").value;
     let reasoning = document.getElementById("turn-on-reasoning").checked;
 
-    let prefixContent = prompts[prefix];
+    let prefixContent = prompts[prefix] || "";
 
     if (imagemd) {
-        prefixContent += prompts["image"];
+        prefixContent += prompts["image"] || "";
     }
 
     if (reasoning) {
-        prefixContent += prompts["reasoning"];
+        prefixContent += prompts["reasoning"] || "";
     }
 
     messages[0]["content"] = prefixContent + messages[0]["content"];
