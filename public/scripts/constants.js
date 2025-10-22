@@ -98,6 +98,7 @@ pupi: 700-word max responses, third-person narrative, cinematic prose, slow-pace
 teto: AI becomes obsessed with Kasane Teto regardless of your input. For memes only.
 brbie: brbie ( General RP )
 status: Shows the current status of the character
+default: Default prompt, ultra optimized for RP
 
 Return your response in this format:
 \`\`\`json 
