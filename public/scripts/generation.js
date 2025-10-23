@@ -2,7 +2,7 @@
 import { prompts, routerPrompt } from "./constants.js";
 import Yuzu from "../yuzu/client.js";
 
-const yuzuClient = new Yuzu();
+const yuzuClient = new Yuzu("https://gpt4free.pro/v1/chat/completions");
 
 // Generation state
 export let genned = "";

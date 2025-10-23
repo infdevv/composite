@@ -1,31 +1,43 @@
 {
   "models": [
-    "deepseek-ai/DeepSeek-V3-0324",
-    "deepseek-ai/DeepSeek-R1-0528",
-    "deepseek-ai/DeepSeek-R1-0528-Turbo",
-    "deepseek-ai/DeepSeek-V3.2-Exp",
-    "deepseek-ai/DeepSeek-V3.1-Terminus",
-    "deepseek-ai/DeepSeek-V3.1",
-    "Qwen/Qwen3-235B-A22B-Instruct-2507",
-    "Qwen/Qwen3-235B-A22B-Thinking-2507",
-    "Qwen/Qwen3-Next-80B-A3B-Instruct",
-    "Qwen/Qwen3-Next-80B-A3B-Thinking",
-    "Qwen/QwQ-32B",
-    "zai-org/GLM-4.6",
-    "zai-org/GLM-4.5",
-    "zai-org/GLM-4.5-Air",
-    "moonshotai/Kimi-K2-Instruct-0905",
-    "Qwen/Qwen2.5-72B-Instruct",
-    "Qwen/Qwen2.5-Coder-32B-Instruct",
-    "Qwen/Qwen2.5-VL-32B-Instruct",
-    "Qwen/Qwen3-VL-30B-A3B-Instruct",
-    "Qwen/Qwen3-VL-30B-A3B-Thinking",
-    "Qwen/Qwen3-14B",
-    "mistralai/Mistral-Small-3.2-24B-Instruct-2506",
-    "mistralai/Mistral-Small-3.1-24B-Instruct-2503",
-    "google/gemma-3-27b-it",
-    "google/gemma-3-12b-it",
-    "google/gemma-2-27b-it",
-    "google/gemma-2-9b-it"
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+    "gemini-2.5-pro",
+
+    "glm-4.5",
+    "glm-4.5-air",
+    "glm-4.6",
+
+    "claude-3.7-sonnet",
+    "claude-sonnet-4",
+    "claude-sonnet-4.5",
+    "claude-haiku-4.5",
+
+
+    "deepseek-v3.1",
+    "deepseek-v3",
+    "deepseek-v3.2",
+    "deepseek-r1",
+    "deepseek-r1-0528",
+    "deepseek-chat",
+    "deepseek-reasoner",
+
+    "qwen2.5-coder-32b",
+    "qwen3-coder",
+    "qwen3-coder-big",
+    "qwen3-omni",
+    "qwen3-next",
+
+    "kimi-k2-0905",
+    "grok-3-mini",
+    "grok-4",
+
+    "ring-1t",
+    "ling-1t",
+    "goliath-120b",
+    "gemma-3n-e4b",
+    "nemotron-ultra-235b",
+    "llama-3.3",
+    "qwq-32b-fast"
   ]
 }
