@@ -58,6 +58,7 @@ export async function getFetchLogs() {
 // Clear fetch logs
 export async function clearFetchLogs() {
   await sendMessageToSW({ type: "CLEAR_DEBUG_LOGS" });
+  expandedLogs.clear(); // Clear expanded state when clearing logs
   updateFetchLogsDisplay();
   console.log("🗑️ Fetch logs cleared");
 }
@@ -105,6 +106,38 @@ export async function downloadFetchLogs() {
   console.log("📥 Fetch logs downloaded");
 }
 
+// Format JSON for display
+function formatJSON(obj) {
+  if (!obj) return "null";
+  try {
+    return JSON.stringify(obj, null, 2);
+  } catch (e) {
+    return String(obj);
+  }
+}
+
+// Store expanded state of logs
+let expandedLogs = new Set();
+
+// Toggle log details visibility
+window.toggleLogDetails = function(logId) {
+  const detailsDiv = document.getElementById(`log-details-${logId}`);
+  const toggleIcon = document.getElementById(`toggle-icon-${logId}`);
+
+  if (detailsDiv) {
+    const isHidden = detailsDiv.style.display === 'none';
+    detailsDiv.style.display = isHidden ? 'block' : 'none';
+    toggleIcon.textContent = isHidden ? '▼' : '▶';
+
+    // Update expanded state
+    if (isHidden) {
+      expandedLogs.add(logId);
+    } else {
+      expandedLogs.delete(logId);
+    }
+  }
+};
+
 // Update fetch logs display
 export async function updateFetchLogsDisplay() {
   if (!fetchDebuggerEnabled) return;
@@ -118,12 +151,16 @@ export async function updateFetchLogsDisplay() {
       return;
     }
 
+    // Store current scroll position
+    const currentScrollTop = fetchLogsDiv.scrollTop;
+
     const logsHtml = logs
-      .slice(0, 20)
+      .slice(0, 50)
       .map((log) => {
         const timestamp = new Date(log.timestamp).toLocaleTimeString();
         const method = log.method || "GET";
         const url = log.url ? new URL(log.url).pathname : "unknown";
+        const fullUrl = log.url || "unknown";
 
         let status, statusText;
         if (log.response?.status) {
@@ -149,20 +186,83 @@ export async function updateFetchLogsDisplay() {
           ? "#51cf66"
           : "#74c0fc";
 
+        // Check if this log is expanded
+        const isExpanded = expandedLogs.has(log.id);
+        const displayStyle = isExpanded ? 'block' : 'none';
+        const iconText = isExpanded ? '▼' : '▶';
+
+        // Create detailed view
+        const requestHeaders = formatJSON(log.request?.headers || {});
+        const requestBody = log.request?.body || "(empty)";
+        const responseHeaders = formatJSON(log.response?.headers || {});
+        const responseBody = log.response?.body || "(empty)";
+        const errorDetails = log.error ? formatJSON(log.error) : null;
+
         return `
-                <div style="margin-bottom: 4px; padding: 2px 0; border-bottom: 1px solid #333;">
-                    <span style="color: #74c0fc;">${timestamp}</span>
-                    <span style="color: #ffd43b;">${method}</span>
-                    <span style="color: #fff;">${url}</span>
-                    <span style="color: ${statusColor};">${status}${statusText}</span>
-                    <span style="color: #aaa;">(${duration}ms)</span>
+                <div style="margin-bottom: 8px; border: 1px solid #333; border-radius: 4px; background-color: #1a1a1a;">
+                    <div onclick="toggleLogDetails('${log.id}')" style="padding: 8px; cursor: pointer; user-select: none; transition: background-color 0.2s;"
+                         onmouseover="this.style.backgroundColor='#252525'"
+                         onmouseout="this.style.backgroundColor='#1a1a1a'">
+                        <span id="toggle-icon-${log.id}" style="color: #888; margin-right: 8px;">${iconText}</span>
+                        <span style="color: #74c0fc;">${timestamp}</span>
+                        <span style="color: #ffd43b; margin-left: 8px; font-weight: bold;">${method}</span>
+                        <span style="color: #fff; margin-left: 8px;">${url}</span>
+                        <span style="color: ${statusColor}; margin-left: 8px; font-weight: bold;">${status}${statusText}</span>
+                        <span style="color: #aaa; margin-left: 8px;">(${duration}ms)</span>
+                    </div>
+                    <div id="log-details-${log.id}" style="display: ${displayStyle}; padding: 12px; border-top: 1px solid #333; background-color: #0d0d0d;">
+                        <div style="margin-bottom: 12px;">
+                            <div style="color: #6c89e9; font-weight: bold; margin-bottom: 4px;">📋 Full URL:</div>
+                            <pre style="background-color: #1a1a1a; padding: 8px; border-radius: 4px; overflow-x: auto; margin: 0; color: #51cf66; font-size: 11px;">${fullUrl}</pre>
+                        </div>
+
+                        <div style="margin-bottom: 12px;">
+                            <div style="color: #ffd43b; font-weight: bold; margin-bottom: 4px;">📤 Request Headers:</div>
+                            <pre style="background-color: #1a1a1a; padding: 8px; border-radius: 4px; overflow-x: auto; margin: 0; color: #aaa; font-size: 11px;">${requestHeaders}</pre>
+                        </div>
+
+                        <div style="margin-bottom: 12px;">
+                            <div style="color: #ffd43b; font-weight: bold; margin-bottom: 4px;">📤 Request Body:</div>
+                            <pre style="background-color: #1a1a1a; padding: 8px; border-radius: 4px; overflow-x: auto; margin: 0; color: #fff; font-size: 11px; max-height: 300px; overflow-y: auto;">${requestBody}</pre>
+                        </div>
+
+                        ${log.response ? `
+                        <div style="margin-bottom: 12px;">
+                            <div style="color: #51cf66; font-weight: bold; margin-bottom: 4px;">📥 Response Headers:</div>
+                            <pre style="background-color: #1a1a1a; padding: 8px; border-radius: 4px; overflow-x: auto; margin: 0; color: #aaa; font-size: 11px;">${responseHeaders}</pre>
+                        </div>
+
+                        <div style="margin-bottom: 12px;">
+                            <div style="color: #51cf66; font-weight: bold; margin-bottom: 4px;">📥 Response Body:</div>
+                            <pre style="background-color: #1a1a1a; padding: 8px; border-radius: 4px; overflow-x: auto; margin: 0; color: #fff; font-size: 11px; max-height: 300px; overflow-y: auto;">${responseBody}</pre>
+                        </div>
+                        ` : ''}
+
+                        ${errorDetails ? `
+                        <div style="margin-bottom: 12px;">
+                            <div style="color: #ff6b6b; font-weight: bold; margin-bottom: 4px;">❌ Error Details:</div>
+                            <pre style="background-color: #1a1a1a; padding: 8px; border-radius: 4px; overflow-x: auto; margin: 0; color: #ff6b6b; font-size: 11px;">${errorDetails}</pre>
+                        </div>
+                        ` : ''}
+
+                        ${log.timing ? `
+                        <div>
+                            <div style="color: #74c0fc; font-weight: bold; margin-bottom: 4px;">⏱️ Timing:</div>
+                            <div style="color: #aaa; font-size: 11px;">
+                                <span>Duration: ${log.timing.duration}ms</span>
+                            </div>
+                        </div>
+                        ` : ''}
+                    </div>
                 </div>
             `;
       })
       .join("");
 
     fetchLogsDiv.innerHTML = logsHtml;
-    fetchLogsDiv.scrollTop = 0;
+
+    // Restore scroll position
+    fetchLogsDiv.scrollTop = currentScrollTop;
   } catch (error) {
     console.error("Error updating fetch logs display:", error);
   }

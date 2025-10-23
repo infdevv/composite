@@ -12,6 +12,54 @@ body {
   padding: 8px;
 }
 
+/* Fetch logs specific styles */
+#fetch-logs {
+  scrollbar-width: thin;
+  scrollbar-color: #6c89e9 #1a1a1a;
+}
+
+#fetch-logs::-webkit-scrollbar {
+  width: 8px;
+}
+
+#fetch-logs::-webkit-scrollbar-track {
+  background: #1a1a1a;
+  border-radius: 4px;
+}
+
+#fetch-logs::-webkit-scrollbar-thumb {
+  background: #6c89e9;
+  border-radius: 4px;
+}
+
+#fetch-logs::-webkit-scrollbar-thumb:hover {
+  background: #8aa3f0;
+}
+
+#fetch-logs pre {
+  scrollbar-width: thin;
+  scrollbar-color: #484948 #1a1a1a;
+}
+
+#fetch-logs pre::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+#fetch-logs pre::-webkit-scrollbar-track {
+  background: #1a1a1a;
+  border-radius: 3px;
+}
+
+#fetch-logs pre::-webkit-scrollbar-thumb {
+  background: #484948;
+  border-radius: 3px;
+}
+
+#fetch-logs pre::-webkit-scrollbar-thumb:hover {
+  background: #5a5a5a;
+}
+
 .code {
   font-family: monospace;
   background-color: #272727;
