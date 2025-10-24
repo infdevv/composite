@@ -17,7 +17,7 @@ function loadAPIKey() {
 
 // Update key status display
 function updateKeyStatus(key) {
-    const keyElement = document.getElementById('key');
+    const keyElement = document.getElementById('gemini-key-status');
     if (key && key.length > 0) {
         // Show first 8 and last 4 characters
         const masked = key.substring(0, 8) + '...' + key.substring(key.length - 4);

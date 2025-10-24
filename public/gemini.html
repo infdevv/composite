@@ -109,7 +109,8 @@ const forceInterval = setInterval(() => {
 
     <p style="font-size: 12px; color: #aaa;">Your API key is stored locally in your browser and never sent to our servers.</p>
 
-    <h4>Current key status: <span style="color: #f03a80" id="key" class="code">[Not Set]</span></h4>
+    <h4>Current key status: <span style="color: #f03a80" id="gemini-key-status" class="code">[Not Set]</span></h4>
+    <span id="key" style="display: none;"></span>
 
     <p>Once you've saved your key, you can use composite with Janitor AI:</p>
     <p>it doesn't matter what you put as the model name, so just put whatever you want, Janitor will freak out if
@@ -166,7 +167,7 @@ const forceInterval = setInterval(() => {
 
     <h4>websocket connection controls</h4>
     <p style="color: #aaa; font-size: 12px;">Manual controls for WebSocket connection</p>
-    <div style="background-color: #272727; padding: 10px; border-radius: 4px; margin: 10px auto; width: 70%;">
+    <div class="debug-section" style="background-color: #272727; padding: 10px; border-radius: 4px; margin: 10px auto; width: 70%;">
         <button onclick="manualConnect()"
             style="background-color: #74db7a; padding: 7px 15px; margin: 5px;">Connect</button>
         <button onclick="manualDisconnect()"
@@ -182,7 +183,7 @@ const forceInterval = setInterval(() => {
 
     <h4>backend connection test</h4>
     <p style="color: #aaa; font-size: 12px;">Test your model through the backend endpoint</p>
-    <div style="background-color: #272727; padding: 10px; border-radius: 4px; margin: 10px auto; width: 70%;">
+    <div class="debug-section" style="background-color: #272727; padding: 10px; border-radius: 4px; margin: 10px auto; width: 70%;">
         <input type="text" id="test-message" placeholder="Type a test message..."
             style="width: calc(100% - 100px); background-color: #484948; border: none; color: white; padding: 7px; border-radius: 4px; font-size: 14px;">
         <button onclick="sendTestMessage()" style="background-color: #74db7a; width: 80px;">Send</button>
@@ -200,7 +201,7 @@ const forceInterval = setInterval(() => {
     <button onclick="downloadFetchLogs()">Download Logs</button>
     <button onclick="toggleFetchDebugger()">Toggle Debugger</button>
     <div id="fetch-logs"
-        style="background-color: #1a1a1a; color: #00ff00; font-family: monospace; text-align: left; padding: 8px; height: 200px; width: 70%; overflow-y: scroll; border-radius: 4px; margin: 8px auto; border: 1px solid #333;">
+        style="background-color: #1a1a1a; color: #00ff00; font-family: monospace; text-align: left; padding: 8px; height: 200px; width: 70%; overflow-y: scroll; border-radius: 4px; margin: 8px auto; border: 1px solid #333;" class="debug-section">
         <div>Fetch debugger will appear here...</div>
     </div>
     <br>
