@@ -136,16 +136,28 @@ const availableModelsGemini = [
 
 let availableModelsPollinations = [];
 let availableModelsYuzu = [];
+let availableModelsYuzuOld = [];
 
-// Fetch models for Yuzu models
-fetch("models.json")
+// Fetch models for Yuzu (Cloud AI) - from models_old.json
+fetch("models_old.json")
   .then((res) => res.json())
   .then((data) => {
     availableModelsYuzu = data.models || data || [];
   })
   .catch((e) => {
-    console.error("Failed to load Yuzu models:", e);
+    console.error("Failed to load Yuzu (Cloud AI) models:", e);
     availableModelsYuzu = [];
+  });
+
+// Fetch models for Yuzu (G4F) - from models.json
+fetch("models.json")
+  .then((res) => res.json())
+  .then((data) => {
+    availableModelsYuzuOld = data.models || data || [];
+  })
+  .catch((e) => {
+    console.error("Failed to load Yuzu (G4F) models:", e);
+    availableModelsYuzuOld = [];
   });
 
 let allAvailableModelsPollinations = [];
@@ -171,6 +183,7 @@ export {
   availableModelsGemini,
   availableModelsPollinations,
   availableModelsYuzu,
+  availableModelsYuzuOld,
   allAvailableModelsPollinations,
   debug,
   routerPrompt,

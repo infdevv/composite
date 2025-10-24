@@ -1,5 +1,5 @@
 // Engine initialization and management
-import { availableModels, availableModelsGemini, availableModelsPollinations, availableModelsYuzu } from './constants.js';
+import { availableModels, availableModelsGemini, availableModelsPollinations, availableModelsYuzu, availableModelsYuzuOld } from './constants.js';
 
 // Custom engine configuration
 export let customEngineConfig = {
@@ -248,6 +248,18 @@ export function handleEngineChange() {
         });
     } else if (engineValue === "Yuzu (Cloud AI)") {
         availableModelsYuzu.forEach(model => {
+            const option = document.createElement('option');
+            option.value = model;
+            if (model.includes(":")) {
+                option.textContent = model.split(":")[1];
+            } else {
+                option.textContent = model;
+            }
+            document.getElementById('model').appendChild(option);
+            console.log("Added: " + model);
+        });
+    } else if (engineValue === "Yuzu (G4F)") {
+        availableModelsYuzuOld.forEach(model => {
             const option = document.createElement('option');
             option.value = model;
             if (model.includes(":")) {

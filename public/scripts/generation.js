@@ -3,6 +3,8 @@ import { prompts, routerPrompt } from "./constants.js";
 import Yuzu from "../yuzu/client.js";
 
 const yuzuClient = new Yuzu("https://gpt4free.pro/v1/chat/completions");
+const yuzuClientG4F = new Yuzu("https://gpt4free.pro/v1/chat/completions");
+const yuzuClientNormal = new Yuzu(); // Normal Yuzu without endpoint specification
 
 // Generation state
 export let genned = "";
@@ -433,7 +435,7 @@ export async function streamingGeneratingYuzu(messages, settings = {}, overrideM
     let chunk_count = 0;
     let inReasoning = false;
 
-    await yuzuClient.generateStreaming(messages, (chunk) => {
+    await yuzuClientNormal.generateStreaming(messages, (chunk) => {
         if (generationStopped) {
             if (document.getElementById("show-router").checked) {
 
@@ -464,6 +466,56 @@ export async function streamingGeneratingYuzu(messages, settings = {}, overrideM
                 }
                 handleEmit(content);
                 console.log("Yuzu Sent chunk | Delta data: " + content);
+            }
+        }
+    }, model, settings);
+
+    onFinish("");
+}
+
+// Yuzu (G4F) generation
+export async function streamingGeneratingYuzuG4F(messages, settings = {}, overrideModel = null, overridePrompt = null) {
+    if (generationStopped) return;
+
+    messages = preprocessMessages(messages, false, true, overridePrompt);
+
+    const controller = new AbortController();
+    currentGeneration = controller;
+
+    const model = overrideModel || document.getElementById("model").value;
+
+    console.log("Yuzu (G4F) using model:", model);
+    console.log("Yuzu (G4F) using prompt:", overridePrompt || "default");
+    console.log("Yuzu (G4F) using settings:", settings);
+
+    let chunk_count = 0;
+    let inReasoning = false;
+
+    await yuzuClientG4F.generateStreaming(messages, (chunk) => {
+        if (generationStopped) {
+            console.log("Yuzu (G4F) generation stopped");
+            return;
+        }
+
+        if (chunk && chunk.choices && chunk.choices[0] && chunk.choices[0].delta && chunk.choices[0].delta.content) {
+            const content = chunk.choices[0].delta.content;
+            const reasoning_data = chunk.choices[0].reasoning_content;
+            if (reasoning_data != null && content == null) {
+                if (chunk_count == 0) {
+                    handleEmit("<think>");
+                    inReasoning = true;
+                }
+                chunk_count += 1;
+                handleEmit(reasoning_data);
+                console.log("Yuzu (G4F) Sent reasoning chunk | Delta data: " + reasoning_data);
+            }
+            else {
+                if (inReasoning) {
+                    handleEmit("</think>");
+                    inReasoning = false;
+                }
+                handleEmit(content);
+                console.log("Yuzu (G4F) Sent chunk | Delta data: " + content);
             }
         }
     }, model, settings);
