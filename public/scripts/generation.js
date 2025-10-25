@@ -1,5 +1,6 @@
 // Generation-related functions for all engines
 import { prompts, routerPrompt } from "./constants.js";
+import { proxyFetch } from "./utils.js";
 import Yuzu from "../yuzu/client.js";
 
 const yuzuClient = new Yuzu("https://gpt4free.pro/v1/chat/completions");
@@ -35,7 +36,7 @@ async function router(messages) {
         console.log("Router: Calling Pollinations API for model selection...");
 
         // Use Pollinations API for routing
-        const response = await fetch("https://text.pollinations.ai/openai", {
+        const response = await proxyFetch("https://text.pollinations.ai/openai", {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -305,7 +306,7 @@ export async function streamingGeneratingGemini(messages, settings = {}) {
     }
 
     try {
-        const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+        const response = await proxyFetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -590,7 +591,7 @@ export async function streamingGeneratingPollinations(messages, settings = {}) {
     const controller = new AbortController();
     currentGeneration = controller;
 
-    const response = await fetch(endpoint, {
+    const response = await proxyFetch(endpoint, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -810,7 +811,7 @@ export async function streamingGeneratingCustomEngine(messages, customEngineConf
         console.log('Custom engine request: ' + endpoint);
 
         // Make direct request
-        const response = await fetch(endpoint, {
+        const response = await proxyFetch(endpoint, {
             method: 'POST',
             headers: headers,
             body: JSON.stringify(requestBody),

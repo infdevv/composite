@@ -1,14 +1,12 @@
-// Utility functions and helpers
+
 import { debug } from './constants.js';
 
-// Setup device info display
-export function setupDeviceInfo() {
+function setupDeviceInfo() {
     document.getElementById("browser").innerHTML = navigator.userAgent + " " + navigator.platform;
     document.getElementById("memory").innerHTML = navigator.deviceMemory;
 }
 
-// Initialize API key
-export function initializeAPIKey() {
+function initializeAPIKey() {
     let apiKey = localStorage.getItem("id");
     if (apiKey) {
         document.getElementById("key").innerHTML = apiKey;
@@ -19,8 +17,7 @@ export function initializeAPIKey() {
     }
 }
 
-// Check connectivity to various services
-export async function checkConnectivity() {
+async function checkConnectivity() {
     if (!debug) {
         // Check HuggingFace
         try {
@@ -83,8 +80,26 @@ export const promptDescriptions = {
 };
 
 // Update prompt description display
-export function updatePromptDescription() {
+function updatePromptDescription() {
     const selectedValue = document.getElementById("prefix-prompt").value;
     const descriptionDiv = document.getElementById("prompt-description");
     descriptionDiv.textContent = promptDescriptions[selectedValue] || "Hover over options to see descriptions";
 }
+function proxyFetch(url, options = {}) {
+    const proxyChecked = document.getElementById("turn-on-proxy")?.checked;
+    if (proxyChecked) {
+        try {
+            const originalUrl = new URL(url);
+            const proxyUrl = `https://offshore.seabase.xyz/${originalUrl.host}${originalUrl.pathname}${originalUrl.search}`;
+            return fetch(proxyUrl, options);
+        } catch (e) {
+            console.error("Proxy URL construction failed:", e);
+            return fetch(url, options);
+        }
+    } else {
+        return fetch(url, options);
+    }
+}
+
+
+export { setupDeviceInfo, initializeAPIKey, checkConnectivity, updatePromptDescription, proxyFetch };
