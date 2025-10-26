@@ -11,7 +11,7 @@ export let customEngineConfig = {
 
 // Load custom engine config from localStorage
 export function loadCustomEngineConfig() {
-    const saved = localStorage.getItem('customEngineConfig');
+    const saved = localStorage.getItem('customEngineConfig1');
     console.log('loadCustomEngineConfig called');
     console.log('  localStorage has data:', !!saved);
 
@@ -80,10 +80,10 @@ export function saveCustomEngineConfig() {
     customEngineConfig.model = model;
 
     // Save to localStorage
-    localStorage.setItem('customEngineConfig', JSON.stringify(customEngineConfig));
+    localStorage.setItem('customEngineConfig1', JSON.stringify(customEngineConfig));
 
     console.log('Custom engine configuration saved successfully:', customEngineConfig);
-    console.log('Saved to localStorage:', localStorage.getItem('customEngineConfig'));
+    console.log('Saved to localStorage:', localStorage.getItem('customEngineConfig1'));
     alert('Custom engine configuration saved successfully!');
 
     // Update model dropdown
@@ -197,6 +197,9 @@ export function handleEngineChange() {
     const engineValue = document.getElementById("engine").value;
     const customConfigDiv = document.getElementById("custom-engine-config");
     const modelSelector = document.getElementById("model");
+
+    // Save engine selection to localStorage
+    localStorage.setItem("selectedEngine", engineValue);
 
     // Stop Hyper autochecks if switching away from Hyper
     if (engineValue !== "Hyper (Auto)" && window.hyperCheckInterval) {

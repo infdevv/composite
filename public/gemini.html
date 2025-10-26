@@ -21,41 +21,6 @@
 
 <script type="module" src="./index.js"></script>
 
-<script>
-// Force engine to be Google Gemini and prevent localStorage from overriding
-window.addEventListener('DOMContentLoaded', () => {
-    const engineSelect = document.getElementById('engine');
-
-    // Set to Google Gemini
-    engineSelect.value = 'Google Gemini';
-
-    // Save to localStorage so it persists
-    localStorage.setItem('engine', 'Google Gemini');
-
-    console.log('=== GEMINI.HTML DEBUG ===');
-    console.log('Engine element:', engineSelect);
-    console.log('Engine value:', engineSelect?.value);
-    console.log('Engine disabled:', engineSelect?.disabled);
-    console.log('localStorage engine:', localStorage.getItem('engine'));
-    console.log('======================');
-});
-
-// Keep forcing it every 500ms for the first 3 seconds to override any async loading
-let checkCount = 0;
-const forceInterval = setInterval(() => {
-    const engineSelect = document.getElementById('engine');
-    if (engineSelect && engineSelect.value !== 'Google Gemini') {
-        console.log('ENGINE OVERRIDE #' + checkCount + ': Forcing Google Gemini (was:', engineSelect.value, ')');
-        engineSelect.value = 'Google Gemini';
-        localStorage.setItem('engine', 'Google Gemini');
-    }
-    checkCount++;
-    if (checkCount >= 6) { // Stop after 3 seconds (6 * 500ms)
-        clearInterval(forceInterval);
-        console.log('Engine forcing complete. Final value:', engineSelect?.value);
-    }
-}, 500);
-</script>
 
 <select id="engine" style="display: none;">
     <option selected>Google Gemini</option>
@@ -220,6 +185,7 @@ const forceInterval = setInterval(() => {
     <p id="health">backend</p>
     <p id="pollinations">pollinations</p>
     <p id="yuzu">yuzu (deepinfra)</p>
+        <p id="offshore">offshore</p>
     <br>
     <h4>device infomation</h4>
     <p id="browser">browser: </p>
@@ -227,7 +193,7 @@ const forceInterval = setInterval(() => {
 </div>
 <iframe id="pippa"></iframe>
 <script src="scripts/bg.js"></script>
-<script src="scripts/gemini.js"></script>
+<script src="scripts_gemini/gemini.js"></script>
 </body>
 
 </html>

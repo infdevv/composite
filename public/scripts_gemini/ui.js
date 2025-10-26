@@ -31,6 +31,11 @@ export function setupUIEventListeners(engine, bareClient) {
     // Prompt preset description updater
     document.getElementById("prefix-prompt").addEventListener("change", updatePromptDescription);
 
+    // Model selection change
+    document.getElementById("model").addEventListener("change", () => {
+        localStorage.setItem("model", document.getElementById("model").value);
+    });
+
     // Set initial prompt description
     const initialPrompt = document.getElementById("prefix-prompt").value;
     document.getElementById("prompt-description").textContent =
@@ -89,7 +94,7 @@ export function exposeGlobalFunctions() {
     window.debugCustomEngine = function() {
         console.log('=== CUSTOM ENGINE DEBUG INFO ===');
         console.log('Current config object:', window.customEngineConfig);
-        console.log('LocalStorage value:', localStorage.getItem('customEngineConfig'));
+        console.log('LocalStorage value:', localStorage.getItem('customEngineConfig1'));
         try {
             const parsed = JSON.parse(localStorage.getItem('customEngineConfig'));
             console.log('Parsed localStorage:', parsed);

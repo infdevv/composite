@@ -7,6 +7,27 @@ import * as webllm from "https://esm.run/@mlc-ai/web-llm";
 import { BareClient } from 'https://esm.sh/@tomphttp/bare-client@latest';
 import "/scripts/logger.js";
 
+// Generate page-specific session ID
+const pagePath = window.location.pathname;
+window.sessionId = localStorage.getItem('sessionId_' + pagePath) || (() => {
+  const id = Math.random().toString(36).substr(2, 9);
+  localStorage.setItem('sessionId_' + pagePath, id);
+  return id;
+})();
+
+// Override fetch to add session ID header
+const originalFetch = window.fetch;
+window.fetch = function(...args) {
+  const [url, options = {}] = args;
+  options.headers = options.headers || {};
+  if (options.headers instanceof Headers) {
+    options.headers.set('X-Session-ID', window.sessionId);
+  } else {
+    options.headers['X-Session-ID'] = window.sessionId;
+  }
+  return originalFetch(url, options);
+};
+
 // Initialize clients
 const bareClient = new BareClient('https://gointerstellar.app/ca/');
 

@@ -65,11 +65,51 @@ server.register(require('@fastify/static'), {
 
 
 const io = new Server(server.server, {
-    perMessageDeflate: false, // Disable compression to reduce latency
-    transports: ['websocket', 'polling'] // Prefer websocket for lower latency
+    perMessageDeflate: false,
+    transports: ['websocket', 'polling'],
+    allowEIO3: true,
+    cors: {
+        origin: true,
+        methods: ["GET", "POST"],
+        credentials: true
+    }
 });
 
-let connected_users = new Map(); // userkeys -> { socket: socket, connected_at: timestamp }
+let connected_users = new Map(); // userkeys -> { socket: socket, connected_at: timestamp, last_heartbeat: timestamp }
+
+// Server-side heartbeat handling
+io.on('connection', (socket) => {
+    const userkey = socket.handshake.query.key;
+    if (!userkey) {
+        console.error('Connection attempt without user key');
+        socket.disconnect(true);
+        return;
+    }
+
+    console.log(`User ${userkey} connected via Socket.IO`);
+
+    // Handle heartbeat from client
+    socket.on('heartbeat', () => {
+        const userInfo = connected_users.get(userkey);
+        if (userInfo) {
+            userInfo.last_heartbeat = Date.now();
+            console.debug(`Heartbeat received from user ${userkey}`);
+        }
+    });
+
+    // Store connection info
+    connected_users.set(userkey, {
+        socket: socket,
+        connected_at: Date.now(),
+        last_heartbeat: Date.now()
+    });
+
+    // Clean up on disconnect
+    socket.on('disconnect', (reason) => {
+        console.log(`User ${userkey} disconnected:`, reason);
+        connected_users.delete(userkey);
+    });
+});
 
 // Security: Helper function for safe file reading
 async function safeReadFile(filePath, encoding = 'utf8') {
@@ -121,6 +161,7 @@ function normalizeMessageContent(message) {
         .replace(/[^\w\s]/g, '')
         .slice(0, 1000); // Limit length for comparison
 }
+
 
 // Helper function to calculate similarity between two message arrays
 function calculateMessagesSimilarity(messages1, messages2) {
@@ -332,6 +373,7 @@ server.post("/v1/chat/completions", async (request, reply) => {
         reply.status(401).send("no connected frontend for this user. are you using the right key?");
         return;
     }
+
 
     console.log(`[200] [${timestamp}] [${requestId}] Request accepted for key ${obfuscatedKey}`);
 

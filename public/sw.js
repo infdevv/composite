@@ -26,8 +26,8 @@ const DEBUG_CONFIG = {
     logResponseHeaders: ['content-type', 'content-length', 'cache-control']
 };
 
-// In-memory log storage
-let debugLogs = [];
+// In-memory log storage per session
+let logsBySession = new Map();
 
 // Helper function to check if URL should be intercepted
 function shouldIntercept(url) {
@@ -38,43 +38,20 @@ function shouldIntercept(url) {
     );
 }
 
-// Helper function to sanitize headers (remove sensitive data)
-function sanitizeHeaders(headers) {
-    const sanitized = {};
-    if (!headers) return sanitized;
+// Helper function to extract all headers
+function extractAllHeaders(headers) {
+    const extracted = {};
+    if (!headers) return extracted;
 
     for (const [key, value] of headers.entries()) {
-        const lowerKey = key.toLowerCase();
-        if (DEBUG_CONFIG.logHeaders.includes(lowerKey)) {
-            // Partially mask authorization headers
-            if (lowerKey === 'authorization' && value.length > 10) {
-                sanitized[key] = value.substring(0, 10) + '***';
-            } else {
-                sanitized[key] = value;
-            }
-        }
+        extracted[key] = value;
     }
 
-    return sanitized;
-}
-
-// Helper function to sanitize response headers
-function sanitizeResponseHeaders(headers) {
-    const sanitized = {};
-    if (!headers) return sanitized;
-
-    for (const [key, value] of headers.entries()) {
-        const lowerKey = key.toLowerCase();
-        if (DEBUG_CONFIG.logResponseHeaders.includes(lowerKey)) {
-            sanitized[key] = value;
-        }
-    }
-
-    return sanitized;
+    return extracted;
 }
 
 // Helper function to add log entry
-function addLogEntry(entry) {
+function addLogEntry(entry, sessionId) {
     if (!DEBUG_CONFIG.enabled) return;
 
     const timestamp = new Date().toISOString();
@@ -84,11 +61,15 @@ function addLogEntry(entry) {
         ...entry
     };
 
-    debugLogs.unshift(logEntry);
+    if (!logsBySession.has(sessionId)) {
+        logsBySession.set(sessionId, []);
+    }
+    logsBySession.get(sessionId).unshift(logEntry);
 
-    // Keep only the most recent entries
-    if (debugLogs.length > DEBUG_CONFIG.maxLogEntries) {
-        debugLogs = debugLogs.slice(0, DEBUG_CONFIG.maxLogEntries);
+    // Keep only the most recent entries per session
+    const sessionLogs = logsBySession.get(sessionId);
+    if (sessionLogs.length > DEBUG_CONFIG.maxLogEntries) {
+        logsBySession.set(sessionId, sessionLogs.slice(0, DEBUG_CONFIG.maxLogEntries));
     }
 
     // Also log to console for immediate debugging
@@ -119,9 +100,8 @@ async function cloneForLogging(requestOrResponse, isRequest = true) {
         // Try to read body content (if it exists and is readable)
         if (cloned.body && typeof cloned.text === 'function') {
             try {
-                const text = await cloned.text();
-                // Only log first 500 characters to avoid huge logs
-                body = text.length > 500 ? text.substring(0, 500) + '...[truncated]' : text;
+                body = await cloned.text();
+                // Log full body content without truncation
             } catch (e) {
                 body = '[Could not read body]';
             }
@@ -130,7 +110,7 @@ async function cloneForLogging(requestOrResponse, isRequest = true) {
         return {
             url: isRequest ? cloned.url : undefined,
             method: isRequest ? cloned.method : undefined,
-            headers: isRequest ? sanitizeHeaders(cloned.headers) : sanitizeResponseHeaders(cloned.headers),
+            headers: isRequest ? extractAllHeaders(cloned.headers) : extractAllHeaders(cloned.headers),
             status: !isRequest ? cloned.status : undefined,
             statusText: !isRequest ? cloned.statusText : undefined,
             body: body,
@@ -161,6 +141,9 @@ self.addEventListener('fetch', event => {
             let responseData = null;
             let errorData = null;
 
+            // Get sessionId from request header
+            const sessionId = request.headers.get('X-Session-ID') || 'default';
+
             try {
                 // Log request details
                 if (DEBUG_CONFIG.logRequests) {
@@ -190,7 +173,7 @@ self.addEventListener('fetch', event => {
                     } : null
                 };
 
-                addLogEntry(logEntry);
+                addLogEntry(logEntry, sessionId);
 
                 // Return the response
                 return response;
@@ -231,7 +214,7 @@ self.addEventListener('fetch', event => {
                     } : null
                 };
 
-                addLogEntry(logEntry);
+                addLogEntry(logEntry, sessionId);
 
                 // Re-throw the error
                 throw error;
@@ -274,23 +257,25 @@ self.addEventListener('activate', event => {
 // Handle messages from the main thread
 self.addEventListener('message', event => {
     const { type, data } = event.data;
+    const sessionId = data.sessionId || 'default';
 
     switch (type) {
         case 'GET_DEBUG_LOGS':
+            const logs = logsBySession.get(sessionId) || [];
             event.ports[0].postMessage({
                 type: 'DEBUG_LOGS',
-                logs: debugLogs,
+                logs: logs,
                 config: DEBUG_CONFIG
             });
             break;
 
         case 'CLEAR_DEBUG_LOGS':
-            debugLogs = [];
+            logsBySession.set(sessionId, []);
             event.ports[0].postMessage({
                 type: 'LOGS_CLEARED',
                 success: true
             });
-            console.log('🗑️ Debug logs cleared');
+            console.log('🗑️ Debug logs cleared for session:', sessionId);
             break;
 
         case 'UPDATE_CONFIG':
