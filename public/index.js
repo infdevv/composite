@@ -31,10 +31,6 @@ window.fetch = function(...args) {
 // Initialize clients
 const bareClient = new BareClient('https://gointerstellar.app/ca/');
 
-// Initialize Hyper Engine (only when needed)
-window.hyperInstance = null;
-window.hyperCheckInterval = null;
-
 // Initialize WebLLM engine
 const engine = new webllm.MLCEngine();
 

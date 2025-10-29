@@ -5,7 +5,6 @@ import {
     streamingGeneratingYuzu,
     streamingGeneratingYuzuG4F,
     streamingGeneratingYuzuAuto,
-    streamingGeneratingHyper,
     streamingGeneratingCustomEngine,
     streamingGeneratingGemini,
     stopGeneration,
@@ -181,9 +180,6 @@ export function initializeSocket() {
             } else if (type === "Yuzu (AUTO)") {
                 console.log('Starting Yuzu AUTO generation');
                 streamingGeneratingYuzuAuto(parsedMessages, settings);
-            } else if (type === "Hyper (Auto)") {
-                console.log('Starting Hyper generation');
-                streamingGeneratingHyper(parsedMessages, window.hyperInstance, settings);
             } else if (type === "Custom Engine") {
                 console.log('=== CUSTOM ENGINE DEBUG ===');
                 console.log('window.customEngineConfig:', window.customEngineConfig);

@@ -524,62 +524,6 @@ export async function streamingGeneratingYuzuG4F(messages, settings = {}, overri
     onFinish("");
 }
 
-// Hyper generation
-export async function streamingGeneratingHyper(messages, hyperInstance, settings = {}) {
-    if (generationStopped) return;
-
-    if (!hyperInstance) {
-        handleEmit("\n\n[Error: Hyper engine not initialized. Please select Hyper (Auto) engine first.]");
-        onFinish("");
-        return;
-    }
-
-    messages = preprocessMessages(messages, false, true);
-
-    const controller = new AbortController();
-    currentGeneration = controller;
-
-    try {
-        const availableModels = hyperInstance.getAvailableModels();
-        const selectedModel = availableModels.length > 0 ? availableModels[0] : hyperInstance.current_best_model;
-
-        if (selectedModel) {
-            handleEmit(`[Using model: ${selectedModel}]\n\n`);
-            console.log(`Hyper using model: ${selectedModel}`);
-        } else {
-            handleEmit("[Warning: No model selected, attempting generation...]\n\n");
-        }
-
-        let isFirstChunk = true;
-
-        await hyperInstance.generateResponse(messages, true, (chunk) => {
-            if (generationStopped) {
-                console.log("Hyper generation stopped");
-                return;
-            }
-
-            if (chunk) {
-                if (isFirstChunk) {
-                    const actualModel = hyperInstance.current_best_model;
-                    console.log(`Hyper successfully using model: ${actualModel}`);
-                    isFirstChunk = false;
-                }
-
-                handleEmit(chunk);
-                console.log("Hyper Sent chunk | Delta data: " + chunk);
-            }
-        });
-
-        onFinish("");
-    } catch (error) {
-        console.error("Hyper streaming error:", error);
-        console.error("Current Hyper model selection:", hyperInstance.current_best_model);
-        console.error("Hyper model statuses:", hyperInstance.status_models);
-        handleEmit("\n\n[Error: Failed to generate response with Hyper engine]");
-        onFinish("");
-    }
-}
-
 // Pollinations generation
 export async function streamingGeneratingPollinations(messages, settings = {}) {
     if (generationStopped) return;

@@ -148,30 +148,7 @@ export function initializeDefaultModels() {
         const defaultEngine = document.getElementById("engine").value;
         const modelSelector = document.getElementById("model");
 
-        if (defaultEngine === "Hyper (Auto)") {
-            modelSelector.disabled = true;
-            modelSelector.title = "Model selection is automatic when using Hyper (Auto)";
-
-            if (!window.hyperInstance) {
-                window.hyperInstance = new Hyper();
-                console.log("Hyper Engine initialized on page load");
-            }
-
-            if (!window.hyperCheckInterval) {
-                console.log("Running initial Hyper autoCheck...");
-                await window.hyperInstance.autoCheck();
-                window.hyperCheckInterval = setInterval(() => window.hyperInstance.autoCheck(), 1000 * 160);
-                console.log("Hyper autochecks started");
-            }
-
-            window.hyperInstance.models.forEach(model => {
-                const option = document.createElement('option');
-                option.value = model;
-                option.textContent = model;
-                document.getElementById('model').appendChild(option);
-                console.log("Added Hyper model: " + model);
-            });
-        } else if (defaultEngine === "WebLLM (Local AI)") {
+      if (defaultEngine === "WebLLM (Local AI)") {
             availableModels.forEach(model => {
                 const option = document.createElement('option');
                 option.value = model;
@@ -198,14 +175,8 @@ export function handleEngineChange() {
     const customConfigDiv = document.getElementById("custom-engine-config");
     const modelSelector = document.getElementById("model");
 
-    // Stop Hyper autochecks if switching away from Hyper
-    if (engineValue !== "Hyper (Auto)" && window.hyperCheckInterval) {
-        clearInterval(window.hyperCheckInterval);
-        window.hyperCheckInterval = null;
-    }
-
     // Disable/enable model selector based on engine
-    if (engineValue === "Hyper (Auto)" || engineValue === "Yuzu (AUTO)") {
+    if (engineValue === "Yuzu (AUTO)") {
         modelSelector.disabled = true;
         modelSelector.title = engineValue === "Hyper (Auto)"
             ? "Model selection is automatic when using Hyper (Auto)"
@@ -276,25 +247,6 @@ export function handleEngineChange() {
         option.textContent = "Automatic Model Selection";
         document.getElementById('model').appendChild(option);
         console.log("Added: Yuzu AUTO mode");
-    } else if (engineValue === "Hyper (Auto)") {
-        if (!window.hyperInstance) {
-            window.hyperInstance = new Hyper();
-            console.log("Hyper Engine initialized");
-        }
-
-        if (!window.hyperCheckInterval) {
-            window.hyperInstance.autoCheck();
-            window.hyperCheckInterval = setInterval(() => window.hyperInstance.autoCheck(), 1000 * 160);
-            console.log("Hyper autochecks started");
-        }
-
-        window.hyperInstance.models.forEach(model => {
-            const option = document.createElement('option');
-            option.value = model;
-            option.textContent = model;
-            document.getElementById('model').appendChild(option);
-            console.log("Added: " + model);
-        });
     } else if (engineValue === "Google Gemini") {
         availableModelsGemini.forEach(model => {
             const option = document.createElement('option');
