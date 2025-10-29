@@ -296,7 +296,7 @@ export async function streamingGeneratingGemini(messages, settings = {}) {
     if (window.getGeminiAPIKey) {
         apiKey = window.getGeminiAPIKey();
     } else {
-        apiKey = document.getElementById("key")?.textContent;
+        apiKey = document.getElementById("api-key-input")?.value;
     }
 
     if (!apiKey || apiKey === "[Loading...]" || apiKey === "[Not Set]") {
@@ -306,7 +306,7 @@ export async function streamingGeneratingGemini(messages, settings = {}) {
     }
 
     try {
-        const response = await proxyFetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+        const response = await proxyFetch("https://offshore.seabase.xyz/generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",

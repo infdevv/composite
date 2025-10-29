@@ -75,7 +75,7 @@
 
     <p style="font-size: 12px; color: #aaa;">Your API key is stored locally in your browser and never sent to our servers.</p>
 
-    <h4>Current key status: <span style="color: #f03a80" id="gemini-key-status" class="code">[Not Set]</span></h4>
+    <h4 style="display: none;">Current key status: <span style="color: #f03a80" id="gemini-key-status" class="code">[Not Set]</span></h4>
     <span id="key" style="display: none;"></span>
 
     <p>Once you've saved your key, you can use composite with Janitor AI:</p>
@@ -194,7 +194,25 @@
 </div>
 <iframe id="pippa"></iframe>
 <script src="scripts/bg.js"></script>
-<script src="scripts/gemini.js"></script>
+<script>
+    // I grieve different
+    localStorage.setItem("engine_temp", localStorage.getItem("engine"));
+    localStorage.setItem("model_temp", localStorage.getItem("model"));
+    localStorage.setItem("selectedEngine_temp", localStorage.getItem("selectedEngine"));
+    localStorage.removeItem("engine")
+    localStorage.removeItem("model")
+    localStorage.removeItem("selectedEngine")
+
+    // on page leave
+    window.onbeforeunload = function() {
+        localStorage.setItem("engine", localStorage.getItem("engine_temp"));
+        localStorage.setItem("model", localStorage.getItem("model_temp"));
+        localStorage.setItem("selectedEngine", localStorage.getItem("selectedEngine_temp"));
+        localStorage.removeItem("engine_temp");
+        localStorage.removeItem("model_temp");
+        localStorage.removeItem("selectedEngine_temp");
+    };
+</script>
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-X4ZJ7B4GKN"></script>
 <script>
