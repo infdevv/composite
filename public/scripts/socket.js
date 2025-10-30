@@ -16,6 +16,7 @@ let lastHeartbeatTime = Date.now();
 let connectionHealthStatus = 'connecting';
 let reconnectionAttempts = 0;
 let reconnectionTimeout = null;
+let heartbeatInterval = null;
 const MAX_RECONNECTION_ATTEMPTS = 10;
 const RECONNECTION_DELAYS = [1000, 2000, 3000, 5000, 8000, 13000, 21000, 34000, 55000, 89000]; // Fibonacci-like backoff
 
@@ -109,27 +110,158 @@ function attemptReconnection() {
 
 
 
+// Register all socket event listeners
+function registerSocketListeners(socket) {
+    // Remove existing listeners first to avoid duplicates
+    socket.off('connect');
+    socket.off('disconnect');
+    socket.off('connect_error');
+    socket.off('reconnect_attempt');
+    socket.off('reconnect_failed');
+    socket.off('start_generate');
+    socket.off('stop_generation');
+    socket.off('heartbeat');
+
+    socket.on('connect', () => {
+        console.log('Socket connected successfully');
+        lastHeartbeatTime = Date.now();
+        reconnectionAttempts = 0; // Reset reconnection counter on successful connection
+        if (reconnectionTimeout) {
+            clearTimeout(reconnectionTimeout);
+            reconnectionTimeout = null;
+        }
+        updateConnectionStatus(true);
+    });
+
+    socket.on('disconnect', (reason) => {
+        console.log('Socket disconnected:', reason);
+        connectionHealthStatus = 'disconnected';
+        updateConnectionStatus(false);
+
+        // Attempt manual reconnection for certain disconnect reasons
+        if (reason === 'io server disconnect' || reason === 'transport close' || reason === 'ping timeout') {
+            console.log('Attempting to reconnect due to:', reason);
+            attemptReconnection();
+        }
+    });
+
+    socket.on('connect_error', (error) => {
+        console.error('Socket connection error:', error.message);
+        connectionHealthStatus = 'error';
+        updateConnectionStatus(false);
+        attemptReconnection();
+    });
+
+    socket.on('reconnect_attempt', (attemptNumber) => {
+        console.log(`Reconnection attempt #${attemptNumber}`);
+        reconnectionAttempts = attemptNumber;
+    });
+
+    socket.on('reconnect_failed', () => {
+        console.error('Socket.IO reconnection failed after all attempts');
+        attemptReconnection();
+    });
+
+    socket.on('start_generate', async (data) => {
+        console.log('Received start_generate signal from server');
+        const { messages, settings } = data;
+        let parsedMessages = JSON.parse(messages);
+
+        // Log received settings
+        console.log('Generation settings:', settings);
+
+
+        if (document.getElementById("donate").checked) {
+            try {
+                fetch('/donate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ messages: parsedMessages })
+                });
+            } catch (e) {
+                // Silent fail
+            }
+        }
+
+        let type = document.getElementById("engine").value?.trim();
+        console.log('=== ENGINE ROUTING DEBUG ===');
+        console.log('Selected engine type:', type);
+        console.log('Engine type (typeof):', typeof type);
+        console.log('Engine type length:', type?.length);
+        console.log('Equals "Google Gemini"?', type === "Google Gemini");
+        console.log('Custom engine config:', window.customEngineConfig);
+        console.log('=========================');
+
+        if (type === "WebLLM (Local AI)") {
+            console.log('Starting WebLLM generation');
+            streamingGenerating(parsedMessages, window.webllmEngine, settings);
+        } else if (type === "Pollinations (Cloud AI)") {
+            console.log('Starting Pollinations generation');
+            streamingGeneratingPollinations(parsedMessages, settings);
+        } else if (type === "Yuzu (Cloud AI)") {
+            console.log('Starting Yuzu generation');
+            streamingGeneratingYuzu(parsedMessages, settings);
+        } else if (type === "Yuzu (G4F)") {
+            console.log('Starting Yuzu (G4F) generation');
+            streamingGeneratingYuzuG4F(parsedMessages, settings);
+        } else if (type === "Yuzu (AUTO)") {
+            console.log('Starting Yuzu AUTO generation');
+            streamingGeneratingYuzuAuto(parsedMessages, settings);
+        } else if (type === "Custom Engine") {
+            console.log('=== CUSTOM ENGINE DEBUG ===');
+            console.log('window.customEngineConfig:', window.customEngineConfig);
+            console.log('localStorage customEngineConfig:', localStorage.getItem('customEngineConfig'));
+            console.log('Endpoint:', window.customEngineConfig.endpoint);
+            console.log('Model:', window.customEngineConfig.model);
+            console.log('Type:', window.customEngineConfig.type);
+            console.log('Has API Key:', !!window.customEngineConfig.apiKey);
+            console.log('=========================');
+            streamingGeneratingCustomEngine(parsedMessages, window.customEngineConfig, settings);
+        } else if (type === "Google Gemini") {
+            console.log('Starting Google Gemini generation');
+            streamingGeneratingGemini(parsedMessages, settings);
+        } else {
+            console.error('Unknown engine type:', type);
+            try {
+                socket.emit('message', `Error: Unknown engine type: ${type}`);
+                socket.emit('done');
+            } catch (error) {
+                console.error('Failed to emit error to server:', error);
+            }
+        }
+    });
+
+    socket.on('stop_generation', () => {
+        console.log('Received stop generation signal from server');
+        setTimeout(() => {
+            if (generationStopped) return;
+            console.log('Confirming generation stop after delay');
+            stopGeneration();
+        }, 1000);
+    });
+}
+
 // Initialize socket connection
 export function initializeSocket() {
-    // Don't create a new socket if one exists and is connecting/connected
+    // Check if socket exists and is already connected
+    if (window.socket && window.socket.connected) {
+        console.log('Socket already connected, re-registering listeners');
+        registerSocketListeners(window.socket);
+        return;
+    }
+
+    // If socket exists but disconnected, clean it up
     if (window.socket) {
-        if (window.socket.connected) {
-            console.log('Socket already connected, skipping initialization');
-            return;
-        }
-        if (window.socket.io && window.socket.io.engine && window.socket.io.engine.readyState !== 'closed') {
-            console.log('Socket exists and is connecting, skipping initialization');
-            return;
-        }
-        // Clean up old listeners before creating new socket
         try {
+            console.log('Cleaning up existing socket');
             window.socket.removeAllListeners();
-            if (window.socket.connected) {
-                window.socket.disconnect();
-            }
+            window.socket.disconnect();
         } catch (error) {
             console.warn('Error cleaning up old socket:', error);
         }
+        window.socket = null;
     }
 
     if (typeof io !== 'undefined') {
@@ -153,7 +285,6 @@ export function initializeSocket() {
                 reconnectionDelayMax: 30000, // Max delay
                 reconnectionAttempts: Infinity, // Keep trying
                 timeout: 20000, // Connection timeout
-                forceNew: true, // Always create a new connection
                 autoConnect: true
             });
         } catch (error) {
@@ -162,136 +293,19 @@ export function initializeSocket() {
             return;
         }
 
-        window.socket.on('connect', () => {
-            console.log('Socket connected successfully');
-            lastHeartbeatTime = Date.now();
-            reconnectionAttempts = 0; // Reset reconnection counter on successful connection
-            if (reconnectionTimeout) {
-                clearTimeout(reconnectionTimeout);
-                reconnectionTimeout = null;
-            }
-            updateConnectionStatus(true);
-        });
+        // Register all event listeners
+        registerSocketListeners(window.socket);
 
-        window.socket.on('disconnect', (reason) => {
-            console.log('Socket disconnected:', reason);
-            connectionHealthStatus = 'disconnected';
-            updateConnectionStatus(false);
-
-            // Attempt manual reconnection for certain disconnect reasons
-            if (reason === 'io server disconnect' || reason === 'transport close' || reason === 'ping timeout') {
-                console.log('Attempting to reconnect due to:', reason);
-                attemptReconnection();
-            }
-        });
-
-        window.socket.on('connect_error', (error) => {
-            console.error('Socket connection error:', error.message);
-            connectionHealthStatus = 'error';
-            updateConnectionStatus(false);
-            attemptReconnection();
-        });
-
-        window.socket.on('reconnect_attempt', (attemptNumber) => {
-            console.log(`Reconnection attempt #${attemptNumber}`);
-            reconnectionAttempts = attemptNumber;
-        });
-
-        window.socket.on('reconnect_failed', () => {
-            console.error('Socket.IO reconnection failed after all attempts');
-            attemptReconnection();
-        });
-
-
-
-
-        // Send periodic heartbeat to server for connection monitoring
-        setInterval(() => {
-            if (window.socket && window.socket.connected) {
-                window.socket.emit('heartbeat');
-                lastHeartbeatTime = Date.now(); // Update last heartbeat time
-            }
-        }, 30000); // Send heartbeat every 30 seconds
-
-        window.socket.on('start_generate', async (data) => {
-            console.log('Received start_generate signal from server');
-            const { messages, settings } = data;
-            let parsedMessages = JSON.parse(messages);
-
-            // Log received settings
-            console.log('Generation settings:', settings);
-
-
-            if (document.getElementById("donate").checked) {
-                try {
-                    fetch('/donate', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ messages: parsedMessages })
-                    });
-                } catch (e) {
-                    // Silent fail
+        // Setup heartbeat interval (only once, globally)
+        if (!heartbeatInterval) {
+            heartbeatInterval = setInterval(() => {
+                if (window.socket && window.socket.connected) {
+                    window.socket.emit('heartbeat');
+                    lastHeartbeatTime = Date.now();
                 }
-            }
-
-            let type = document.getElementById("engine").value?.trim();
-            console.log('=== ENGINE ROUTING DEBUG ===');
-            console.log('Selected engine type:', type);
-            console.log('Engine type (typeof):', typeof type);
-            console.log('Engine type length:', type?.length);
-            console.log('Equals "Google Gemini"?', type === "Google Gemini");
-            console.log('Custom engine config:', window.customEngineConfig);
-            console.log('=========================');
-
-            if (type === "WebLLM (Local AI)") {
-                console.log('Starting WebLLM generation');
-                streamingGenerating(parsedMessages, window.webllmEngine, settings);
-            } else if (type === "Pollinations (Cloud AI)") {
-                console.log('Starting Pollinations generation');
-                streamingGeneratingPollinations(parsedMessages, settings);
-            } else if (type === "Yuzu (Cloud AI)") {
-                console.log('Starting Yuzu generation');
-                streamingGeneratingYuzu(parsedMessages, settings);
-            } else if (type === "Yuzu (G4F)") {
-                console.log('Starting Yuzu (G4F) generation');
-                streamingGeneratingYuzuG4F(parsedMessages, settings);
-            } else if (type === "Yuzu (AUTO)") {
-                console.log('Starting Yuzu AUTO generation');
-                streamingGeneratingYuzuAuto(parsedMessages, settings);
-            } else if (type === "Custom Engine") {
-                console.log('=== CUSTOM ENGINE DEBUG ===');
-                console.log('window.customEngineConfig:', window.customEngineConfig);
-                console.log('localStorage customEngineConfig:', localStorage.getItem('customEngineConfig'));
-                console.log('Endpoint:', window.customEngineConfig.endpoint);
-                console.log('Model:', window.customEngineConfig.model);
-                console.log('Type:', window.customEngineConfig.type);
-                console.log('Has API Key:', !!window.customEngineConfig.apiKey);
-                console.log('=========================');
-                streamingGeneratingCustomEngine(parsedMessages, window.customEngineConfig, settings);
-            } else if (type === "Google Gemini") {
-                console.log('Starting Google Gemini generation');
-                streamingGeneratingGemini(parsedMessages, settings);
-            } else {
-                console.error('Unknown engine type:', type);
-                try {
-                    window.socket.emit('message', `Error: Unknown engine type: ${type}`);
-                    window.socket.emit('done');
-                } catch (error) {
-                    console.error('Failed to emit error to server:', error);
-                }
-            }
-        });
-
-        window.socket.on('stop_generation', () => {
-            console.log('Received stop generation signal from server');
-            setTimeout(() => {
-                if (generationStopped) return;
-                console.log('Confirming generation stop after delay');
-                stopGeneration();
-            }, 1000);
-        });
+            }, 30000); // Send heartbeat every 30 seconds
+            console.log('Heartbeat interval initialized');
+        }
     } else {
         console.error('Socket.IO not loaded');
     }
