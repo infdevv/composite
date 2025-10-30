@@ -11,9 +11,13 @@ import {
     generationStopped
 } from './generation.js';
 
-// Removed reconnection variables
+// Reconnection state management
 let lastHeartbeatTime = Date.now();
 let connectionHealthStatus = 'connecting';
+let reconnectionAttempts = 0;
+let reconnectionTimeout = null;
+const MAX_RECONNECTION_ATTEMPTS = 10;
+const RECONNECTION_DELAYS = [1000, 2000, 3000, 5000, 8000, 13000, 21000, 34000, 55000, 89000]; // Fibonacci-like backoff
 
 // Connection status indicator
 export function updateConnectionStatus(connected) {
@@ -50,6 +54,57 @@ export function updateConnectionStatus(connected) {
         statusIndicator.style.color = 'white';
         statusIndicator.style.opacity = '1';
     }
+}
+
+// Manual reconnection with exponential backoff
+function attemptReconnection() {
+    // Clear any existing timeout
+    if (reconnectionTimeout) {
+        clearTimeout(reconnectionTimeout);
+        reconnectionTimeout = null;
+    }
+
+    // Check if we've exceeded max attempts
+    if (reconnectionAttempts >= MAX_RECONNECTION_ATTEMPTS) {
+        console.error(`Max reconnection attempts (${MAX_RECONNECTION_ATTEMPTS}) reached. Please refresh the page.`);
+
+        let statusIndicator = document.getElementById('connection-status');
+        if (statusIndicator) {
+            statusIndicator.textContent = '● Connection failed - Refresh page';
+            statusIndicator.style.backgroundColor = '#ff6b6b';
+        }
+        return;
+    }
+
+    const delay = RECONNECTION_DELAYS[Math.min(reconnectionAttempts, RECONNECTION_DELAYS.length - 1)];
+    console.log(`Attempting reconnection #${reconnectionAttempts + 1} in ${delay}ms...`);
+
+    let statusIndicator = document.getElementById('connection-status');
+    if (statusIndicator) {
+        statusIndicator.textContent = `● Reconnecting (${reconnectionAttempts + 1}/${MAX_RECONNECTION_ATTEMPTS})...`;
+        statusIndicator.style.backgroundColor = '#ffa500';
+        statusIndicator.style.opacity = '1';
+    }
+
+    reconnectionTimeout = setTimeout(() => {
+        reconnectionAttempts++;
+
+        // Check if socket exists and try to reconnect
+        if (window.socket) {
+            if (!window.socket.connected) {
+                console.log('Attempting manual socket reconnection...');
+                try {
+                    window.socket.connect();
+                } catch (error) {
+                    console.error('Manual reconnection failed:', error);
+                    initializeSocket(); // Fall back to full reinitialization
+                }
+            }
+        } else {
+            console.log('Socket does not exist, reinitializing...');
+            initializeSocket();
+        }
+    }, delay);
 }
 
 
@@ -93,20 +148,28 @@ export function initializeSocket() {
                 transports: ['websocket', 'polling'],
                 upgrade: true,
                 rememberUpgrade: true,
-                reconnection: false, // Disable automatic reconnection
+                reconnection: true, // Enable automatic reconnection
+                reconnectionDelay: 1000, // Initial delay
+                reconnectionDelayMax: 30000, // Max delay
+                reconnectionAttempts: Infinity, // Keep trying
                 timeout: 20000, // Connection timeout
                 forceNew: true, // Always create a new connection
                 autoConnect: true
             });
         } catch (error) {
             console.error('Failed to create socket connection:', error);
-            setTimeout(initializeSocket, 5000); // Retry after 5 seconds
+            attemptReconnection();
             return;
         }
 
         window.socket.on('connect', () => {
             console.log('Socket connected successfully');
             lastHeartbeatTime = Date.now();
+            reconnectionAttempts = 0; // Reset reconnection counter on successful connection
+            if (reconnectionTimeout) {
+                clearTimeout(reconnectionTimeout);
+                reconnectionTimeout = null;
+            }
             updateConnectionStatus(true);
         });
 
@@ -114,12 +177,29 @@ export function initializeSocket() {
             console.log('Socket disconnected:', reason);
             connectionHealthStatus = 'disconnected';
             updateConnectionStatus(false);
+
+            // Attempt manual reconnection for certain disconnect reasons
+            if (reason === 'io server disconnect' || reason === 'transport close' || reason === 'ping timeout') {
+                console.log('Attempting to reconnect due to:', reason);
+                attemptReconnection();
+            }
         });
 
         window.socket.on('connect_error', (error) => {
             console.error('Socket connection error:', error.message);
             connectionHealthStatus = 'error';
             updateConnectionStatus(false);
+            attemptReconnection();
+        });
+
+        window.socket.on('reconnect_attempt', (attemptNumber) => {
+            console.log(`Reconnection attempt #${attemptNumber}`);
+            reconnectionAttempts = attemptNumber;
+        });
+
+        window.socket.on('reconnect_failed', () => {
+            console.error('Socket.IO reconnection failed after all attempts');
+            attemptReconnection();
         });
 
 

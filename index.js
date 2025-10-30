@@ -585,9 +585,11 @@ server.post("/v1/chat/completions", async (request, reply) => {
 
         disconnectTimeout = setTimeout(() => {
             if (generationActive) {
-                console.log(`Client confirmed disconnected during generation for user ${userKey.substring(0, userKey.length - 10)}********** (${reason})`);
+                console.log(`API requestor disconnected during generation for user ${userKey.substring(0, userKey.length - 10)}********** (${reason}), but NOT stopping frontend generation`);
                 generationActive = false;
-                userSocket.emit('stop_generation');
+                // Don't send stop_generation to frontend - let it continue generating
+                // The frontend user hasn't cancelled, only the API consumer (e.g., Janitor.ai) disconnected
+                // userSocket.emit('stop_generation');
                 cleanup();
             }
         }, 2000); // 2 second delay to avoid false positives from temporary disconnects
