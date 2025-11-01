@@ -96,7 +96,6 @@ async function router(messages) {
     }
 }
 
-// Handle message emission with thinking mode support
 export function handleEmit(chunk) {
     let showreasoning = document.getElementById("show-reasoning").checked;
     if (chunk) {
@@ -138,8 +137,13 @@ export function handleEmit(chunk) {
                 return;
             }
 
+            console.log("Emitting chunk to socket:", chunk);
+
             window.socket.emit('message', chunk);
         } else {
+
+                        console.log("Emitting chunk to socket:", chunk);
+
             window.socket.emit('message', chunk);
         }
     }
