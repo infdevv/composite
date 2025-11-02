@@ -1,0 +1,29 @@
+<noscript>pls turn js on</noscript>
+<h1>⚠️ Exit out of all sites that the ad opens, just stay on the Cuty.Io page until it lets you click continue ⚠️</h1>
+<h3>You will be redirected in 5 seconds.</h3>
+<h1>⚠️ YOU WILL NOT GET CREDITS UNLESS YOU CLICK CONTINUE!!!1111!!11!!11 ⚠️</h1>
+<script>
+setTimeout(async () => {
+    const response = await fetch("/api/getAdUrl", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            url: window.origin
+        })
+    });
+    const adUrl = await response.text();
+    window.location.href = adUrl;
+}, 5000)
+</script>
+
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-X4ZJ7B4GKN"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-X4ZJ7B4GKN');
+</script>

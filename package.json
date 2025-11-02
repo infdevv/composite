@@ -2,19 +2,25 @@
   "name": "composite",
   "version": "1.0.0",
   "main": "index.js",
-  "type": "commonjs",
   "scripts": {
     "start": "node index.js"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/infdevv/composite.git"
+  },
   "author": "",
   "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/infdevv/composite/issues"
+  },
+  "homepage": "https://github.com/infdevv/composite#readme",
   "description": "",
   "dependencies": {
-    "@anthropic-ai/claude-code": "^2.0.27",
     "@fastify/cors": "^11.1.0",
     "@fastify/rate-limit": "^10.3.0",
-    "@fastify/static": "^8.2.0",
-    "fastify": "^5.6.0",
-    "socket.io": "^4.8.1"
+    "@fastify/static": "^8.3.0",
+    "fastify": "^5.6.1",
+    "undici": "^7.16.0"
   }
 }

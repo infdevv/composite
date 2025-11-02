@@ -1,0 +1,27 @@
+<script>
+
+// btw, don't try exploiting this, we do checks in the backend, idiot
+(async () => {
+    await fetch("/api/recieveCredits", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            key: window.localStorage.getItem("key")
+        })
+    });
+    window.location.href = "/";
+})();
+
+</script>
+
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-X4ZJ7B4GKN"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-X4ZJ7B4GKN');
+</script>

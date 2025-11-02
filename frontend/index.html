@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Composite⁶</title>
+    
+    <meta name="description" content="Composite is an proxy platform that provides access to a ton of models. For free btw.">
+    <meta name="keywords" content="AI, artificial intelligence, language models, API, proxy, deepseek, GLM, llama, kimi, qwen">
+    <meta name="author" content="Composite Team">
+    <meta name="robots" content="index, follow">
+  
+    <meta name="theme-color" content="#0d0e0d">
+    <meta name="msapplication-TileColor" content="#0d0e0d">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <link
+        href="https://fonts.googleapis.com/css?family=Inter:100,200,300,regular,500,600,700,800,900,100italic,200italic,300italic,italic,500italic,600italic,700italic,800italic,900italic"
+        rel="stylesheet" />
+    <link rel="icon" type="image/x-icon" href="favicon.png">
+    <link href="https://fonts.googleapis.com/css?family=Material+Icons:regular" rel="stylesheet" />
+    <style>
+        body {
+            font-family: "Inter", sans-serif;
+            color: white;
+            margin: 10px;
+            background-color: #0d0e0d;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow-x: hidden;
+        }
+
+        body::-webkit-scrollbar {
+            width: 5px;
+            color: black;
+            background-color: #333333;
+        }
+
+        #app {
+            text-align: center;
+            width: 100%;
+            max-width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #333333;
+            border-radius: 4px;
+            border: none;
+            padding: 10px 18px;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin: 2px;
+            font-size: 14px;
+            min-height: 44px;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+
+        button:hover {
+            background-color: #555555;
+        }
+
+        button:disabled {
+            background-color: #222222;
+            color: #666666;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .header-container {
+            width: 100%;
+            max-width: 800px;
+            position: relative;
+            margin-bottom: -10px;
+        }
+
+        .logo {
+            font-size: 20px;
+            font-weight: 600;
+            z-index: 10;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .other {
+            font-size: 20px;
+            font-weight: 600;
+            z-index: 10;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            text-align: right;
+        }
+
+        .other2 {
+            font-size: 20px;
+            font-weight: 600;
+            z-index: 10;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            text-align: right;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            gap: 15px;
+            max-width: 800px;
+            width: 100%;
+            max-height: 70vh;
+        }
+
+        .section {
+            border: 1px solid #333333;
+            border-radius: 8px;
+            padding: 15px;
+            min-height: 220px;
+            background-color: rgba(51, 51, 51, 0.1);
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+        }
+
+        .large-container {
+            border: 1px solid #333333;
+            border-radius: 8px;
+            padding: 15px;
+            max-width: 800px;
+            width: 100%;
+            margin: 0 auto;
+            background-color: rgba(51, 51, 51, 0.1);
+            box-sizing: border-box;
+        }
+
+        .section h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #ffffff;
+            font-size: 16px;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 5px 0;
+        }
+
+        li {
+            padding: 3px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        li:last-child {
+            border-bottom: none;
+        }
+
+        #modelList {
+            max-height: 200px;
+            overflow-y: scroll;
+        }
+
+        #modelList::-webkit-scrollbar {
+            width: 5px;
+            color: black;
+            background-color: white;
+        }
+
+        .code {
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 8px;
+            border-radius: 4px;
+            word-break: break-all;
+            display: inline-block;
+            font-size: 14px;
+            max-width: 100%;
+            overflow-wrap: break-word;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                margin: 5px;
+                justify-content: flex-start;
+                padding-top: 10px;
+            }
+
+            #app {
+                padding: 5px;
+            }
+
+            .header-container {
+                flex-direction: column;
+                gap: 8px;
+                text-align: center;
+                margin-bottom: 5px;
+            }
+
+            .logo, .other, .other2 {
+                font-size: 16px;
+                width: 100%;
+                text-align: center;
+            }
+
+            .logo {
+                justify-content: center;
+            }
+
+            .container {
+                grid-template-columns: 1fr;
+                grid-template-rows: repeat(4, auto);
+                gap: 12px;
+                max-height: none;
+            }
+
+            .section {
+                height: auto;
+                min-height: auto;
+                padding: 12px;
+            }
+
+            .section h3 {
+                font-size: 15px;
+                margin-bottom: 8px;
+            }
+
+            #modelList {
+                max-height: 150px;
+                font-size: 14px;
+            }
+
+            .large-container {
+                padding: 12px;
+                font-size: 14px;
+            }
+
+            .large-container h2 {
+                font-size: 18px;
+            }
+
+            button {
+                font-size: 15px;
+                padding: 12px 16px;
+            }
+
+            small {
+                font-size: 12px;
+            }
+
+            #keyinfo, #balanceDisplay {
+                font-size: 14px;
+                word-break: break-all;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                margin: 3px;
+            }
+
+            #app {
+                padding: 3px;
+            }
+
+            .logo {
+                font-size: 14px;
+            }
+
+            .other, .other2 {
+                font-size: 13px;
+            }
+
+            .section {
+                padding: 10px;
+            }
+
+            .section h3 {
+                font-size: 14px;
+            }
+
+            .large-container {
+                padding: 10px;
+                font-size: 13px;
+            }
+
+            button {
+                font-size: 14px;
+                padding: 11px 14px;
+            }
+
+            .code {
+                font-size: 12px;
+                padding: 6px;
+            }
+        }
+
+</style>
+</head>
+
+<body>
+
+    <div id="app">
+        <div class="header-container" style="display: flex; justify-content: space-between; align-items: center;">
+            <h2 class="logo">Composite
+                <span style="color: #f59ddb;">⁶</span>
+               <span class="material-icons discord-icon" style="cursor: pointer;" onclick="window.open('https://discord.gg/CPnJ8ctQhU','_blank')">discord</span>
+       
+            </h2>
+            
+            <h2 class="other" id="other">
+            </h2>
+        </div>
+        <div class="container">
+            <div class="section" id="keySection">
+                <h3>API Key Management</h3>
+                <div id="keyinfo">Your API key:</div>
+                <span id="keyDisplay">Not set</span>
+                                <div id="balanceDisplay">Credits: <span id="credits">0</span></div>
+                <div style="margin: 10px 0;">
+                </div>
+
+                <h3>Go watch a AD to get more credits!</h3>
+                <div id="buttons" style="display: flex;">
+                <button id="generateKeyBtn" style="margin-top: auto;">Generate New Key</button>
+               <button id="checkKeyBtn">Check Key Status</button>
+                </div>
+            </div>
+
+
+            <div class="section" id="adSection">
+                <h3>Earn Credits</h3>
+                <div style="margin-bottom: 10px;">
+                    <small>Watch ads to earn credits (Once a day)</small><br>
+                </div>
+                <button id="watchAdBtn">Watch Ad for 500 Credits/Requests</button>
+                <div style="margin-top: 10px;">
+                    <small>• Invite 2 friends: +50 credits</small><br>
+                    <small>• Make a essay about Pipkin Pippa: +50 credits</small><br>
+                    <small>Contact us on Discord to redeem either alternative method!</small>
+                </div>
+            </div>
+
+                    <div class="section" id="promptsSection">
+                <h3>Available Prompts</h3>
+                <ul id="modelList">
+                    <li>DefaultV3</li>
+                    <li>DefaultV2</li>
+                    <li>DefaultV1</li>
+                    <li>Cheese</li>
+                    <li>Pupi</li>
+                    <li>Livechat</li>
+                    <li>Brbie</li>
+                    <li>Infdevv</li>
+                    <li>Anrp</li>
+                    <li>Humour</li>
+                    <li>Dacm</li>
+                    <li>Teto</li>
+                    <li>Status</li>
+                    <li>Affection</li>
+                    <li>Unpositive</li>
+                    <li>Slop</li>
+                    <li>Reasoning</li>
+                </ul>
+            </div>
+
+
+
+            <div class="section" id="modelsSection">
+                <h3>Available Models</h3>
+                <ul id="modelList">
+                    <li>deepseek-ai/DeepSeek-V3.1</li>
+                    <li>deepseek-ai/DeepSeek-V3.1-Terminus</li>
+                    <li>deepseek-ai/DeepSeek-R1-0528</li>
+                    <li>deepseek-ai/DeepSeek-V3-0324</li>
+                    <li>zai-org/GLM-4.6</li>
+                    <li>deepseek-ai/DeepSeek-V3.2-Exp</li>
+                    <li>moonshotai/Kimi-K2-Instruct-0905</li>
+                    <li>Qwen/Qwen3-235B-A22B-Instruct-2507</li>
+                    <li>meta-llama/Llama-4-Scout-17B-16E-Instruct</li>
+                </ul>
+            </div>
+        </div>
+
+
+        </div>
+        <br>
+
+        <div class="large-container">
+
+        <h2>How to set it up</h2>
+
+            <span>Go to your frontend of choice and set the proxy URL to</span>
+            <br><br>
+            <span class="code" id="proxyURLSpan"></span>
+            <script>
+                document.getElementById("proxyURLSpan").innerText = `${window.origin}/v1/chat/completions`;
+            </script>
+            <br><br>
+            <span>Then pick a model out of the available models list and set that as your model</span>
+            <br><br>
+            <span>Now, the final step! Get your API key (or generate it) and put it in the UI. Then you can save it and use it!</span>
+
+            <br><br>
+            <h3>Extra info</h3>
+            <br>
+            To use prompts from the prompt list, set your model name to:
+            
+            <span class="code">model:prompt</span>
+
+            like this
+
+            <span class="code">zai-org/GLM-4.6:DefaultV3</span>
+
+        </div>
+
+        <center>
+            <p><strong>Credits expire every 24 hours</strong></p>
+        </center>
+
+
+    </div>
+
+
+    <div class="large-container">
+
+        <h2>STATISTICS !</h2>
+
+        <p>Current active requests: <span id="activeRequests"></span></p>
+        <p>Current total requests: <span id="totalRequests"></span></p>            
+
+    </div>
+
+
+    <script>
+
+        fetch("/api/statistics").then(response => response.json()).then(data => {
+            document.getElementById("activeRequests").innerText = data.activeRequests;
+            document.getElementById("totalRequests").innerText = data.totalRequests;
+        });
+
+        function updateGenerateKeyButtonState() {
+            const generateKeyBtn = document.getElementById("generateKeyBtn");
+            const storedKey = localStorage.getItem("key");
+
+            if (storedKey) {
+                generateKeyBtn.disabled = true;
+                generateKeyBtn.innerText = "Key Already Generated";
+            } else {
+                generateKeyBtn.disabled = false;
+                generateKeyBtn.innerText = "Generate New Key";
+            }
+        }
+
+        // Function to check if user can watch ad and update button state
+        async function updateAdButtonState() {
+            const watchAdBtn = document.getElementById("watchAdBtn");
+            const storedKey = localStorage.getItem("key");
+
+            if (!storedKey) {
+                watchAdBtn.disabled = false;
+                watchAdBtn.innerText = "Watch Ad for 500 Credits/Requests";
+                return;
+            }
+
+            try {
+                const response = await fetch("/api/check-key", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        key: storedKey
+                    })
+                });
+                const data = await response.json();
+
+                if (data && data.lastAdViewedDate !== undefined) {
+                    const lastViewed = data.lastAdViewedDate;
+                    const now = Date.now();
+                    const timeSinceLastAd = now - lastViewed;
+                    const timeUntilNextAd = 86400000 - timeSinceLastAd; // 24 hours in ms
+
+                    // If last viewed is 0 (never watched) or more than 24 hours ago
+                    if (lastViewed === 0 || timeSinceLastAd >= 86400000) {
+                        watchAdBtn.disabled = false;
+                        watchAdBtn.innerText = "Watch Ad for 500 Credits/Requests";
+                    } else {
+                        // User watched an ad less than 24 hours ago
+                        watchAdBtn.disabled = true;
+                        const hoursLeft = Math.ceil(timeUntilNextAd / 3600000);
+                        watchAdBtn.innerText = `Wait ${hoursLeft}h to watch another ad`;
+                    }
+                }
+            } catch (error) {
+                console.error("Error checking ad status:", error);
+            }
+        }
+
+        document.getElementById("generateKeyBtn").addEventListener("click", async function(){
+            const response = await fetch("/api/make-key");
+            const data = await response.json();
+            localStorage.setItem("key", data.key);
+            document.getElementById("keyDisplay").innerText = data.key;
+            document.getElementById("credits").innerText = data.balance;
+            // Update ad button state after generating key
+            await updateAdButtonState();
+        })
+
+        document.getElementById("checkKeyBtn").addEventListener("click", async function(){
+            if (!localStorage.getItem("key")) {
+                alert("You need to generate a key first!")
+                return
+            }
+            const response = await fetch("/api/check-key", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    key: localStorage.getItem("key")
+                })
+            });
+            const data = await response.json();
+            document.getElementById("credits").innerText = data.balance;
+            // Update ad button state after checking key
+            await updateAdButtonState();
+        })
+
+        document.getElementById("watchAdBtn").addEventListener("click", async function(){
+            if (!localStorage.getItem("key")) {
+                alert("You need to generate a key first!")
+                return
+            }
+            // Only redirect if button is not disabled
+            if (!this.disabled) {
+                window.location.href = "/redirect.html"
+            }
+        })
+
+        // holy autism
+
+        let messages = [
+
+            // music type shit
+
+            "Gone Gone / Thank You",
+            "Come to Life",
+            "All Falls Down",
+            "We Don't Care",
+            "Family Business",
+            "Graduation (SKIT)",
+            "We Major",
+            "Roses",
+            "Touch The Sky",
+            "Bring Me Down",
+            "Good Morning",
+            "I Wonder",
+            "Big Brother",
+            "Flashing Lights",
+            "Flashing Lights (Part 2)",
+            "Preacher Man",
+            "Beauty And The Beast",
+            "Highs And Lows",
+            "White Lines",
+            "2085",
+            "Off The Grid",
+            "*Boy is a Gun",
+            "Running Out Of Time",
+            "New Magic Wand",
+            "Dark Fantasy",
+            "POWER",
+            "All of The Lights",
+            "LOST IN THE WORLD / WHO WILL SURVIVE IN AMERICA",
+            "Blame Game",
+            "The Big Goodbye"
+        ]
+
+        document.getElementById("other").innerHTML = messages[Math.floor(Math.random() * messages.length)];
+
+        setTimeout(() => {
+            const adSectionStyle = getComputedStyle(document.getElementById("adSection"));
+            if (adSectionStyle.display === "none") {
+                alert("please turn off your ad blocker, there aint even ads on this page vro, just when you click the button");
+            }
+        }, 500);
+
+        // Load and display key on page load if it exists
+        window.addEventListener("DOMContentLoaded", async function() {
+            const storedKey = localStorage.getItem("key");
+            if (storedKey) {
+                document.getElementById("keyDisplay").innerText = storedKey;
+
+                // Auto-check the key balance
+                try {
+                    const response = await fetch("/api/check-key", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            key: storedKey
+                        })
+                    });
+                    const data = await response.json();
+                    if (data && data.balance !== undefined) {
+                        document.getElementById("credits").innerText = data.balance;
+                    }
+                } catch (error) {
+                    console.error("Error loading key status:", error);
+                }
+            }
+
+            // Update button states on page load
+            updateGenerateKeyButtonState();
+            await updateAdButtonState();
+        });
+
+    </script>
+
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-X4ZJ7B4GKN"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-X4ZJ7B4GKN');
+</script>
+
+
+</body>
+</html>
