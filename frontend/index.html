@@ -202,6 +202,11 @@
                 padding-top: 10px;
             }
 
+            /* Hide pipper gifs on mobile */
+            img[src="pipper.gif"] {
+                display: none !important;
+            }
+
             #app {
                 padding: 5px;
             }
@@ -459,12 +464,20 @@
             const generateKeyBtn = document.getElementById("generateKeyBtn");
             const storedKey = localStorage.getItem("key");
 
-            if (storedKey) {
+            // Check if key is valid (not null, undefined, or the string "undefined")
+            const isValidKey = storedKey && storedKey !== "undefined" && storedKey.trim() !== "";
+
+            if (isValidKey) {
                 generateKeyBtn.disabled = true;
                 generateKeyBtn.innerText = "Key Already Generated";
             } else {
                 generateKeyBtn.disabled = false;
                 generateKeyBtn.innerText = "Generate New Key";
+                // Clear invalid key from localStorage and reset display
+                if (storedKey && (storedKey === "undefined" || storedKey.trim() === "")) {
+                    localStorage.removeItem("key");
+                    document.getElementById("keyDisplay").innerText = "Not set";
+                }
             }
         }
 
@@ -604,7 +617,11 @@
         // Load and display key on page load if it exists
         window.addEventListener("DOMContentLoaded", async function() {
             const storedKey = localStorage.getItem("key");
-            if (storedKey) {
+            
+            // Check if key is valid (not null, undefined, or the string "undefined")
+            const isValidKey = storedKey && storedKey !== "undefined" && storedKey.trim() !== "";
+            
+            if (isValidKey) {
                 document.getElementById("keyDisplay").innerText = storedKey;
 
                 // Auto-check the key balance
@@ -625,6 +642,13 @@
                 } catch (error) {
                     console.error("Error loading key status:", error);
                 }
+            } else {
+                // Clear invalid key and reset display
+                if (storedKey && (storedKey === "undefined" || storedKey.trim() === "")) {
+                    localStorage.removeItem("key");
+                }
+                document.getElementById("keyDisplay").innerText = "Not set";
+                document.getElementById("credits").innerText = "0";
             }
 
             // Update button states on page load
@@ -632,6 +656,23 @@
             await updateAdButtonState();
         });
 
+    </script>
+
+    <input placeholder="PUT YOUR KEY HERE" id="keyInput">
+
+    <script>
+        document.getElementById("keyInput").addEventListener("input", function() {
+            const inputValue = this.value.trim();
+            
+            // Reset localStorage if key is "Undefined", "undefined", or empty
+            if (inputValue === "Undefined" || inputValue === "undefined" || inputValue === "") {
+                localStorage.removeItem("key");
+                this.value = "";
+            } else {
+                localStorage.setItem("key", inputValue);
+            }
+            location.reload();
+        });
     </script>
 
     <img src="pipper.gif" style="position: fixed; height: 270px; right: 10px; bottom: 10px;">

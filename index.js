@@ -345,7 +345,7 @@ app.post("/v1/nostreaming/chat/completions", async function (request, reply) {
 });
 
 // we MUST host on 3005.
-app.listen({ port: 3005, host: "0.0.0.0" }, (err, address) => {
+app.listen({ port: 3000, host: "0.0.0.0" }, (err, address) => {
   if (err) {
     console.error(err);
     process.exit(1);
