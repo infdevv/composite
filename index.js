@@ -32,6 +32,104 @@ function hashIP(ip) {
   return crypto.createHash("sha256").update(ip).digest("hex");
 }
 
+// Estimate token count for text (roughly 4 characters per token)
+function estimateTokens(text) {
+  if (!text) return 0;
+  return Math.ceil(text.length / 4);
+}
+
+// Estimate tokens for a message object
+function estimateMessageTokens(message) {
+  let tokens = 0;
+  if (typeof message.content === 'string') {
+    tokens += estimateTokens(message.content);
+  } else if (Array.isArray(message.content)) {
+    for (const part of message.content) {
+      if (part.type === 'text' && part.text) {
+        tokens += estimateTokens(part.text);
+      }
+      // Images and other content types add tokens too, but we'll use a rough estimate
+      if (part.type === 'image_url') {
+        tokens += 85; // Rough estimate for image tokens
+      }
+    }
+  }
+  if (message.role) {
+    tokens += 4; // Role overhead
+  }
+  return tokens;
+}
+
+// Trim messages to fit within token limit
+function trimMessagesToTokenLimit(messages, maxTokens) {
+  if (!messages || messages.length === 0) return messages;
+
+  // Calculate current total tokens
+  let totalTokens = messages.reduce((sum, msg) => sum + estimateMessageTokens(msg), 0);
+
+  if (totalTokens <= maxTokens) {
+    return messages; // No trimming needed
+  }
+
+  // Find system message (should be first)
+  let systemMessage = null;
+  let systemIndex = -1;
+  let otherMessages = [];
+
+  for (let i = 0; i < messages.length; i++) {
+    if (messages[i].role === 'system') {
+      systemMessage = messages[i];
+      systemIndex = i;
+    } else {
+      otherMessages.push(messages[i]);
+    }
+  }
+
+  // If only system message exists, trim it
+  if (otherMessages.length === 0 && systemMessage) {
+    const systemTokens = estimateMessageTokens(systemMessage);
+    if (systemTokens > maxTokens) {
+      // Trim system message content
+      if (typeof systemMessage.content === 'string') {
+        const targetLength = Math.floor(maxTokens * 4 * 0.95); // Leave some buffer
+        systemMessage.content = systemMessage.content.slice(0, targetLength) + "... [truncated]";
+      }
+    }
+    return [systemMessage];
+  }
+
+  // Calculate tokens needed for other messages and system message
+  const systemTokens = systemMessage ? estimateMessageTokens(systemMessage) : 0;
+  let availableTokens = maxTokens - systemTokens;
+
+  // If system message is too large, we need to trim it first
+  if (availableTokens < maxTokens * 0.3) {
+    const targetSystemTokens = Math.floor(maxTokens * 0.3);
+    if (systemMessage && typeof systemMessage.content === 'string') {
+      const targetLength = Math.floor(targetSystemTokens * 4 * 0.95);
+      systemMessage.content = systemMessage.content.slice(0, targetLength) + "... [truncated]";
+    }
+    availableTokens = maxTokens - targetSystemTokens;
+  }
+
+  // Keep messages from the end (most recent) until we hit token limit
+  const trimmedMessages = [];
+  let currentTokens = 0;
+
+  for (let i = otherMessages.length - 1; i >= 0; i--) {
+    const msgTokens = estimateMessageTokens(otherMessages[i]);
+    if (currentTokens + msgTokens <= availableTokens) {
+      trimmedMessages.unshift(otherMessages[i]);
+      currentTokens += msgTokens;
+    } else {
+      break; // Stop adding older messages
+    }
+  }
+
+  // Combine system message (if exists) with trimmed messages
+  return systemMessage ? [systemMessage, ...trimmedMessages] : trimmedMessages;
+}
+
 app.get("/api/make-key", async function (request, reply) {
   // load /data/users.json
   let users = JSON.parse(await fs.readFile("./data/users.json"));
@@ -106,17 +204,17 @@ app.post("/api/recieveCredits", async function (request, reply) {
     if (!users[request.body.key]) {
       return reply.status(404).send({ error: "Key not found" });
     }
-    // check if the last ad was viewed less than a day ago
+    // check if the last ad was viewed less than 2 hours ago
     if (
       users[request.body.key].lastAdViewedDate !== 0 &&
-      users[request.body.key].lastAdViewedDate + 86400000 > Date.now()
+      users[request.body.key].lastAdViewedDate + 7200000 > Date.now()
     ) {
       return reply
         .status(429)
-        .send({ error: "Please wait 24 hours between ad views" });
+        .send({ error: "Please wait 2 hours between ad views" });
     }
     users[request.body.key].lastAdViewedDate = Date.now();
-    users[request.body.key].balance += 500;
+    users[request.body.key].balance = Math.round((users[request.body.key].balance + config.creditsPerAd) * 100) / 100;
     await fs.writeFile("./data/users.json", JSON.stringify(users));
     reply.send({ success: true, balance: users[request.body.key].balance });
   } catch (error) {
@@ -140,7 +238,7 @@ function preprocessRequest(request) {
 
   delete request.headers["content-length"];
   delete request.headers["Content-Length"];
-  
+
 
   const modelParts = request.body.model.split(":");
   const model = modelParts[0];
@@ -167,6 +265,11 @@ function preprocessRequest(request) {
         console.log("ERROR: Unexpected content type:", typeof newBody.messages[0].content);
       }
     }
+  }
+
+  // Apply token limit from config
+  if (newBody.messages && newBody.messages.length > 0 && config.maxTokens) {
+    newBody.messages = trimMessagesToTokenLimit(newBody.messages, config.maxTokens);
   }
 
   newBody.model = model;
@@ -241,15 +344,16 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
       return reply.status(401).send({ error: "Invalid API key" });
     }
 
-    // check if they have enough credits ( each request is 1 credit )
-    if (users[key].balance < 1) {
+    // check if they have enough credits (minimum check - will verify exact amount after request)
+    // At 0.01 credits per token, minimum 10 tokens = 0.1 credits
+    if (users[key].balance < 0.1) {
       return reply.status(402).send({ error: "Insufficient credits" });
     }
 
-    // check if the last ad was viewed more than a day ago (credits expired)
+    // check if the last ad was viewed more than 2 hours ago (credits expired)
     if (
       users[key].lastAdViewedDate !== 0 &&
-      users[key].lastAdViewedDate + 86400000 < Date.now()
+      users[key].lastAdViewedDate + 7200000 < Date.now()
     ) {
       users[key].balance = 0;
       await fs.writeFile("./data/users.json", JSON.stringify(users));
@@ -266,8 +370,7 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
       users[key].hashedIP = hashIP(clientIP);
     }
 
-    users[key].balance -= 1;
-    await fs.writeFile("./data/users.json", JSON.stringify(users));
+    // Credit deduction will happen after we get the response with token usage
 
     delete headers.authorization;
     delete headers.referer;
@@ -336,8 +439,60 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
       });
 
       try {
+        let streamBuffer = '';
+        let totalTokens = 0;
+        let lastChunkData = null;
+
         for await (const chunk of response.body) {
           reply.raw.write(chunk);
+
+          // Accumulate chunks to parse token usage
+          streamBuffer += chunk.toString();
+
+          // Parse SSE data to extract token usage from the last data chunk
+          const lines = streamBuffer.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const dataStr = line.slice(6);
+              if (dataStr.trim() !== '[DONE]') {
+                try {
+                  const parsed = JSON.parse(dataStr);
+                  lastChunkData = parsed;
+                  if (parsed.usage && parsed.usage.total_tokens) {
+                    totalTokens = parsed.usage.total_tokens;
+                  }
+                } catch (e) {
+                  // Ignore parse errors for incomplete chunks
+                }
+              }
+            }
+          }
+        }
+
+        // If no token usage found in stream, estimate from request/response
+        if (totalTokens === 0) {
+          console.log("No token usage in stream, estimating...");
+          // Estimate based on the messages sent
+          if (request.body.messages) {
+            totalTokens = request.body.messages.reduce((sum, msg) => sum + estimateMessageTokens(msg), 0);
+            // Add estimated response tokens (rough estimate)
+            totalTokens += 500; // Assume average 500 token response
+          }
+          console.log(`Estimated tokens: ${totalTokens}`);
+        } else {
+          console.log(`API reported tokens: ${totalTokens}`);
+        }
+
+        // Deduct credits based on token usage
+        const creditsToDeduct = Math.round(totalTokens * config.creditsPerToken * 100) / 100;
+        console.log(`Deducting ${creditsToDeduct} credits for ${totalTokens} tokens (streaming)`);
+
+        let usersAfter = JSON.parse(await fs.readFile("./data/users.json"));
+        if (usersAfter[key]) {
+          const oldBalance = usersAfter[key].balance;
+          usersAfter[key].balance = Math.max(0, Math.round((usersAfter[key].balance - creditsToDeduct) * 100) / 100);
+          console.log(`Balance: ${oldBalance} -> ${usersAfter[key].balance}`);
+          await fs.writeFile("./data/users.json", JSON.stringify(usersAfter));
         }
 
         let stats = JSON.parse(await fs.readFile("stats.json"));
@@ -353,6 +508,39 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
       }
     } else {
       const { data } = await attemptRequest(originalModel, canFallback);
+
+      // Deduct credits based on token usage (0.01 credits per token)
+      let totalTokens = 0;
+      if (data.usage && data.usage.total_tokens) {
+        totalTokens = data.usage.total_tokens;
+        console.log(`API reported tokens: ${totalTokens} (non-streaming)`);
+      } else {
+        // If no token usage in response, estimate from request
+        console.log("No token usage in response, estimating...");
+        if (request.body.messages) {
+          totalTokens = request.body.messages.reduce((sum, msg) => sum + estimateMessageTokens(msg), 0);
+          // Add estimated response tokens
+          if (data.choices && data.choices[0] && data.choices[0].message) {
+            totalTokens += estimateMessageTokens(data.choices[0].message);
+          } else {
+            totalTokens += 500; // Default estimate
+          }
+        }
+        console.log(`Estimated tokens: ${totalTokens}`);
+      }
+
+      const creditsToDeduct = Math.round(totalTokens * config.creditsPerToken * 100) / 100;
+      console.log(`Deducting ${creditsToDeduct} credits for ${totalTokens} tokens (non-streaming)`);
+
+      // Reload users and deduct credits
+      let usersAfter = JSON.parse(await fs.readFile("./data/users.json"));
+      if (usersAfter[key]) {
+        const oldBalance = usersAfter[key].balance;
+        usersAfter[key].balance = Math.max(0, Math.round((usersAfter[key].balance - creditsToDeduct) * 100) / 100);
+        console.log(`Balance: ${oldBalance} -> ${usersAfter[key].balance}`);
+        await fs.writeFile("./data/users.json", JSON.stringify(usersAfter));
+      }
+
       let stats = JSON.parse(await fs.readFile("stats.json"));
       stats.activeRequests -= 1;
       await fs.writeFile("stats.json", JSON.stringify(stats));
