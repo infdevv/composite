@@ -275,15 +275,56 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
     delete headers.host;
     delete headers.connection;
 
+    // Helper function to check if error is an OpenAI-style error
+    function isOpenAIError(data) {
+      if (!data || !data.error) return false;
+      const errorMsg = (data.error.message || '').toLowerCase();
+      return errorMsg.includes('busy') ||
+             errorMsg.includes('try again') ||
+             errorMsg.includes('overloaded') ||
+             errorMsg.includes('rate limit') ||
+             errorMsg.includes('unavailable');
+    }
 
-    let response = await fetch(endpoint, {
-      method: "POST",
-      headers: headers,
-      body: JSON.stringify(request.body),
-      dispatcher: client,
-    });
+    // Helper function to attempt request with fallback
+    async function attemptRequest(modelToUse, canFallback = true) {
+      const requestBody = { ...request.body, model: modelToUse };
+
+      let response = await fetch(endpoint, {
+        method: "POST",
+        headers: headers,
+        body: JSON.stringify(requestBody),
+        dispatcher: client,
+      });
+
+      // For streaming, we need to check the initial response
+      if (isStreaming) {
+        // If status indicates failure, try fallback if available
+        if (!response.ok && canFallback && promptList.fallbacks[modelToUse]) {
+          console.log(`Model ${modelToUse} failed with status ${response.status}, trying fallback: ${promptList.fallbacks[modelToUse]}`);
+          return attemptRequest(promptList.fallbacks[modelToUse], false);
+        }
+        return response;
+      } else {
+        // For non-streaming, check the response data
+        const data = await response.json();
+
+        // Check if we got an OpenAI-style error and can fallback
+        if (isOpenAIError(data) && canFallback && promptList.fallbacks[modelToUse]) {
+          console.log(`Model ${modelToUse} returned error: ${data.error.message}, trying fallback: ${promptList.fallbacks[modelToUse]}`);
+          return attemptRequest(promptList.fallbacks[modelToUse], false);
+        }
+
+        return { response, data };
+      }
+    }
+
+    const originalModel = request.body.model;
+    const canFallback = promptList.fallbacks.hasOwnProperty(originalModel);
 
     if (isStreaming) {
+      const response = await attemptRequest(originalModel, canFallback);
+
       reply.raw.writeHead(response.status, {
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
@@ -311,7 +352,7 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
         }
       }
     } else {
-      const data = await response.json();
+      const { data } = await attemptRequest(originalModel, canFallback);
       let stats = JSON.parse(await fs.readFile("stats.json"));
       stats.activeRequests -= 1;
       await fs.writeFile("stats.json", JSON.stringify(stats));
