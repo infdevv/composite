@@ -1,11 +1,59 @@
-const { ProxyAgent } = require("undici");
 const config = require("./config.json");
 const fastify = require("fastify");
 const fs = require("fs/promises");
 const crypto = require("crypto");
-const { fetch } = require("undici");
 const path = require("path");
 const promptList = require("./helpers/constants.js");
+const { ProxyAgent } = require("proxy-agent");
+
+// Proxy configuration
+// NOTE: Supports HTTP, HTTPS, SOCKS4, and SOCKS5 proxies automatically
+// Use update_proxies.py to populate config.json with proxies
+const USE_PROXIES = config.proxyURL && Array.isArray(config.proxyURL) && config.proxyURL.length > 0;
+const PROXY_LIST = USE_PROXIES ? config.proxyURL : [];
+
+// Track working proxies
+const WORKING_PROXIES = new Set();
+const FAILED_PROXIES = new Set();
+let proxyRotationIndex = 0;
+
+// Helper function to get next proxy (round-robin with failed proxy tracking)
+function getNextProxy() {
+  if (!USE_PROXIES || PROXY_LIST.length === 0) {
+    return null;
+  }
+
+  // Filter out failed proxies, but reset if all are failed
+  let availableProxies = PROXY_LIST.filter(p => !FAILED_PROXIES.has(p));
+  if (availableProxies.length === 0) {
+    console.log('All proxies failed, resetting failed list and retrying...');
+    FAILED_PROXIES.clear();
+    availableProxies = PROXY_LIST;
+  }
+
+  // Round-robin through available proxies
+  const proxy = availableProxies[proxyRotationIndex % availableProxies.length];
+  proxyRotationIndex++;
+  return proxy;
+}
+
+// Mark a proxy as working
+function markProxyWorking(proxyUrl) {
+  WORKING_PROXIES.add(proxyUrl);
+  FAILED_PROXIES.delete(proxyUrl);
+}
+
+// Mark a proxy as failed
+function markProxyFailed(proxyUrl) {
+  FAILED_PROXIES.add(proxyUrl);
+  console.log(`Proxy marked as failed: ${proxyUrl} (${FAILED_PROXIES.size}/${PROXY_LIST.length} failed)`);
+}
+
+if (USE_PROXIES) {
+  console.log(`✓ Loaded ${PROXY_LIST.length} proxies (HTTP/SOCKS) with smart rotation`);
+} else {
+  console.log('ℹ No proxies configured, using direct connection');
+}
 
 const app = fastify({
   logger: true,
@@ -25,12 +73,6 @@ app.register(require("@fastify/static"), {
   prefix: "/",
   decorateReply: false,
 });
-
-const client = new ProxyAgent(config.proxyURL);
-
-function hashIP(ip) {
-  return crypto.createHash("sha256").update(ip).digest("hex");
-}
 
 // Estimate token count for text (roughly 4 characters per token)
 function estimateTokens(text) {
@@ -134,33 +176,14 @@ app.get("/api/make-key", async function (request, reply) {
   // load /data/users.json
   let users = JSON.parse(await fs.readFile("./data/users.json"));
 
-  // Get and hash the requestor's IP
-  const clientIP =
-    request.headers["x-forwarded-for"]?.split(",")[0].trim() ||
-    request.headers["x-real-ip"] ||
-    request.ip;
-  const hashedRequestorIP = hashIP(clientIP);
-
-  // Check if this IP already has an account (alt detection)
-  for (const [existingKey, userData] of Object.entries(users)) {
-    if (userData.hashedIP === hashedRequestorIP) {
-      return reply.status(403).send({
-        error: "An account with this IP address already exists",
-        existingKey: existingKey,
-      });
-    }
-  }
-
   // create UUID
   let uuid = crypto.randomUUID();
 
-  // add user with hashed IP
   users[uuid] = {
     key: uuid,
     balance: 0,
     lastAdViewedDate: 0,
-    createdDate: Date.now(),
-    hashedIP: hashedRequestorIP,
+    createdDate: Date.now()
   };
 
   await fs.writeFile("./data/users.json", JSON.stringify(users));
@@ -184,14 +207,52 @@ app.post("/api/check-key", async function (request, reply) {
 });
 
 app.post("/api/getAdUrl", async function (request, reply) {
-  let response = await fetch(
-    `https://api.cuty.io/quick?token=${config.cutyio}&ad=1&url=${
-      request.body.url
-    }/rep.html&alias=${crypto
-      .randomUUID()
-      .replaceAll("-", "")
-      .slice(0, 12)}&format=text`
-  );
+  const url = `https://api.cuty.io/quick?token=${config.cutyio}&ad=1&url=${
+    request.body.url
+  }/rep.html&alias=${crypto
+    .randomUUID()
+    .replaceAll("-", "")
+    .slice(0, 12)}&format=text`;
+
+  let response = null;
+  let lastError = null;
+
+  // Try up to 3 different proxies if configured
+  const maxProxyAttempts = USE_PROXIES ? Math.min(3, PROXY_LIST.length) : 0;
+
+  for (let attempt = 0; attempt < maxProxyAttempts; attempt++) {
+    try {
+      const proxyUrl = getNextProxy();
+      if (!proxyUrl) break;
+
+      console.log(`[cuty.io] Trying proxy: ${proxyUrl}`);
+      const agent = new ProxyAgent(proxyUrl);
+      response = await fetch(url, {
+        agent: agent,
+      });
+
+      console.log(`[cuty.io] ✓ Proxy connected: ${proxyUrl}`);
+      console.log(`[cuty.io]   Response status: ${response.status} ${response.statusText}`);
+      markProxyWorking(proxyUrl);
+      break;
+    } catch (proxyError) {
+      lastError = proxyError;
+      const proxyUrl = PROXY_LIST[(proxyRotationIndex - 1 + PROXY_LIST.length) % PROXY_LIST.length];
+      markProxyFailed(proxyUrl);
+      console.warn(`[cuty.io] ✗ Proxy failed: ${proxyUrl}`);
+      console.warn(`[cuty.io]   Error: ${proxyError.message}`);
+      if (proxyError.cause) {
+        console.warn(`[cuty.io]   Cause: ${proxyError.cause.message || proxyError.cause}`);
+      }
+    }
+  }
+
+  // If all proxies failed, return error
+  if (!response) {
+    console.error(`[cuty.io] All ${maxProxyAttempts} proxy attempts failed`);
+    return reply.status(502).send({ error: 'All proxies failed for cuty.io request' });
+  }
+
   reply.send(await response.text());
 });
 
@@ -294,7 +355,7 @@ app.all("/v1/chat/completions", async function (request, reply) {
   await proxyToEndpoint(
     preprocessRequest(request),
     reply,
-    "https://api.deepinfra.com/v1/openai/chat/completions",
+    "https://api.deepinfra.com/v1/chat/completions",
     isStreaming
   );
 });
@@ -362,14 +423,6 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
         .send({ error: "Credits expired. Please view an ad first." });
     }
 
-    if (!users[key].hashedIP) {
-      const clientIP =
-        request.headers["x-forwarded-for"]?.split(",")[0].trim() ||
-        request.headers["x-real-ip"] ||
-        request.ip;
-      users[key].hashedIP = hashIP(clientIP);
-    }
-
     // Credit deduction will happen after we get the response with token usage
 
     delete headers.authorization;
@@ -389,16 +442,100 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
              errorMsg.includes('unavailable');
     }
 
-    // Helper function to attempt request with fallback
+    // Helper function to attempt request with multiple proxy retries
     async function attemptRequest(modelToUse, canFallback = true) {
       const requestBody = { ...request.body, model: modelToUse };
+      let response = null;
+      let lastError = null;
 
-      let response = await fetch(endpoint, {
-        method: "POST",
-        headers: headers,
-        body: JSON.stringify(requestBody),
-        dispatcher: client,
-      });
+      // Try up to 10 different proxies if configured (increased for 403 retries)
+      const maxProxyAttempts = USE_PROXIES ? Math.min(10, PROXY_LIST.length) : 0;
+
+      for (let attempt = 0; attempt < maxProxyAttempts; attempt++) {
+        try {
+          const proxyUrl = getNextProxy();
+          if (!proxyUrl) break;
+
+          const agent = new ProxyAgent(proxyUrl);
+          const fetchOptions = {
+            method: "POST",
+            headers: headers,
+            body: JSON.stringify(requestBody),
+            agent: agent,
+          };
+
+          console.log(`[Attempt ${attempt + 1}/${maxProxyAttempts}] Trying proxy: ${proxyUrl}`);
+          response = await fetch(endpoint, fetchOptions);
+
+          // Log response details
+          console.log(`✓ Proxy connected: ${proxyUrl}`);
+          console.log(`  Response status: ${response.status} ${response.statusText}`);
+          console.log(`  Response headers:`, Object.fromEntries(response.headers.entries()));
+
+          // If we get a 403, mark proxy as failed and retry with another proxy
+          if (response.status === 403) {
+            console.warn(`✗ Got 403 Forbidden from DeepInfra with proxy: ${proxyUrl}`);
+            markProxyFailed(proxyUrl);
+            response = null;
+            lastError = new Error(`403 Forbidden from DeepInfra`);
+
+            if (attempt < maxProxyAttempts - 1) {
+              console.log(`Retrying with next proxy...`);
+              continue;
+            } else {
+              break;
+            }
+          }
+
+          // Success! Mark proxy as working
+          markProxyWorking(proxyUrl);
+          break;
+        } catch (proxyError) {
+          lastError = proxyError;
+          const proxyUrl = PROXY_LIST[(proxyRotationIndex - 1 + PROXY_LIST.length) % PROXY_LIST.length];
+          markProxyFailed(proxyUrl);
+          console.warn(`✗ Proxy attempt ${attempt + 1} failed: ${proxyUrl}`);
+          console.warn(`  Error: ${proxyError.message}`);
+          if (proxyError.cause) {
+            console.warn(`  Cause: ${proxyError.cause.message || proxyError.cause}`);
+          }
+
+          // Continue to next proxy
+          if (attempt < maxProxyAttempts - 1) {
+            console.log(`Trying next proxy...`);
+          }
+        }
+      }
+
+      // If all proxies failed, try direct connection as fallback
+      if (!response) {
+        console.warn(`All ${maxProxyAttempts} proxy attempts failed for model ${modelToUse}`);
+        console.log(`Attempting direct connection (no proxy)...`);
+
+        try {
+          const fetchOptions = {
+            method: "POST",
+            headers: headers,
+            body: JSON.stringify(requestBody),
+          };
+
+          response = await fetch(endpoint, fetchOptions);
+          console.log(`✓ Direct connection succeeded`);
+          console.log(`  Response status: ${response.status} ${response.statusText}`);
+        } catch (directError) {
+          console.error(`✗ Direct connection also failed: ${directError.message}`);
+          throw lastError || directError || new Error('All proxies and direct connection failed');
+        }
+      }
+
+      // Log non-OK responses
+      if (!response.ok) {
+        console.error(`HTTP error for model ${modelToUse}:`, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries())
+        });
+      }
 
       // For streaming, we need to check the initial response
       if (isStreaming) {
@@ -411,6 +548,14 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
       } else {
         // For non-streaming, check the response data
         const data = await response.json();
+
+        // Log error data if present
+        if (data.error) {
+          console.error(`API error for model ${modelToUse}:`, {
+            error: data.error,
+            status: response.status
+          });
+        }
 
         // Check if we got an OpenAI-style error and can fallback
         if (isOpenAIError(data) && canFallback && promptList.fallbacks[modelToUse]) {
@@ -559,7 +704,7 @@ app.post("/v1/streaming/chat/completions", async function (request, reply) {
   await proxyToEndpoint(
     preprocessRequest(request),
     reply,
-    "https://api.deepinfra.com/v1/openai/chat/completions",
+    "https://api.deepinfra.com/v1/chat/completions",
     true
   );
 });
@@ -568,12 +713,31 @@ app.post("/v1/nostreaming/chat/completions", async function (request, reply) {
   await proxyToEndpoint(
     preprocessRequest(request),
     reply,
-    "https://api.deepinfra.com/v1/openai/chat/completions",
+    "https://api.deepinfra.com/v1/chat/completions",
     false
   );
 });
 
-// we MUST host on 3005.
+setInterval(() => {
+  try {
+
+    // Check /duplicate/ and see if there are more than 5 files
+    const files = fs.readdirSync("./duplicate");
+    if (files.length > 5) {
+      // Delete the oldest file
+      fs.unlinkSync("./duplicate/" + files[0]);
+    }
+  
+    // Data duplication
+    fs.readFile("./data/users.json", "utf8").then((data) => {
+      fs.writeFile("./duplicate/users-" + Date.now() + ".json", data);
+   });
+ }
+ catch(twentytwo) {
+   console.log("Error duplicating data:", twentytwo);
+ }
+}, 1000 * 60 * 60); // 1 hour
+
 app.listen({ port: 3000, host: "0.0.0.0" }, (err, address) => {
   if (err) {
     console.error(err);

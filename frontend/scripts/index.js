@@ -59,14 +59,14 @@ async function updateAdButtonState() {
       const lastViewed = data.lastAdViewedDate;
       const now = Date.now();
       const timeSinceLastAd = now - lastViewed;
-      const timeUntilNextAd = 86400000 - timeSinceLastAd; // 24 hours in ms
+      const timeUntilNextAd = 43200000 - timeSinceLastAd; // 12 hours in ms
 
-      // If last viewed is 0 (never watched) or more than 24 hours ago
-      if (lastViewed === 0 || timeSinceLastAd >= 86400000) {
+      // If last viewed is 0 (never watched) or more than 12 hours ago
+      if (lastViewed === 0 || timeSinceLastAd >= 43200000) {
         watchAdBtn.disabled = false;
         watchAdBtn.innerText = "Watch Ad for 500 Credits/Requests";
       } else {
-        // User watched an ad less than 24 hours ago
+        // User watched an ad less than 12 hours ago
         watchAdBtn.disabled = true;
         const hoursLeft = Math.ceil(timeUntilNextAd / 3600000);
         watchAdBtn.innerText = `Wait ${hoursLeft}h to watch another ad`;
@@ -212,9 +212,11 @@ setTimeout(() => {
 window.addEventListener("DOMContentLoaded", async function () {
   const storedKey = localStorage.getItem("key");
 
-  // Check if key is valid (not null, undefined, or the string "undefined")
-  const isValidKey =
+  
+  let isValidKey =
     storedKey && storedKey !== "undefined" && storedKey.trim() !== "";
+
+  isValidKey = isValidKey || storedKey != null
 
   if (isValidKey) {
     document.getElementById("keyDisplay").innerText = storedKey;
