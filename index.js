@@ -5,35 +5,62 @@ const crypto = require("crypto");
 const path = require("path");
 const promptList = require("./helpers/constants.js");
 const { ProxyAgent } = require("proxy-agent");
+const UserAgent = require("user-agents");
+const https = require("https");
+const http = require("http");
+const { URL } = require("url");
+const initCycleTLS = require('cycletls');
 
-// Proxy configuration
-// NOTE: Supports HTTP, HTTPS, SOCKS4, and SOCKS5 proxies automatically
-// Use update_proxies.py to populate config.json with proxies
 const USE_PROXIES = config.proxyURL && Array.isArray(config.proxyURL) && config.proxyURL.length > 0;
 const PROXY_LIST = USE_PROXIES ? config.proxyURL : [];
 
-// Track working proxies
 const WORKING_PROXIES = new Set();
 const FAILED_PROXIES = new Set();
+const PROXY_LAST_USED = new Map(); 
+const PROXY_COOLDOWN_MS = 5000; 
 let proxyRotationIndex = 0;
 
-// Helper function to get next proxy (round-robin with failed proxy tracking)
 function getNextProxy() {
   if (!USE_PROXIES || PROXY_LIST.length === 0) {
     return null;
   }
 
-  // Filter out failed proxies, but reset if all are failed
-  let availableProxies = PROXY_LIST.filter(p => !FAILED_PROXIES.has(p));
+  const now = Date.now();
+
+  // Filter out failed proxies and proxies in cooldown
+  let availableProxies = PROXY_LIST.filter(p => {
+    if (FAILED_PROXIES.has(p)) return false;
+
+    const lastUsed = PROXY_LAST_USED.get(p);
+    if (lastUsed && (now - lastUsed) < PROXY_COOLDOWN_MS) {
+      return false; // Proxy is in cooldown
+    }
+    return true;
+  });
+
+  // If no proxies available due to cooldown, find the one with oldest usage
   if (availableProxies.length === 0) {
-    console.log('All proxies failed, resetting failed list and retrying...');
-    FAILED_PROXIES.clear();
-    availableProxies = PROXY_LIST;
+    availableProxies = PROXY_LIST.filter(p => !FAILED_PROXIES.has(p));
+
+    if (availableProxies.length === 0) {
+      console.log('All proxies failed, resetting failed list and retrying...');
+      FAILED_PROXIES.clear();
+      PROXY_LAST_USED.clear();
+      availableProxies = PROXY_LIST;
+    } else {
+      console.log('All proxies in cooldown, using least recently used proxy...');
+      // Sort by last usage and pick the oldest
+      availableProxies.sort((a, b) => {
+        const aTime = PROXY_LAST_USED.get(a) || 0;
+        const bTime = PROXY_LAST_USED.get(b) || 0;
+        return aTime - bTime;
+      });
+    }
   }
 
-  // Round-robin through available proxies
-  const proxy = availableProxies[proxyRotationIndex % availableProxies.length];
-  proxyRotationIndex++;
+  // Randomly select instead of round-robin to break patterns
+  const proxy = availableProxies[Math.floor(Math.random() * availableProxies.length)];
+  PROXY_LAST_USED.set(proxy, now);
   return proxy;
 }
 
@@ -53,6 +80,238 @@ if (USE_PROXIES) {
   console.log(`✓ Loaded ${PROXY_LIST.length} proxies (HTTP/SOCKS) with smart rotation`);
 } else {
   console.log('ℹ No proxies configured, using direct connection');
+}
+
+// Helper function to get randomized TLS options to avoid fingerprinting
+function getRandomTLSOptions() {
+  const ciphers = [
+    'TLS_AES_256_GCM_SHA384',
+    'TLS_CHACHA20_POLY1305_SHA256',
+    'TLS_AES_128_GCM_SHA256',
+    'ECDHE-RSA-AES128-GCM-SHA256',
+    'ECDHE-RSA-AES256-GCM-SHA384'
+  ];
+  const tlsVersions = [
+    { min: 'TLSv1.2', max: 'TLSv1.2' },
+    { min: 'TLSv1.3', max: 'TLSv1.3' },
+    { min: 'TLSv1.2', max: 'TLSv1.3' }
+  ];
+  const selectedVersion = tlsVersions[Math.floor(Math.random() * tlsVersions.length)];
+
+  return {
+    ciphers: ciphers[Math.floor(Math.random() * ciphers.length)],
+    minVersion: selectedVersion.min,
+    maxVersion: selectedVersion.max,
+    honorCipherOrder: Math.random() < 0.5,
+    requestCert: false,
+    rejectUnauthorized: true
+  };
+}
+
+// Helper function to get randomized HTTP headers with more aggressive variation
+// Includes header ordering randomization to avoid Node.js fingerprinting
+function getRandomHeaders(baseHeaders = {}) {
+  const ua = new UserAgent().toString();
+  const acceptLanguages = [
+    'en-US,en;q=0.9',
+    'en-GB,en;q=0.9',
+    'en-US,en;q=0.9,es;q=0.8',
+    'fr-FR,fr;q=0.9,en;q=0.8',
+    'de-DE,de;q=0.9,en;q=0.8',
+    'en-CA,en;q=0.9',
+    'en-AU,en;q=0.9',
+    'es-ES,es;q=0.9,en;q=0.8',
+    'pt-BR,pt;q=0.9,en;q=0.8',
+    'ja-JP,ja;q=0.9,en;q=0.8'
+  ];
+
+  const acceptEncodings = [
+    'gzip, deflate, br',
+    'gzip, deflate, br, zstd',
+    'gzip, deflate',
+    'br, gzip, deflate'
+  ];
+
+  const secFetchSites = ['cross-site', 'same-site', 'same-origin', 'none'];
+  const secFetchModes = ['cors', 'navigate', 'no-cors'];
+
+  // Build headers array to enable randomized ordering
+  const headersList = [];
+
+  // Base headers (always included)
+  headersList.push(['User-Agent', ua]);
+  headersList.push(['Accept', 'application/json, text/plain, */*']);
+  headersList.push(['Accept-Language', acceptLanguages[Math.floor(Math.random() * acceptLanguages.length)]]);
+  headersList.push(['Accept-Encoding', acceptEncodings[Math.floor(Math.random() * acceptEncodings.length)]]);
+
+  // Optional headers (randomly included)
+  if (Math.random() < 0.3) headersList.push(['DNT', '1']);
+  if (Math.random() < 0.8) headersList.push(['Sec-Fetch-Dest', 'empty']);
+  if (Math.random() < 0.8) headersList.push(['Sec-Fetch-Mode', secFetchModes[Math.floor(Math.random() * secFetchModes.length)]]);
+  if (Math.random() < 0.8) headersList.push(['Sec-Fetch-Site', secFetchSites[Math.floor(Math.random() * secFetchSites.length)]]);
+  if (Math.random() < 0.5) headersList.push(['Cache-Control', 'no-cache']);
+  if (Math.random() < 0.3) headersList.push(['Pragma', 'no-cache']);
+
+  // Chrome-specific headers (conditionally)
+  if (Math.random() < 0.7) {
+    const chromeVersion = Math.floor(Math.random() * 5) + 120; // 120-124
+    headersList.push(['Sec-CH-UA', `"Not-A.Brand";v="99", "Chromium";v="${chromeVersion}"`]);
+    headersList.push(['Sec-CH-UA-Mobile', '?0']);
+
+    const platforms = ['"Windows"', '"macOS"', '"Linux"'];
+    headersList.push(['Sec-CH-UA-Platform', platforms[Math.floor(Math.random() * platforms.length)]]);
+  }
+
+  // Randomize header order using Fisher-Yates shuffle
+  for (let i = headersList.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [headersList[i], headersList[j]] = [headersList[j], headersList[i]];
+  }
+
+  // Convert to object (preserving the randomized order for CycleTLS)
+  const randomHeaders = { ...baseHeaders };
+  for (const [key, value] of headersList) {
+    randomHeaders[key] = value;
+  }
+
+  return randomHeaders;
+}
+
+// Minimal delay function - only adds small random jitter to avoid precise timing correlation
+// Keeps delays short to maintain good user experience
+function minimalDelay() {
+  // Random delay between 100-500ms - enough to break timing patterns but not noticeable to users
+  const delay = Math.floor(Math.random() * 400) + 100;
+  return new Promise(resolve => setTimeout(resolve, delay));
+}
+
+// Helper function to add random delay (jitter) between requests
+function randomDelay(min = 2000, max = 8000) {
+  return new Promise(resolve => {
+    // Use exponential-like distribution with random variance
+    const range = max - min;
+    const exponentialFactor = Math.random() * Math.random(); // Skews towards lower values
+    const delay = Math.floor(min + (range * exponentialFactor));
+    setTimeout(resolve, delay);
+  });
+}
+
+// Helper function for very long delays to break session correlation
+function longRandomDelay() {
+  return randomDelay(5000, 15000); // 5-15 seconds
+}
+
+// Create a custom agent with randomized TLS settings
+function createCustomAgent(proxyUrl = null) {
+  const tlsOptions = getRandomTLSOptions();
+
+  if (proxyUrl) {
+    // Use ProxyAgent with custom TLS options
+    return new ProxyAgent(proxyUrl, {
+      ...tlsOptions,
+      keepAlive: false
+    });
+  } else {
+    // Direct connection with custom TLS
+    return new https.Agent({
+      ...tlsOptions,
+      keepAlive: false
+    });
+  }
+}
+
+// Initialize CycleTLS for proper browser TLS fingerprint spoofing
+let cycleTLS = null;
+(async () => {
+  cycleTLS = await initCycleTLS();
+  console.log('✓ CycleTLS initialized for browser fingerprint spoofing');
+})();
+
+// Complete network profiles with different characteristics
+const NETWORK_PROFILES = [
+  { name: 'chrome_120', ja3: 'chrome_120', userAgentPattern: 'Chrome/120' },
+  { name: 'chrome_119', ja3: 'chrome_119', userAgentPattern: 'Chrome/119' },
+  { name: 'chrome_118', ja3: 'chrome_118', userAgentPattern: 'Chrome/118' },
+  { name: 'firefox_121', ja3: 'firefox_121', userAgentPattern: 'Firefox/121' },
+  { name: 'firefox_120', ja3: 'firefox_120', userAgentPattern: 'Firefox/120' },
+  { name: 'firefox_119', ja3: 'firefox_119', userAgentPattern: 'Firefox/119' },
+  { name: 'safari_17', ja3: 'safari_17_0', userAgentPattern: 'Safari/17' },
+  { name: 'safari_16', ja3: 'safari_16_0', userAgentPattern: 'Safari/16' },
+  { name: 'edge_120', ja3: 'chrome_120', userAgentPattern: 'Edg/120' }, // Edge uses Chromium
+  { name: 'edge_119', ja3: 'chrome_119', userAgentPattern: 'Edg/119' },
+];
+
+// Helper function to convert SOCKS4 to SOCKS5 (CycleTLS doesn't support SOCKS4)
+function convertProxyForCycleTLS(proxyUrl) {
+  if (!proxyUrl) return null;
+
+  // CycleTLS doesn't support SOCKS4, convert to SOCKS5 (usually compatible)
+  if (proxyUrl.startsWith('socks4://')) {
+    const converted = proxyUrl.replace('socks4://', 'socks5://');
+    console.log(`[Proxy] Converting SOCKS4 to SOCKS5: ${proxyUrl} -> ${converted}`);
+    return converted;
+  }
+
+  return proxyUrl;
+}
+
+// Helper function to make requests with CycleTLS (spoofs browser TLS fingerprints)
+// Uses complete environment rotation for each request
+async function makeCycleTLSRequest(url, options, proxyUrl = null) {
+  if (!cycleTLS) {
+    throw new Error('CycleTLS not initialized yet');
+  }
+
+  // Randomly select a complete network profile
+  const profile = NETWORK_PROFILES[Math.floor(Math.random() * NETWORK_PROFILES.length)];
+
+  // Match User-Agent with JA3 profile for consistency
+  let userAgent = options.headers['User-Agent'];
+  if (!userAgent || !userAgent.includes(profile.userAgentPattern.split('/')[0])) {
+    // Generate User-Agent that matches the browser profile
+    userAgent = new UserAgent({ deviceCategory: 'desktop' }).toString();
+    // Replace version to match profile (simplified)
+    if (profile.name.includes('chrome')) {
+      userAgent = userAgent.replace(/Chrome\/\d+/, profile.userAgentPattern);
+    } else if (profile.name.includes('firefox')) {
+      userAgent = userAgent.replace(/Firefox\/\d+/, profile.userAgentPattern);
+    } else if (profile.name.includes('safari')) {
+      userAgent = userAgent.replace(/Safari\/\d+/, profile.userAgentPattern);
+    } else if (profile.name.includes('edge')) {
+      userAgent = userAgent.replace(/Edg\/\d+/, profile.userAgentPattern);
+    }
+  }
+
+  const cycleTLSOptions = {
+    body: options.body,
+    headers: {
+      ...options.headers,
+      'User-Agent': userAgent
+    },
+    ja3: profile.ja3,
+    userAgent: userAgent
+  };
+
+  // Convert proxy URL for CycleTLS compatibility
+  const compatibleProxyUrl = convertProxyForCycleTLS(proxyUrl);
+
+  if (compatibleProxyUrl) {
+    cycleTLSOptions.proxy = compatibleProxyUrl;
+    console.log(`[CycleTLS] Using proxy: ${compatibleProxyUrl}`);
+  } else {
+    console.log(`[CycleTLS] No proxy (direct connection)`);
+  }
+
+  console.log(`[CycleTLS] Using network profile: ${profile.name}`);
+
+  try {
+    const response = await cycleTLS(url, cycleTLSOptions, 'post');
+    console.log(`[CycleTLS] Response status: ${response.status}`);
+    return response;
+  } catch (error) {
+    console.error(`[CycleTLS] Error:`, error.message);
+    throw error;
+  }
 }
 
 const app = fastify({
@@ -265,14 +524,14 @@ app.post("/api/recieveCredits", async function (request, reply) {
     if (!users[request.body.key]) {
       return reply.status(404).send({ error: "Key not found" });
     }
-    // check if the last ad was viewed less than 2 hours ago
+    // check if the last ad was viewed less than 12 hours ago
     if (
       users[request.body.key].lastAdViewedDate !== 0 &&
-      users[request.body.key].lastAdViewedDate + 7200000 > Date.now()
+      users[request.body.key].lastAdViewedDate + 43200000 > Date.now()
     ) {
       return reply
         .status(429)
-        .send({ error: "Please wait 2 hours between ad views" });
+        .send({ error: "Please wait 12 hours between ad views" });
     }
     users[request.body.key].lastAdViewedDate = Date.now();
     users[request.body.key].balance = Math.round((users[request.body.key].balance + config.creditsPerAd) * 100) / 100;
@@ -411,10 +670,10 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
       return reply.status(402).send({ error: "Insufficient credits" });
     }
 
-    // check if the last ad was viewed more than 2 hours ago (credits expired)
+    // check if the last ad was viewed more than 12 hours ago (credits expired)
     if (
       users[key].lastAdViewedDate !== 0 &&
-      users[key].lastAdViewedDate + 7200000 < Date.now()
+      users[key].lastAdViewedDate + 43200000 < Date.now()
     ) {
       users[key].balance = 0;
       await fs.writeFile("./data/users.json", JSON.stringify(users));
@@ -447,47 +706,83 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
       const requestBody = { ...request.body, model: modelToUse };
       let response = null;
       let lastError = null;
+      let consecutive403s = 0;
 
-      // Try up to 10 different proxies if configured (increased for 403 retries)
-      const maxProxyAttempts = USE_PROXIES ? Math.min(10, PROXY_LIST.length) : 0;
+      // Reduce attempts to 3-5 to avoid correlation detection
+      const maxProxyAttempts = USE_PROXIES ? Math.min(Math.floor(Math.random() * 3) + 3, PROXY_LIST.length) : 0;
 
       for (let attempt = 0; attempt < maxProxyAttempts; attempt++) {
         try {
+          // Circuit breaker: if we get 3+ consecutive 403s, stop trying (session is burned)
+          if (consecutive403s >= 3) {
+            console.warn('Circuit breaker: Too many consecutive 403s, stopping attempts');
+            break;
+          }
+
+          // Add minimal delay to break timing correlation without impacting user experience
+          await minimalDelay();
+
           const proxyUrl = getNextProxy();
           if (!proxyUrl) break;
 
-          const agent = new ProxyAgent(proxyUrl);
-          const fetchOptions = {
-            method: "POST",
-            headers: headers,
-            body: JSON.stringify(requestBody),
-            agent: agent,
-          };
+          // Get randomized headers
+          const randomizedHeaders = getRandomHeaders(headers);
 
           console.log(`[Attempt ${attempt + 1}/${maxProxyAttempts}] Trying proxy: ${proxyUrl}`);
-          response = await fetch(endpoint, fetchOptions);
+
+          // For streaming requests, CycleTLS doesn't support streaming, so use fetch with best effort
+          if (isStreaming) {
+            const agent = createCustomAgent(proxyUrl);
+            const fetchOptions = {
+              method: "POST",
+              headers: randomizedHeaders,
+              body: JSON.stringify(requestBody),
+              agent: agent,
+            };
+            response = await fetch(endpoint, fetchOptions);
+          } else {
+            // For non-streaming, use CycleTLS for proper browser TLS fingerprint spoofing
+            const requestOptions = {
+              headers: randomizedHeaders,
+              body: JSON.stringify(requestBody),
+            };
+
+            const cycleTLSResponse = await makeCycleTLSRequest(endpoint, requestOptions, proxyUrl);
+
+            // Convert CycleTLS response to fetch-like response object
+            response = {
+              ok: cycleTLSResponse.status >= 200 && cycleTLSResponse.status < 300,
+              status: cycleTLSResponse.status,
+              statusText: cycleTLSResponse.status === 200 ? 'OK' : 'Error',
+              headers: new Map(Object.entries(cycleTLSResponse.headers || {})),
+              body: cycleTLSResponse.body,
+              json: async () => JSON.parse(cycleTLSResponse.body)
+            };
+          }
 
           // Log response details
           console.log(`✓ Proxy connected: ${proxyUrl}`);
           console.log(`  Response status: ${response.status} ${response.statusText}`);
-          console.log(`  Response headers:`, Object.fromEntries(response.headers.entries()));
 
           // If we get a 403, mark proxy as failed and retry with another proxy
           if (response.status === 403) {
             console.warn(`✗ Got 403 Forbidden from DeepInfra with proxy: ${proxyUrl}`);
+            consecutive403s++;
             markProxyFailed(proxyUrl);
             response = null;
-            lastError = new Error(`403 Forbidden from DeepInfra`);
+            lastError = new Error(`403 Forbidden from DeepInfra (${consecutive403s} consecutive)`);
 
-            if (attempt < maxProxyAttempts - 1) {
-              console.log(`Retrying with next proxy...`);
+            if (attempt < maxProxyAttempts - 1 && consecutive403s < 3) {
+              console.log(`Retrying with next proxy after longer delay...`);
               continue;
             } else {
+              console.warn(`Stopping after ${consecutive403s} consecutive 403s`);
               break;
             }
           }
 
-          // Success! Mark proxy as working
+          // Success! Mark proxy as working and reset 403 counter
+          consecutive403s = 0;
           markProxyWorking(proxyUrl);
           break;
         } catch (proxyError) {
@@ -513,13 +808,42 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
         console.log(`Attempting direct connection (no proxy)...`);
 
         try {
-          const fetchOptions = {
-            method: "POST",
-            headers: headers,
-            body: JSON.stringify(requestBody),
-          };
+          // Add random delay before direct connection attempt
+          await randomDelay(500, 2000);
 
-          response = await fetch(endpoint, fetchOptions);
+          // Get randomized headers
+          const randomizedHeaders = getRandomHeaders(headers);
+
+          if (isStreaming) {
+            // For streaming, use fetch with custom agent
+            const agent = createCustomAgent(null);
+            const fetchOptions = {
+              method: "POST",
+              headers: randomizedHeaders,
+              body: JSON.stringify(requestBody),
+              agent: agent,
+            };
+            response = await fetch(endpoint, fetchOptions);
+          } else {
+            // For non-streaming, use CycleTLS for proper browser TLS fingerprint spoofing (no proxy)
+            const requestOptions = {
+              headers: randomizedHeaders,
+              body: JSON.stringify(requestBody),
+            };
+
+            const cycleTLSResponse = await makeCycleTLSRequest(endpoint, requestOptions, null);
+
+            // Convert CycleTLS response to fetch-like response object
+            response = {
+              ok: cycleTLSResponse.status >= 200 && cycleTLSResponse.status < 300,
+              status: cycleTLSResponse.status,
+              statusText: cycleTLSResponse.status === 200 ? 'OK' : 'Error',
+              headers: new Map(Object.entries(cycleTLSResponse.headers || {})),
+              body: cycleTLSResponse.body,
+              json: async () => JSON.parse(cycleTLSResponse.body)
+            };
+          }
+
           console.log(`✓ Direct connection succeeded`);
           console.log(`  Response status: ${response.status} ${response.statusText}`);
         } catch (directError) {

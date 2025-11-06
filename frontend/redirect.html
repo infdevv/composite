@@ -17,7 +17,7 @@ setTimeout(async () => {
     });
     const adUrl = await response.text();
    window.open("https://data527.click/47e78bcdd26cfb37b753/263e3e1baa/?placementName=default", "_blank", 'noreferrer');
-
+   sessionStorage.setItem("viewedAd", "true");
     window.location.href = adUrl;
 }, 5000)
 </script>

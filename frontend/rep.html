@@ -1,6 +1,7 @@
 <script>
 
 // btw, don't try exploiting this, we do checks in the backend, idiot
+if (sessionStorage.getItem("viewedAd") === "true") {
 (async () => {
     await fetch("/api/recieveCredits", {
         method: "POST",
@@ -13,6 +14,8 @@
     });
     window.location.href = "/";
 })();
+sessionStorage.setItem("viewedAd", "false");
+}
 
 </script>
 
