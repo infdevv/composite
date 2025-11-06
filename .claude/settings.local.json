@@ -6,7 +6,10 @@
       "Bash(node:*)",
       "Bash(netstat:*)",
       "Bash(findstr:*)",
-      "Bash(npm view:*)"
+      "Bash(npm view:*)",
+      "Bash(curl:*)",
+      "WebSearch",
+      "WebFetch(domain:www.npmjs.com)"
     ],
     "deny": [],
     "ask": []

@@ -8,7 +8,7 @@ GEONODE_API_URL = "https://proxylist.geonode.com/api/proxy-list"
 CONFIG_FILE = "config.json"
 
 API_PARAMS = {
-    "protocols": "socks5",
+    "protocols": "socks5,http,https,socks4",
     "limit": 500,
     "page": 1,
     "sort_by": "lastChecked",

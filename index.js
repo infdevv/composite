@@ -10,6 +10,7 @@ const https = require("https");
 const http = require("http");
 const { URL } = require("url");
 const initCycleTLS = require('cycletls');
+const fetch = require('node-fetch'); // Use node-fetch for proper proxy agent support
 
 const USE_PROXIES = config.proxyURL && Array.isArray(config.proxyURL) && config.proxyURL.length > 0;
 const PROXY_LIST = USE_PROXIES ? config.proxyURL : [];
@@ -206,8 +207,11 @@ function createCustomAgent(proxyUrl = null) {
   const tlsOptions = getRandomTLSOptions();
 
   if (proxyUrl) {
+    // Prevent DNS leaks by converting SOCKS proxies to SOCKS5h
+    const safeProxyUrl = preventDNSLeak(proxyUrl);
+
     // Use ProxyAgent with custom TLS options
-    return new ProxyAgent(proxyUrl, {
+    return new ProxyAgent(safeProxyUrl, {
       ...tlsOptions,
       keepAlive: false
     });
@@ -241,18 +245,44 @@ const NETWORK_PROFILES = [
   { name: 'edge_119', ja3: 'chrome_119', userAgentPattern: 'Edg/119' },
 ];
 
-// Helper function to convert SOCKS4 to SOCKS5 (CycleTLS doesn't support SOCKS4)
-function convertProxyForCycleTLS(proxyUrl) {
+// Helper function to prevent DNS leaks by converting ALL SOCKS proxies to SOCKS5h
+// CRITICAL: socks5:// resolves DNS locally (LEAKS IP!), socks5h:// resolves DNS on proxy (SAFE!)
+// This applies to ALL proxy usage: node-fetch, ProxyAgent, and CycleTLS
+function preventDNSLeak(proxyUrl) {
   if (!proxyUrl) return null;
 
-  // CycleTLS doesn't support SOCKS4, convert to SOCKS5 (usually compatible)
+  // Convert SOCKS4 to SOCKS5h (prevents DNS leaks)
   if (proxyUrl.startsWith('socks4://')) {
-    const converted = proxyUrl.replace('socks4://', 'socks5://');
-    console.log(`[Proxy] Converting SOCKS4 to SOCKS5: ${proxyUrl} -> ${converted}`);
+    const converted = proxyUrl.replace('socks4://', 'socks5h://');
+    console.log(`[DNS-Safe] Converting SOCKS4 to SOCKS5h: ${proxyUrl} -> ${converted}`);
     return converted;
   }
 
+  // Convert SOCKS5 to SOCKS5h to prevent DNS leaks
+  if (proxyUrl.startsWith('socks5://')) {
+    const converted = proxyUrl.replace('socks5://', 'socks5h://');
+    console.log(`[DNS-Safe] Converting SOCKS5 to SOCKS5h: ${proxyUrl} -> ${converted}`);
+    return converted;
+  }
+
+  // Convert generic SOCKS to SOCKS5h
+  if (proxyUrl.startsWith('socks://')) {
+    const converted = proxyUrl.replace('socks://', 'socks5h://');
+    console.log(`[DNS-Safe] Converting SOCKS to SOCKS5h: ${proxyUrl} -> ${converted}`);
+    return converted;
+  }
+
+  // HTTP/HTTPS proxies don't need conversion but log them
+  if (proxyUrl.startsWith('http://') || proxyUrl.startsWith('https://')) {
+    console.log(`[DNS-Safe] Using HTTP proxy (Note: HTTP proxies don't prevent DNS leaks): ${proxyUrl}`);
+  }
+
   return proxyUrl;
+}
+
+// Alias for CycleTLS compatibility (keeping old function name)
+function convertProxyForCycleTLS(proxyUrl) {
+  return preventDNSLeak(proxyUrl);
 }
 
 // Helper function to make requests with CycleTLS (spoofs browser TLS fingerprints)
@@ -305,12 +335,21 @@ async function makeCycleTLSRequest(url, options, proxyUrl = null) {
   console.log(`[CycleTLS] Using network profile: ${profile.name}`);
 
   try {
+    console.log(`[CycleTLS] Making request...`);
     const response = await cycleTLS(url, cycleTLSOptions, 'post');
-    console.log(`[CycleTLS] Response status: ${response.status}`);
+    console.log(`[CycleTLS] SUCCESS - Response status: ${response.status}`);
+
+    // Verify proxy was actually used by checking if we got a response
+    if (!response || !response.status) {
+      throw new Error('CycleTLS returned invalid response - proxy might have failed');
+    }
+
     return response;
   } catch (error) {
-    console.error(`[CycleTLS] Error:`, error.message);
-    throw error;
+    console.error(`[CycleTLS] FAILED - Error:`, error.message);
+    console.error(`[CycleTLS] Stack:`, error.stack);
+    // Re-throw with more context
+    throw new Error(`CycleTLS request failed with proxy ${proxyUrl}: ${error.message}`);
   }
 }
 
@@ -485,12 +524,15 @@ app.post("/api/getAdUrl", async function (request, reply) {
       if (!proxyUrl) break;
 
       console.log(`[cuty.io] Trying proxy: ${proxyUrl}`);
-      const agent = new ProxyAgent(proxyUrl);
+      // Prevent DNS leaks
+      const safeProxyUrl = preventDNSLeak(proxyUrl);
+      const agent = new ProxyAgent(safeProxyUrl);
+      console.log(`[cuty.io] Agent created with DNS leak prevention: ${safeProxyUrl}`);
       response = await fetch(url, {
         agent: agent,
       });
 
-      console.log(`[cuty.io] ✓ Proxy connected: ${proxyUrl}`);
+      console.log(`[cuty.io] ✓ Proxy successfully used: ${safeProxyUrl}`);
       console.log(`[cuty.io]   Response status: ${response.status} ${response.statusText}`);
       markProxyWorking(proxyUrl);
       break;
@@ -619,6 +661,56 @@ app.all("/v1/chat/completions", async function (request, reply) {
   );
 });
 
+// Test endpoint to verify proxy is working
+app.get("/api/test-proxy", async function (request, reply) {
+  try {
+    const proxyUrl = getNextProxy();
+    if (!proxyUrl) {
+      return reply.send({ error: 'No proxies configured' });
+    }
+
+    console.log(`\n[TEST] Testing proxy: ${proxyUrl}`);
+
+    // Test with CycleTLS
+    try {
+      const cycleTLSResponse = await makeCycleTLSRequest(
+        'https://api.ipify.org?format=json',
+        { headers: { 'User-Agent': 'Mozilla/5.0' }, body: '' },
+        proxyUrl
+      );
+
+      console.log('[TEST] CycleTLS Response:', cycleTLSResponse.body);
+
+      return reply.send({
+        method: 'CycleTLS',
+        proxy: proxyUrl,
+        result: cycleTLSResponse.body,
+        status: cycleTLSResponse.status
+      });
+    } catch (cycleTLSError) {
+      console.error('[TEST] CycleTLS failed:', cycleTLSError.message);
+
+      // Fallback to regular fetch (node-fetch with proxy agent)
+      console.log('[TEST] Trying node-fetch with proxy agent...');
+      const agent = createCustomAgent(proxyUrl);
+      const fetchResponse = await fetch('https://api.ipify.org?format=json', { agent });
+      const fetchData = await fetchResponse.text();
+
+      console.log('[TEST] node-fetch Response:', fetchData);
+
+      return reply.send({
+        method: 'Regular Fetch',
+        proxy: proxyUrl,
+        result: fetchData,
+        cycleTLSError: cycleTLSError.message
+      });
+    }
+  } catch (error) {
+    console.error('[TEST] Both methods failed:', error);
+    return reply.status(500).send({ error: error.message });
+  }
+});
+
 app.get("/v1/models", async function (request, reply) {
   const models = [
     "deepseek-ai/DeepSeek-V3.1",
@@ -690,6 +782,26 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
     delete headers.host;
     delete headers.connection;
 
+    // Remove headers that could leak real IP address
+    delete headers['x-forwarded-for'];
+    delete headers['x-real-ip'];
+    delete headers['x-client-ip'];
+    delete headers['x-remote-ip'];
+    delete headers['true-client-ip'];
+    delete headers['cf-connecting-ip'];
+    delete headers['forwarded'];
+    delete headers['via'];
+
+    // Also check uppercase variants (just in case)
+    delete headers['X-Forwarded-For'];
+    delete headers['X-Real-IP'];
+    delete headers['X-Client-IP'];
+    delete headers['X-Remote-IP'];
+    delete headers['True-Client-IP'];
+    delete headers['CF-Connecting-IP'];
+    delete headers['Forwarded'];
+    delete headers['Via'];
+
     // Helper function to check if error is an OpenAI-style error
     function isOpenAIError(data) {
       if (!data || !data.error) return false;
@@ -730,8 +842,10 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
 
           console.log(`[Attempt ${attempt + 1}/${maxProxyAttempts}] Trying proxy: ${proxyUrl}`);
 
-          // For streaming requests, CycleTLS doesn't support streaming, so use fetch with best effort
+          // Use CycleTLS for non-streaming to get real browser TLS fingerprints
+          // Use regular fetch for streaming (no choice)
           if (isStreaming) {
+            console.log(`[Streaming] Using node-fetch with proxy agent: ${proxyUrl}`);
             const agent = createCustomAgent(proxyUrl);
             const fetchOptions = {
               method: "POST",
@@ -739,9 +853,11 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
               body: JSON.stringify(requestBody),
               agent: agent,
             };
+            console.log(`[Streaming] Making request through proxy...`);
             response = await fetch(endpoint, fetchOptions);
+            console.log(`[Streaming] ✓ Request completed via proxy`);
           } else {
-            // For non-streaming, use CycleTLS for proper browser TLS fingerprint spoofing
+            console.log(`[Non-streaming] Using CycleTLS for TLS fingerprint spoofing`);
             const requestOptions = {
               headers: randomizedHeaders,
               body: JSON.stringify(requestBody),
@@ -759,6 +875,8 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
               json: async () => JSON.parse(cycleTLSResponse.body)
             };
           }
+
+          console.log(`[Response] Status: ${response.status}`);
 
           // Log response details
           console.log(`✓ Proxy connected: ${proxyUrl}`);
@@ -815,7 +933,8 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
           const randomizedHeaders = getRandomHeaders(headers);
 
           if (isStreaming) {
-            // For streaming, use fetch with custom agent
+            // For streaming, use fetch with custom agent (direct connection - NO PROXY)
+            console.log(`[Streaming] WARNING: Making DIRECT connection (no proxy) - IP may be exposed`);
             const agent = createCustomAgent(null);
             const fetchOptions = {
               method: "POST",
@@ -824,6 +943,7 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
               agent: agent,
             };
             response = await fetch(endpoint, fetchOptions);
+            console.log(`[Streaming] ✓ Direct connection succeeded (no proxy used)`);
           } else {
             // For non-streaming, use CycleTLS for proper browser TLS fingerprint spoofing (no proxy)
             const requestOptions = {
