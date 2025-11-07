@@ -4,12 +4,12 @@ const fs = require("fs/promises");
 const crypto = require("crypto");
 const path = require("path");
 const promptList = require("./helpers/constants.js");
-const { ProxyAgent } = require("proxy-agent");
-const UserAgent = require("user-agents");
+const { HttpProxyAgent } = require('http-proxy-agent');
+const { HttpsProxyAgent } = require('https-proxy-agent');
+const { SocksProxyAgent } = require('socks-proxy-agent');
 const https = require("https");
 const http = require("http");
 const { URL } = require("url");
-const initCycleTLS = require('cycletls');
 const fetch = require('node-fetch'); // Use node-fetch for proper proxy agent support
 
 const USE_PROXIES = config.proxyURL && Array.isArray(config.proxyURL) && config.proxyURL.length > 0;
@@ -78,172 +78,67 @@ function markProxyFailed(proxyUrl) {
 }
 
 if (USE_PROXIES) {
-  console.log(`✓ Loaded ${PROXY_LIST.length} proxies (HTTP/SOCKS) with smart rotation`);
+  console.log(`[PROXY MODE] Loaded ${PROXY_LIST.length} proxies (HTTP/SOCKS) with smart rotation`);
+  console.log(`[SECURITY] Direct connection fallback is DISABLED - will never expose your IP`);
 } else {
-  console.log('ℹ No proxies configured, using direct connection');
+  console.log('[DIRECT MODE] No proxies configured, using direct connection');
+  console.log('[WARNING] Your real IP will be exposed to DeepInfra API');
 }
 
-// Helper function to get randomized TLS options to avoid fingerprinting
-function getRandomTLSOptions() {
-  const ciphers = [
-    'TLS_AES_256_GCM_SHA384',
-    'TLS_CHACHA20_POLY1305_SHA256',
-    'TLS_AES_128_GCM_SHA256',
-    'ECDHE-RSA-AES128-GCM-SHA256',
-    'ECDHE-RSA-AES256-GCM-SHA384'
-  ];
-  const tlsVersions = [
-    { min: 'TLSv1.2', max: 'TLSv1.2' },
-    { min: 'TLSv1.3', max: 'TLSv1.3' },
-    { min: 'TLSv1.2', max: 'TLSv1.3' }
-  ];
-  const selectedVersion = tlsVersions[Math.floor(Math.random() * tlsVersions.length)];
 
-  return {
-    ciphers: ciphers[Math.floor(Math.random() * ciphers.length)],
-    minVersion: selectedVersion.min,
-    maxVersion: selectedVersion.max,
-    honorCipherOrder: Math.random() < 0.5,
-    requestCert: false,
-    rejectUnauthorized: true
-  };
-}
 
-// Helper function to get randomized HTTP headers with more aggressive variation
-// Includes header ordering randomization to avoid Node.js fingerprinting
-function getRandomHeaders(baseHeaders = {}) {
-  const ua = new UserAgent().toString();
-  const acceptLanguages = [
-    'en-US,en;q=0.9',
-    'en-GB,en;q=0.9',
-    'en-US,en;q=0.9,es;q=0.8',
-    'fr-FR,fr;q=0.9,en;q=0.8',
-    'de-DE,de;q=0.9,en;q=0.8',
-    'en-CA,en;q=0.9',
-    'en-AU,en;q=0.9',
-    'es-ES,es;q=0.9,en;q=0.8',
-    'pt-BR,pt;q=0.9,en;q=0.8',
-    'ja-JP,ja;q=0.9,en;q=0.8'
-  ];
 
-  const acceptEncodings = [
-    'gzip, deflate, br',
-    'gzip, deflate, br, zstd',
-    'gzip, deflate',
-    'br, gzip, deflate'
-  ];
-
-  const secFetchSites = ['cross-site', 'same-site', 'same-origin', 'none'];
-  const secFetchModes = ['cors', 'navigate', 'no-cors'];
-
-  // Build headers array to enable randomized ordering
-  const headersList = [];
-
-  // Base headers (always included)
-  headersList.push(['User-Agent', ua]);
-  headersList.push(['Accept', 'application/json, text/plain, */*']);
-  headersList.push(['Accept-Language', acceptLanguages[Math.floor(Math.random() * acceptLanguages.length)]]);
-  headersList.push(['Accept-Encoding', acceptEncodings[Math.floor(Math.random() * acceptEncodings.length)]]);
-
-  // Optional headers (randomly included)
-  if (Math.random() < 0.3) headersList.push(['DNT', '1']);
-  if (Math.random() < 0.8) headersList.push(['Sec-Fetch-Dest', 'empty']);
-  if (Math.random() < 0.8) headersList.push(['Sec-Fetch-Mode', secFetchModes[Math.floor(Math.random() * secFetchModes.length)]]);
-  if (Math.random() < 0.8) headersList.push(['Sec-Fetch-Site', secFetchSites[Math.floor(Math.random() * secFetchSites.length)]]);
-  if (Math.random() < 0.5) headersList.push(['Cache-Control', 'no-cache']);
-  if (Math.random() < 0.3) headersList.push(['Pragma', 'no-cache']);
-
-  // Chrome-specific headers (conditionally)
-  if (Math.random() < 0.7) {
-    const chromeVersion = Math.floor(Math.random() * 5) + 120; // 120-124
-    headersList.push(['Sec-CH-UA', `"Not-A.Brand";v="99", "Chromium";v="${chromeVersion}"`]);
-    headersList.push(['Sec-CH-UA-Mobile', '?0']);
-
-    const platforms = ['"Windows"', '"macOS"', '"Linux"'];
-    headersList.push(['Sec-CH-UA-Platform', platforms[Math.floor(Math.random() * platforms.length)]]);
-  }
-
-  // Randomize header order using Fisher-Yates shuffle
-  for (let i = headersList.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [headersList[i], headersList[j]] = [headersList[j], headersList[i]];
-  }
-
-  // Convert to object (preserving the randomized order for CycleTLS)
-  const randomHeaders = { ...baseHeaders };
-  for (const [key, value] of headersList) {
-    randomHeaders[key] = value;
-  }
-
-  return randomHeaders;
-}
-
-// Minimal delay function - only adds small random jitter to avoid precise timing correlation
-// Keeps delays short to maintain good user experience
-function minimalDelay() {
-  // Random delay between 100-500ms - enough to break timing patterns but not noticeable to users
-  const delay = Math.floor(Math.random() * 400) + 100;
-  return new Promise(resolve => setTimeout(resolve, delay));
-}
-
-// Helper function to add random delay (jitter) between requests
-function randomDelay(min = 2000, max = 8000) {
-  return new Promise(resolve => {
-    // Use exponential-like distribution with random variance
-    const range = max - min;
-    const exponentialFactor = Math.random() * Math.random(); // Skews towards lower values
-    const delay = Math.floor(min + (range * exponentialFactor));
-    setTimeout(resolve, delay);
-  });
-}
-
-// Helper function for very long delays to break session correlation
-function longRandomDelay() {
-  return randomDelay(5000, 15000); // 5-15 seconds
-}
-
-// Create a custom agent with randomized TLS settings
-function createCustomAgent(proxyUrl = null) {
-  const tlsOptions = getRandomTLSOptions();
-
+// Create a custom agent for proxy connections
+// Uses protocol-specific agents for compatibility with node-fetch v2
+function createCustomAgent(proxyUrl = null, targetUrl = 'https://example.com') {
   if (proxyUrl) {
     // Prevent DNS leaks by converting SOCKS proxies to SOCKS5h
     const safeProxyUrl = preventDNSLeak(proxyUrl);
 
-    // Use ProxyAgent with custom TLS options
-    return new ProxyAgent(safeProxyUrl, {
-      ...tlsOptions,
-      keepAlive: false
-    });
+    console.log(`[Agent] Creating agent for proxy: ${safeProxyUrl}`);
+    console.log(`[Agent] Target URL: ${targetUrl}`);
+
+    // Determine which agent to use based on proxy protocol
+    let agent;
+    const proxyProtocol = safeProxyUrl.split(':')[0].toLowerCase();
+    const targetProtocol = targetUrl.startsWith('https') ? 'https' : 'http';
+
+    if (proxyProtocol === 'socks5' || proxyProtocol === 'socks5h' || proxyProtocol === 'socks4' || proxyProtocol === 'socks') {
+      // SOCKS proxy - use SocksProxyAgent
+      console.log(`[Agent] Using SocksProxyAgent for ${proxyProtocol} proxy`);
+      agent = new SocksProxyAgent(safeProxyUrl, {
+        keepAlive: false,
+        family: 4 // Force IPv4 to prevent IPv6 leaks
+      });
+    } else if (targetProtocol === 'https') {
+      // HTTPS target - use HttpsProxyAgent
+      console.log(`[Agent] Using HttpsProxyAgent for HTTPS target`);
+      agent = new HttpsProxyAgent(safeProxyUrl, {
+        keepAlive: false,
+        family: 4 // Force IPv4 to prevent IPv6 leaks
+      });
+    } else {
+      // HTTP target - use HttpProxyAgent
+      console.log(`[Agent] Using HttpProxyAgent for HTTP target`);
+      agent = new HttpProxyAgent(safeProxyUrl, {
+        keepAlive: false,
+        family: 4 // Force IPv4 to prevent IPv6 leaks
+      });
+    }
+
+    console.log(`[Agent] ✓ Agent created successfully`);
+    return agent;
   } else {
-    // Direct connection with custom TLS
+    // Direct connection (no proxy)
+    console.warn(`[Agent] WARNING: Creating direct HTTPS agent (no proxy - IP WILL BE EXPOSED)`);
+    console.warn(`[Agent] This should only be used for testing purposes!`);
     return new https.Agent({
-      ...tlsOptions,
-      keepAlive: false
+      keepAlive: false,
+      family: 4 // Force IPv4
     });
   }
 }
 
-// Initialize CycleTLS for proper browser TLS fingerprint spoofing
-let cycleTLS = null;
-(async () => {
-  cycleTLS = await initCycleTLS();
-  console.log('✓ CycleTLS initialized for browser fingerprint spoofing');
-})();
-
-// Complete network profiles with different characteristics
-const NETWORK_PROFILES = [
-  { name: 'chrome_120', ja3: 'chrome_120', userAgentPattern: 'Chrome/120' },
-  { name: 'chrome_119', ja3: 'chrome_119', userAgentPattern: 'Chrome/119' },
-  { name: 'chrome_118', ja3: 'chrome_118', userAgentPattern: 'Chrome/118' },
-  { name: 'firefox_121', ja3: 'firefox_121', userAgentPattern: 'Firefox/121' },
-  { name: 'firefox_120', ja3: 'firefox_120', userAgentPattern: 'Firefox/120' },
-  { name: 'firefox_119', ja3: 'firefox_119', userAgentPattern: 'Firefox/119' },
-  { name: 'safari_17', ja3: 'safari_17_0', userAgentPattern: 'Safari/17' },
-  { name: 'safari_16', ja3: 'safari_16_0', userAgentPattern: 'Safari/16' },
-  { name: 'edge_120', ja3: 'chrome_120', userAgentPattern: 'Edg/120' }, // Edge uses Chromium
-  { name: 'edge_119', ja3: 'chrome_119', userAgentPattern: 'Edg/119' },
-];
 
 // Helper function to prevent DNS leaks by converting ALL SOCKS proxies to SOCKS5h
 // CRITICAL: socks5:// resolves DNS locally (LEAKS IP!), socks5h:// resolves DNS on proxy (SAFE!)
@@ -280,90 +175,69 @@ function preventDNSLeak(proxyUrl) {
   return proxyUrl;
 }
 
-// Alias for CycleTLS compatibility (keeping old function name)
-function convertProxyForCycleTLS(proxyUrl) {
-  return preventDNSLeak(proxyUrl);
-}
-
-// Helper function to make requests with CycleTLS (spoofs browser TLS fingerprints)
-// Uses complete environment rotation for each request
-async function makeCycleTLSRequest(url, options, proxyUrl = null) {
-  if (!cycleTLS) {
-    throw new Error('CycleTLS not initialized yet');
-  }
-
-  // Randomly select a complete network profile
-  const profile = NETWORK_PROFILES[Math.floor(Math.random() * NETWORK_PROFILES.length)];
-
-  // Match User-Agent with JA3 profile for consistency
-  let userAgent = options.headers['User-Agent'];
-  if (!userAgent || !userAgent.includes(profile.userAgentPattern.split('/')[0])) {
-    // Generate User-Agent that matches the browser profile
-    userAgent = new UserAgent({ deviceCategory: 'desktop' }).toString();
-    // Replace version to match profile (simplified)
-    if (profile.name.includes('chrome')) {
-      userAgent = userAgent.replace(/Chrome\/\d+/, profile.userAgentPattern);
-    } else if (profile.name.includes('firefox')) {
-      userAgent = userAgent.replace(/Firefox\/\d+/, profile.userAgentPattern);
-    } else if (profile.name.includes('safari')) {
-      userAgent = userAgent.replace(/Safari\/\d+/, profile.userAgentPattern);
-    } else if (profile.name.includes('edge')) {
-      userAgent = userAgent.replace(/Edg\/\d+/, profile.userAgentPattern);
-    }
-  }
-
-  const cycleTLSOptions = {
-    body: options.body,
-    headers: {
-      ...options.headers,
-      'User-Agent': userAgent
-    },
-    ja3: profile.ja3,
-    userAgent: userAgent
-  };
-
-  // Convert proxy URL for CycleTLS compatibility
-  const compatibleProxyUrl = convertProxyForCycleTLS(proxyUrl);
-
-  if (compatibleProxyUrl) {
-    cycleTLSOptions.proxy = compatibleProxyUrl;
-    console.log(`[CycleTLS] Using proxy: ${compatibleProxyUrl}`);
-  } else {
-    console.log(`[CycleTLS] No proxy (direct connection)`);
-  }
-
-  console.log(`[CycleTLS] Using network profile: ${profile.name}`);
-
-  try {
-    console.log(`[CycleTLS] Making request...`);
-    const response = await cycleTLS(url, cycleTLSOptions, 'post');
-    console.log(`[CycleTLS] SUCCESS - Response status: ${response.status}`);
-
-    // Verify proxy was actually used by checking if we got a response
-    if (!response || !response.status) {
-      throw new Error('CycleTLS returned invalid response - proxy might have failed');
-    }
-
-    return response;
-  } catch (error) {
-    console.error(`[CycleTLS] FAILED - Error:`, error.message);
-    console.error(`[CycleTLS] Stack:`, error.stack);
-    // Re-throw with more context
-    throw new Error(`CycleTLS request failed with proxy ${proxyUrl}: ${error.message}`);
-  }
-}
 
 const app = fastify({
-  logger: true,
+  logger: false,
 });
 
 app.register(require("@fastify/cors"), {
   origin: "*",
 });
 
+// IP-based rate limiting configuration
 app.register(require("@fastify/rate-limit"), {
-  max: 100,
-  timeWindow: "1 minute",
+  global: true,
+  max: 30, // Maximum 10 requests
+  timeWindow: "1 minute", // Per minute
+  cache: 10000, // Keep track of 10000 IPs in memory
+  allowList: [], // Whitelist IPs (empty by default)
+  continueExceeding: true, // Continue to count requests even after limit is exceeded
+  skipOnError: false, // Don't skip rate limiting on error
+
+  // IP address extraction - prioritizes real client IP over proxy IPs
+  keyGenerator: function (request) {
+    // Try to get real IP from various headers (in order of reliability)
+    const forwarded = request.headers['x-forwarded-for'];
+    const realIp = request.headers['x-real-ip'];
+    const cfConnectingIp = request.headers['cf-connecting-ip'];
+
+    // X-Forwarded-For can contain multiple IPs, take the first one (original client)
+    if (forwarded) {
+      const ips = forwarded.split(',').map(ip => ip.trim());
+      return ips[0];
+    }
+
+    // Cloudflare connecting IP (if behind Cloudflare)
+    if (cfConnectingIp) {
+      return cfConnectingIp;
+    }
+
+    // X-Real-IP header
+    if (realIp) {
+      return realIp;
+    }
+
+    // Fallback to socket IP
+    return request.ip;
+  },
+
+  // Custom error response
+  errorResponseBuilder: function (request, context) {
+    return {
+      statusCode: 429,
+      error: 'Too Many Requests',
+      message: `Rate limit exceeded. You can make ${context.max} requests per ${context.after}. Please try again later.`,
+      retryAfter: context.ttl, // Time in milliseconds until rate limit resets
+    };
+  },
+
+  // Add rate limit info to response headers
+  addHeaders: {
+    'x-ratelimit-limit': true,
+    'x-ratelimit-remaining': true,
+    'x-ratelimit-reset': true,
+    'retry-after': true
+  }
 });
 
 app.register(require("@fastify/static"), {
@@ -504,83 +378,81 @@ app.post("/api/check-key", async function (request, reply) {
   }
 });
 
+// Simple ad URL generation for Cuty.io
+// No tokens needed - just generate ad URL and let users complete ads
+
 app.post("/api/getAdUrl", async function (request, reply) {
   const url = `https://api.cuty.io/quick?token=${config.cutyio}&ad=1&url=${
     request.body.url
-  }/rep.html&alias=${crypto
+  }&alias=${crypto
     .randomUUID()
     .replaceAll("-", "")
     .slice(0, 12)}&format=text`;
 
-  let response = null;
-  let lastError = null;
+  try {
+    // Use direct connection for cuty.io (not sensitive, just generating ad links)
+    console.log(`[cuty.io] Making direct connection (no proxy needed for ad generation)`);
+    const agent = createCustomAgent(null, url);
+    const response = await fetch(url, {
+      agent: agent,
+    });
 
-  // Try up to 3 different proxies if configured
-  const maxProxyAttempts = USE_PROXIES ? Math.min(3, PROXY_LIST.length) : 0;
-
-  for (let attempt = 0; attempt < maxProxyAttempts; attempt++) {
-    try {
-      const proxyUrl = getNextProxy();
-      if (!proxyUrl) break;
-
-      console.log(`[cuty.io] Trying proxy: ${proxyUrl}`);
-      // Prevent DNS leaks
-      const safeProxyUrl = preventDNSLeak(proxyUrl);
-      const agent = new ProxyAgent(safeProxyUrl);
-      console.log(`[cuty.io] Agent created with DNS leak prevention: ${safeProxyUrl}`);
-      response = await fetch(url, {
-        agent: agent,
+    if (!response.ok) {
+      console.error(`[cuty.io] Request failed with status: ${response.status}`);
+      return reply.status(response.status).send({
+        error: `cuty.io API returned error: ${response.status} ${response.statusText}`
       });
-
-      console.log(`[cuty.io] ✓ Proxy successfully used: ${safeProxyUrl}`);
-      console.log(`[cuty.io]   Response status: ${response.status} ${response.statusText}`);
-      markProxyWorking(proxyUrl);
-      break;
-    } catch (proxyError) {
-      lastError = proxyError;
-      const proxyUrl = PROXY_LIST[(proxyRotationIndex - 1 + PROXY_LIST.length) % PROXY_LIST.length];
-      markProxyFailed(proxyUrl);
-      console.warn(`[cuty.io] ✗ Proxy failed: ${proxyUrl}`);
-      console.warn(`[cuty.io]   Error: ${proxyError.message}`);
-      if (proxyError.cause) {
-        console.warn(`[cuty.io]   Cause: ${proxyError.cause.message || proxyError.cause}`);
-      }
     }
-  }
 
-  // If all proxies failed, return error
-  if (!response) {
-    console.error(`[cuty.io] All ${maxProxyAttempts} proxy attempts failed`);
-    return reply.status(502).send({ error: 'All proxies failed for cuty.io request' });
-  }
+    console.log(`[cuty.io] ✓ Direct connection succeeded: ${response.status} ${response.statusText}`);
 
-  reply.send(await response.text());
+    // Return just the ad URL
+    const adUrl = await response.text();
+    reply.send({ adUrl });
+  } catch (error) {
+    console.error(`[cuty.io] Error generating ad URL:`, error.message);
+    return reply.status(500).send({
+      error: 'Failed to generate ad URL from cuty.io'
+    });
+  }
 });
 
-app.post("/api/recieveCredits", async function (request, reply) {
+// Simple ad viewing system - no tokens needed
+// Users can earn credits once every 12 hours by watching ads
+
+app.post("/api/getCredits", async function (request, reply) {
   try {
     if (!request.body || !request.body.key) {
       return reply.status(400).send({ error: "Missing key in request" });
     }
+    
     let users = JSON.parse(await fs.readFile("./data/users.json"));
     if (!users[request.body.key]) {
       return reply.status(404).send({ error: "Key not found" });
     }
-    // check if the last ad was viewed less than 12 hours ago
+    
+    // Check if the last ad was viewed less than 12 hours ago
     if (
       users[request.body.key].lastAdViewedDate !== 0 &&
       users[request.body.key].lastAdViewedDate + 43200000 > Date.now()
     ) {
+      const timeLeft = 43200000 - (Date.now() - users[request.body.key].lastAdViewedDate);
+      const hoursLeft = Math.ceil(timeLeft / 3600000);
       return reply
         .status(429)
-        .send({ error: "Please wait 12 hours between ad views" });
+        .send({ error: `Please wait ${hoursLeft} hours between ad views` });
     }
+    
     users[request.body.key].lastAdViewedDate = Date.now();
     users[request.body.key].balance = Math.round((users[request.body.key].balance + config.creditsPerAd) * 100) / 100;
     await fs.writeFile("./data/users.json", JSON.stringify(users));
-    reply.send({ success: true, balance: users[request.body.key].balance });
+    reply.send({
+      success: true,
+      balance: users[request.body.key].balance,
+      creditAmount: config.creditsPerAd
+    });
   } catch (error) {
-    console.error("Receive credits error:", error);
+    console.error("Get credits error:", error);
     return reply.status(500).send({ error: "Internal server error" });
   }
 });
@@ -661,7 +533,7 @@ app.all("/v1/chat/completions", async function (request, reply) {
   );
 });
 
-// Test endpoint to verify proxy is working
+// Test endpoint to verify proxy is working and not leaking IP
 app.get("/api/test-proxy", async function (request, reply) {
   try {
     const proxyUrl = getNextProxy();
@@ -669,44 +541,25 @@ app.get("/api/test-proxy", async function (request, reply) {
       return reply.send({ error: 'No proxies configured' });
     }
 
-    console.log(`\n[TEST] Testing proxy: ${proxyUrl}`);
+    console.log(`\n[LEAK TEST] Testing proxy: ${proxyUrl}`);
 
-    // Test with CycleTLS
-    try {
-      const cycleTLSResponse = await makeCycleTLSRequest(
-        'https://api.ipify.org?format=json',
-        { headers: { 'User-Agent': 'Mozilla/5.0' }, body: '' },
-        proxyUrl
-      );
+    const agent = createCustomAgent(proxyUrl, 'https://httpbin.org/ip');
+    const response = await fetch('https://httpbin.org/ip', {
+      method: 'GET',
+      agent: agent,
+      headers: { 'User-Agent': 'Mozilla/5.0' }
+    });
+    const data = await response.json();
 
-      console.log('[TEST] CycleTLS Response:', cycleTLSResponse.body);
+    console.log(`[LEAK TEST] httpbin.org sees IP: ${data.origin}`);
 
-      return reply.send({
-        method: 'CycleTLS',
-        proxy: proxyUrl,
-        result: cycleTLSResponse.body,
-        status: cycleTLSResponse.status
-      });
-    } catch (cycleTLSError) {
-      console.error('[TEST] CycleTLS failed:', cycleTLSError.message);
-
-      // Fallback to regular fetch (node-fetch with proxy agent)
-      console.log('[TEST] Trying node-fetch with proxy agent...');
-      const agent = createCustomAgent(proxyUrl);
-      const fetchResponse = await fetch('https://api.ipify.org?format=json', { agent });
-      const fetchData = await fetchResponse.text();
-
-      console.log('[TEST] node-fetch Response:', fetchData);
-
-      return reply.send({
-        method: 'Regular Fetch',
-        proxy: proxyUrl,
-        result: fetchData,
-        cycleTLSError: cycleTLSError.message
-      });
-    }
+    return reply.send({
+      proxyConfigured: proxyUrl,
+      ipSeen: data.origin,
+      success: true
+    });
   } catch (error) {
-    console.error('[TEST] Both methods failed:', error);
+    console.error('[LEAK TEST] Test failed:', error);
     return reply.status(500).send({ error: error.message });
   }
 });
@@ -831,50 +684,22 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
             break;
           }
 
-          // Add minimal delay to break timing correlation without impacting user experience
-          await minimalDelay();
-
           const proxyUrl = getNextProxy();
           if (!proxyUrl) break;
 
-          // Get randomized headers
-          const randomizedHeaders = getRandomHeaders(headers);
-
           console.log(`[Attempt ${attempt + 1}/${maxProxyAttempts}] Trying proxy: ${proxyUrl}`);
 
-          // Use CycleTLS for non-streaming to get real browser TLS fingerprints
-          // Use regular fetch for streaming (no choice)
-          if (isStreaming) {
-            console.log(`[Streaming] Using node-fetch with proxy agent: ${proxyUrl}`);
-            const agent = createCustomAgent(proxyUrl);
-            const fetchOptions = {
-              method: "POST",
-              headers: randomizedHeaders,
-              body: JSON.stringify(requestBody),
-              agent: agent,
-            };
-            console.log(`[Streaming] Making request through proxy...`);
-            response = await fetch(endpoint, fetchOptions);
-            console.log(`[Streaming] ✓ Request completed via proxy`);
-          } else {
-            console.log(`[Non-streaming] Using CycleTLS for TLS fingerprint spoofing`);
-            const requestOptions = {
-              headers: randomizedHeaders,
-              body: JSON.stringify(requestBody),
-            };
+          const agent = createCustomAgent(proxyUrl, endpoint);
+          const fetchOptions = {
+            method: "POST",
+            headers: headers,
+            body: JSON.stringify(requestBody),
+            agent: agent,
+          };
+          console.log(`Making request through proxy...`);
+          response = await fetch(endpoint, fetchOptions);
+          console.log(`✓ Request completed via proxy`);
 
-            const cycleTLSResponse = await makeCycleTLSRequest(endpoint, requestOptions, proxyUrl);
-
-            // Convert CycleTLS response to fetch-like response object
-            response = {
-              ok: cycleTLSResponse.status >= 200 && cycleTLSResponse.status < 300,
-              status: cycleTLSResponse.status,
-              statusText: cycleTLSResponse.status === 200 ? 'OK' : 'Error',
-              headers: new Map(Object.entries(cycleTLSResponse.headers || {})),
-              body: cycleTLSResponse.body,
-              json: async () => JSON.parse(cycleTLSResponse.body)
-            };
-          }
 
           console.log(`[Response] Status: ${response.status}`);
 
@@ -920,55 +745,29 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
         }
       }
 
-      // If all proxies failed, try direct connection as fallback
+      // If no response yet, either use direct connection (if no proxies configured) or throw error
       if (!response) {
-        console.warn(`All ${maxProxyAttempts} proxy attempts failed for model ${modelToUse}`);
-        console.log(`Attempting direct connection (no proxy)...`);
-
-        try {
-          // Add random delay before direct connection attempt
-          await randomDelay(500, 2000);
-
-          // Get randomized headers
-          const randomizedHeaders = getRandomHeaders(headers);
-
-          if (isStreaming) {
-            // For streaming, use fetch with custom agent (direct connection - NO PROXY)
-            console.log(`[Streaming] WARNING: Making DIRECT connection (no proxy) - IP may be exposed`);
-            const agent = createCustomAgent(null);
+        if (!USE_PROXIES) {
+          // No proxies configured - use direct connection
+          console.log(`[Direct] No proxies configured, using direct connection`);
+          try {
+            const agent = createCustomAgent(null, endpoint);
             const fetchOptions = {
               method: "POST",
-              headers: randomizedHeaders,
+              headers: headers,
               body: JSON.stringify(requestBody),
               agent: agent,
             };
             response = await fetch(endpoint, fetchOptions);
-            console.log(`[Streaming] ✓ Direct connection succeeded (no proxy used)`);
-          } else {
-            // For non-streaming, use CycleTLS for proper browser TLS fingerprint spoofing (no proxy)
-            const requestOptions = {
-              headers: randomizedHeaders,
-              body: JSON.stringify(requestBody),
-            };
-
-            const cycleTLSResponse = await makeCycleTLSRequest(endpoint, requestOptions, null);
-
-            // Convert CycleTLS response to fetch-like response object
-            response = {
-              ok: cycleTLSResponse.status >= 200 && cycleTLSResponse.status < 300,
-              status: cycleTLSResponse.status,
-              statusText: cycleTLSResponse.status === 200 ? 'OK' : 'Error',
-              headers: new Map(Object.entries(cycleTLSResponse.headers || {})),
-              body: cycleTLSResponse.body,
-              json: async () => JSON.parse(cycleTLSResponse.body)
-            };
+            console.log(`[Direct] Request completed with status: ${response.status}`);
+          } catch (directError) {
+            console.error(`[Direct] Connection failed: ${directError.message}`);
+            throw new Error(`Direct connection failed: ${directError.message}`);
           }
-
-          console.log(`✓ Direct connection succeeded`);
-          console.log(`  Response status: ${response.status} ${response.statusText}`);
-        } catch (directError) {
-          console.error(`✗ Direct connection also failed: ${directError.message}`);
-          throw lastError || directError || new Error('All proxies and direct connection failed');
+        } else {
+          // Proxies configured but all failed
+          console.error(`All ${maxProxyAttempts} proxy attempts failed for model ${modelToUse}`);
+          throw new Error(`All proxies failed after ${maxProxyAttempts} attempts. Cannot proceed without proxy.`);
         }
       }
 

@@ -2,42 +2,198 @@
 import json
 import requests
 import sys
-from typing import List, Dict, Any
+import ipaddress
+import argparse
+import concurrent.futures
+from typing import List, Dict, Any, Optional
+from datetime import datetime
 
-GEONODE_API_URL = "https://proxylist.geonode.com/api/proxy-list"
 CONFIG_FILE = "config.json"
 
-API_PARAMS = {
-    "protocols": "socks5,http,https,socks4",
-    "limit": 500,
-    "page": 1,
-    "sort_by": "lastChecked",
-"anonymityLevel": "elite",
-    "sort_type": "desc"
+# Multiple proxy sources for better coverage
+PROXY_SOURCES = {
+    "geonode": {
+        "url": "https://proxylist.geonode.com/api/proxy-list",
+        "params": {
+            "anonymityLevel": "elite",
+            "protocols": "socks5",
+            "limit": 500,
+            "page": 1,
+            "sort_by": "lastChecked",
+            "sort_type": "desc"
+        }
+    },
+    "proxyscrape": {
+        "url": "https://api.proxyscrape.com/v2/",
+        "params": {
+            "request": "displayproxies",
+            "protocol": "socks5",
+            "timeout": 10000,
+            "country": "all",
+            "ssl": "all",
+            "anonymity": "elite"
+        }
+    },
+    "proxylist_download": {
+        "url": "https://www.proxy-list.download/api/v1/get",
+        "params": {
+            "type": "socks5",
+            "anon": "elite"
+        }
+    }
 }
 
+# Cloudflare IP ranges (IPv4)
+CLOUDFLARE_IP_RANGES = [
+    "173.245.48.0/20",
+    "103.21.244.0/22",
+    "103.22.200.0/22",
+    "103.31.4.0/22",
+    "141.101.64.0/18",
+    "108.162.192.0/18",
+    "190.93.240.0/20",
+    "188.114.96.0/20",
+    "197.234.240.0/22",
+    "198.41.128.0/17",
+    "162.158.0.0/15",
+    "104.16.0.0/13",
+    "104.24.0.0/14",
+    "172.64.0.0/13",
+    "131.0.72.0/22"
+]
 
-def fetch_proxies() -> List[Dict[str, Any]]:
 
-    print(f"Fetching proxies from GeoNode API...")
-    print(f"Parameters: {API_PARAMS}")
-
+def fetch_from_geonode(source_config: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Fetch proxies from GeoNode API"""
     try:
-        response = requests.get(GEONODE_API_URL, params=API_PARAMS, timeout=30)
+        response = requests.get(source_config["url"], params=source_config["params"], timeout=30)
         response.raise_for_status()
-
         data = response.json()
         proxies = data.get("data", [])
 
-        print(f"Successfully fetched {len(proxies)} proxies")
-        return proxies
+        # Normalize format
+        normalized = []
+        for p in proxies:
+            normalized.append({
+                "ip": p.get("ip"),
+                "port": p.get("port"),
+                "protocols": p.get("protocols", ["socks5"]),
+                "country": p.get("country", "Unknown"),
+                "speed": p.get("speed", 0),
+                "upTime": p.get("upTime", 0),
+                "source": "geonode"
+            })
+        return normalized
+    except Exception as e:
+        print(f"  [FAIL] GeoNode failed: {e}")
+        return []
 
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching proxies: {e}")
-        sys.exit(1)
-    except json.JSONDecodeError as e:
-        print(f"Error parsing JSON response: {e}")
-        sys.exit(1)
+
+def fetch_from_proxyscrape(source_config: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Fetch proxies from ProxyScrape API"""
+    try:
+        response = requests.get(source_config["url"], params=source_config["params"], timeout=30)
+        response.raise_for_status()
+
+        # ProxyScrape returns plain text list of IP:PORT
+        lines = response.text.strip().split('\n')
+        proxies = []
+        for line in lines:
+            if ':' in line:
+                ip, port = line.strip().split(':', 1)
+                proxies.append({
+                    "ip": ip,
+                    "port": int(port),
+                    "protocols": ["socks5"],
+                    "country": "Unknown",
+                    "speed": 50,  # Default values
+                    "upTime": 50,
+                    "source": "proxyscrape"
+                })
+        return proxies
+    except Exception as e:
+        print(f"  [FAIL] ProxyScrape failed: {e}")
+        return []
+
+
+def fetch_from_proxylist_download(source_config: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Fetch proxies from proxy-list.download API"""
+    try:
+        response = requests.get(source_config["url"], params=source_config["params"], timeout=30)
+        response.raise_for_status()
+
+        # Returns plain text list of IP:PORT
+        lines = response.text.strip().split('\n')
+        proxies = []
+        for line in lines:
+            if ':' in line:
+                ip, port = line.strip().split(':', 1)
+                proxies.append({
+                    "ip": ip,
+                    "port": int(port),
+                    "protocols": ["socks5"],
+                    "country": "Unknown",
+                    "speed": 50,
+                    "upTime": 50,
+                    "source": "proxylist_download"
+                })
+        return proxies
+    except Exception as e:
+        print(f"  [FAIL] proxy-list.download failed: {e}")
+        return []
+
+
+def fetch_proxies_from_all_sources() -> List[Dict[str, Any]]:
+    """Fetch proxies from all available sources"""
+    print("\nFetching proxies from multiple sources...\n")
+
+    all_proxies = []
+
+    # Fetch from GeoNode
+    print("1. Fetching from GeoNode...")
+    geonode_proxies = fetch_from_geonode(PROXY_SOURCES["geonode"])
+    print(f"  [OK] Fetched {len(geonode_proxies)} proxies")
+    all_proxies.extend(geonode_proxies)
+
+    # Fetch from ProxyScrape
+    print("2. Fetching from ProxyScrape...")
+    proxyscrape_proxies = fetch_from_proxyscrape(PROXY_SOURCES["proxyscrape"])
+    print(f"  [OK] Fetched {len(proxyscrape_proxies)} proxies")
+    all_proxies.extend(proxyscrape_proxies)
+
+    # Fetch from proxy-list.download
+    print("3. Fetching from proxy-list.download...")
+    proxylist_proxies = fetch_from_proxylist_download(PROXY_SOURCES["proxylist_download"])
+    print(f"  [OK] Fetched {len(proxylist_proxies)} proxies")
+    all_proxies.extend(proxylist_proxies)
+
+    # Remove duplicates based on IP:PORT
+    seen = set()
+    unique_proxies = []
+    for proxy in all_proxies:
+        key = f"{proxy['ip']}:{proxy['port']}"
+        if key not in seen:
+            seen.add(key)
+            unique_proxies.append(proxy)
+
+    duplicates_removed = len(all_proxies) - len(unique_proxies)
+    print(f"\nTotal: {len(all_proxies)} proxies ({duplicates_removed} duplicates removed)")
+    print(f"Unique: {len(unique_proxies)} proxies")
+
+    return unique_proxies
+
+
+def is_cloudflare_ip(ip: str) -> bool:
+    """Check if an IP address belongs to Cloudflare's network"""
+    try:
+        ip_obj = ipaddress.ip_address(ip)
+        for cidr in CLOUDFLARE_IP_RANGES:
+            if ip_obj in ipaddress.ip_network(cidr):
+                return True
+        return False
+    except ValueError:
+        # Invalid IP address
+        return False
 
 
 def format_proxy_url(proxy: Dict[str, Any]) -> str:
@@ -56,18 +212,102 @@ def format_proxy_url(proxy: Dict[str, Any]) -> str:
     return None
 
 
-def filter_proxies(proxies: List[Dict[str, Any]], min_speed: int = 90, min_uptime: float = 90.0) -> List[Dict[str, Any]]:
+def test_proxy(proxy_url: str, timeout: int = 10) -> bool:
+    """Test if a proxy is working by making a request through it"""
+    try:
+        test_url = "https://httpbin.org/ip"
+        proxies = {
+            "http": proxy_url,
+            "https": proxy_url
+        }
+        response = requests.get(test_url, proxies=proxies, timeout=timeout)
+        if response.status_code == 200:
+            data = response.json()
+            # Verify we got a different IP than our own
+            return "origin" in data
+        return False
+    except:
+        return False
+
+
+def validate_proxies(proxy_urls: List[str], max_workers: int = 20, test: bool = False) -> List[str]:
+    """Validate proxies by testing them in parallel"""
+    if not test:
+        return proxy_urls
+
+    print(f"\nValidating {len(proxy_urls)} proxies (testing connectivity)...")
+    print("This may take a few minutes...\n")
+
+    working_proxies = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_proxy = {executor.submit(test_proxy, url): url for url in proxy_urls}
+        completed = 0
+
+        for future in concurrent.futures.as_completed(future_to_proxy):
+            proxy_url = future_to_proxy[future]
+            completed += 1
+
+            try:
+                if future.result():
+                    working_proxies.append(proxy_url)
+                    print(f"[{completed}/{len(proxy_urls)}] [OK] {proxy_url}")
+                else:
+                    print(f"[{completed}/{len(proxy_urls)}] [FAIL] {proxy_url}")
+            except Exception as e:
+                print(f"[{completed}/{len(proxy_urls)}] [FAIL] {proxy_url} - Error: {e}")
+
+    print(f"\n[OK] {len(working_proxies)}/{len(proxy_urls)} proxies are working")
+    return working_proxies
+
+
+def filter_proxies(proxies: List[Dict[str, Any]],
+                   min_speed: int = 0,
+                   min_uptime: float = 0.0,
+                   countries: Optional[List[str]] = None,
+                   protocols: Optional[List[str]] = None,
+                   exclude_cloudflare: bool = True) -> List[Dict[str, Any]]:
+    """Filter proxies based on various criteria"""
 
     filtered = []
+    cloudflare_count = 0
 
     for proxy in proxies:
         speed = proxy.get("speed", 0)
         uptime = proxy.get("upTime", 0)
+        ip = proxy.get("ip", "")
+        country = proxy.get("country", "Unknown")
+        proxy_protocols = proxy.get("protocols", [])
 
-        if speed >= min_speed and uptime >= min_uptime:
-            filtered.append(proxy)
+        # Skip Cloudflare IPs if requested
+        if exclude_cloudflare and is_cloudflare_ip(ip):
+            cloudflare_count += 1
+            continue
 
-    print(f"Filtered to {len(filtered)} high-quality proxies (speed >= {min_speed}, uptime >= {min_uptime}%)")
+        # Filter by speed and uptime
+        if speed < min_speed or uptime < min_uptime:
+            continue
+
+        # Filter by country if specified
+        if countries and country not in countries:
+            continue
+
+        # Filter by protocol if specified
+        if protocols:
+            has_protocol = any(p in proxy_protocols for p in protocols)
+            if not has_protocol:
+                continue
+
+        filtered.append(proxy)
+
+    if exclude_cloudflare:
+        print(f"Excluded {cloudflare_count} Cloudflare IPs")
+    print(f"Filtered to {len(filtered)} proxies (speed >= {min_speed}, uptime >= {min_uptime}%)")
+
+    if countries:
+        print(f"  Country filter: {', '.join(countries)}")
+    if protocols:
+        print(f"  Protocol filter: {', '.join(protocols)}")
+
     return filtered
 
 
@@ -137,38 +377,136 @@ def print_proxy_stats(proxies: List[Dict[str, Any]]) -> None:
     print("="*60 + "\n")
 
 
+def parse_arguments():
+    """Parse command line arguments"""
+    parser = argparse.ArgumentParser(
+        description="Fetch and update SOCKS5 proxies from multiple sources",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Basic usage - fetch all proxies
+  python update_proxies.py
+
+  # Fetch only high-quality proxies
+  python update_proxies.py --min-speed 90 --min-uptime 90
+
+  # Filter by specific countries
+  python update_proxies.py --countries US,GB,CA
+
+  # Test proxies before saving (slower but more reliable)
+  python update_proxies.py --test --limit 50
+
+  # Search for proxies without updating config
+  python update_proxies.py --search --countries US --min-speed 80
+
+  # Limit number of proxies
+  python update_proxies.py --limit 100
+        """
+    )
+
+    parser.add_argument("--min-speed", type=int, default=0,
+                        help="Minimum proxy speed (0-100, default: 0)")
+    parser.add_argument("--min-uptime", type=float, default=0.0,
+                        help="Minimum proxy uptime percentage (default: 0)")
+    parser.add_argument("--countries", type=str,
+                        help="Comma-separated list of country codes (e.g., US,GB,CA)")
+    parser.add_argument("--protocols", type=str, default="socks5",
+                        help="Comma-separated list of protocols (default: socks5)")
+    parser.add_argument("--test", action="store_true",
+                        help="Test each proxy before saving (slower but more reliable)")
+    parser.add_argument("--limit", type=int,
+                        help="Limit number of proxies to fetch")
+    parser.add_argument("--search", action="store_true",
+                        help="Search mode - display results without updating config")
+    parser.add_argument("--no-cloudflare", action="store_true", default=True,
+                        help="Exclude Cloudflare IPs (default: true)")
+
+    return parser.parse_args()
+
+
 def main():
     """Main function"""
+    args = parse_arguments()
+
     print("\n" + "="*60)
     print("COMPOSITE API - PROXY UPDATER")
     print("="*60 + "\n")
 
-    proxies = fetch_proxies()
+    # Fetch proxies from all sources
+    proxies = fetch_proxies_from_all_sources()
 
     if not proxies:
-        print(" No proxies fetched. Exiting.")
+        print("[FAIL] No proxies fetched. Exiting.")
         sys.exit(1)
 
-    filtered_proxies = filter_proxies(proxies, min_speed=90, min_uptime=90.0)
+    # Parse filter arguments
+    countries = args.countries.split(',') if args.countries else None
+    protocols = args.protocols.split(',') if args.protocols else None
+
+    # Filter proxies
+    print("\nApplying filters...")
+    filtered_proxies = filter_proxies(
+        proxies,
+        min_speed=args.min_speed,
+        min_uptime=args.min_uptime,
+        countries=countries,
+        protocols=protocols,
+        exclude_cloudflare=args.no_cloudflare
+    )
 
     if not filtered_proxies:
-        print(" No proxies meet quality criteria. Using all fetched proxies instead.")
-        filtered_proxies = proxies
+        print("\n[FAIL] No proxies meet quality criteria.")
+        response = input("Use all fetched proxies instead? (y/n): ")
+        if response.lower() == 'y':
+            filtered_proxies = proxies
+        else:
+            sys.exit(1)
 
+    # Limit number of proxies if specified
+    if args.limit and len(filtered_proxies) > args.limit:
+        print(f"\nLimiting to {args.limit} proxies...")
+        filtered_proxies = filtered_proxies[:args.limit]
+
+    # Print stats
     print_proxy_stats(filtered_proxies)
 
+    # Format proxy URLs
     proxy_urls = [url for url in [format_proxy_url(p) for p in filtered_proxies] if url is not None]
 
     if not proxy_urls:
-        print(" No HTTP proxies found after formatting. Exiting.")
+        print("[FAIL] No valid proxies found after formatting. Exiting.")
         sys.exit(1)
 
-    print(f"\nSample proxy URLs (first 5):")
-    for url in proxy_urls[:5]:
+    # Test proxies if requested
+    if args.test:
+        proxy_urls = validate_proxies(proxy_urls, test=True)
+        if not proxy_urls:
+            print("\n[FAIL] No working proxies found after testing.")
+            sys.exit(1)
+
+    # Display sample proxies
+    print(f"\nSample proxy URLs (first 10):")
+    for url in proxy_urls[:10]:
         print(f"  {url}")
 
+    if len(proxy_urls) > 10:
+        print(f"  ... and {len(proxy_urls) - 10} more")
+
+    # Search mode - just display, don't save
+    if args.search:
+        print("\n" + "="*60)
+        print("SEARCH MODE - Results displayed above")
+        print("Run without --search flag to update config.json")
+        print("="*60)
+        return
+
+    # Update config
     print()
     update_config(proxy_urls)
+
+    print("\n" + "="*60)
+    print("[OK] DONE! Config updated successfully")
+    print("="*60)
 
 
 if __name__ == "__main__":

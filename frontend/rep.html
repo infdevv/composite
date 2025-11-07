@@ -1,22 +1,151 @@
-<script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Get Credits - Composite</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            text-align: center;
+            background: #0d0e0d;
+            color: white;
+        }
+        .success {
+            color: #4ecdc4;
+            background: #d4edda;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border: 2px solid #4ecdc4;
+        }
+        .error {
+            color: #ff6b6b;
+            background: #ffe0e0;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border: 2px solid #ff6b6b;
+        }
+        .warning {
+            color: #f39c12;
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border: 2px solid #f39c12;
+        }
+        .loading {
+            color: #f59ddb;
+        }
+        .btn {
+            padding: 10px 20px;
+            background: #4ecdc4;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn:hover {
+            background: #45b7aa;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎉 Get Your Credits</h1>
+    
+    <div id="content">
+        <div class="loading" id="loading">
+            <p>Checking your account...</p>
+            <p>Processing credit request...</p>
+        </div>
+    </div>
 
-// btw, don't try exploiting this, we do checks in the backend, idiot
-if (sessionStorage.getItem("viewedAd") === "true") {
-(async () => {
-    await fetch("/api/recieveCredits", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            key: window.localStorage.getItem("key")
-        })
-    });
-    window.location.href = "/";
-})();
-sessionStorage.setItem("viewedAd", "false");
+<script>
+async function getCredits() {
+    const userKey = localStorage.getItem("key");
+    
+    if (!userKey || userKey === "undefined" || userKey.trim() === "") {
+        showError("No valid API key found. Please go back and generate a key first.");
+        return;
+    }
+    
+    try {
+        const response = await fetch("/api/getCredits", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                key: userKey
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+            showSuccess(result);
+        } else {
+            showError(result.error || `Server returned ${response.status}: ${response.statusText}`);
+        }
+        
+    } catch (error) {
+        console.error('Credit processing error:', error);
+        showError(`Network error: ${error.message}. Please check your connection and try again.`);
+    }
 }
 
+function showSuccess(result) {
+    document.getElementById("content").innerHTML = `
+        <div class="success">
+            <h2>✅ Success!</h2>
+            <p><strong>You received ${result.creditAmount || 'credits'}!</strong></p>
+            <p>Your new balance: ${result.balance || 'updated'}</p>
+        </div>
+        
+        <div class="warning">
+            <h3>⏰ 12-Hour Wait Period</h3>
+            <p>You can watch another ad in 12 hours to earn more credits.</p>
+            <p>Keep this page open or bookmark it to check back later!</p>
+        </div>
+        
+        <div>
+            <a href="/" class="btn">← Back to Home</a>
+            <button onclick="location.reload()" class="btn">Check Balance</button>
+        </div>
+    `;
+}
+
+function showError(message) {
+    document.getElementById("content").innerHTML = `
+        <div class="error">
+            <h2>❌ Error</h2>
+            <p>${message}</p>
+        </div>
+        
+        <div class="warning">
+            <h3>Common Solutions:</h3>
+            <p>• Make sure you completed the entire ad (waited for the continue button)</p>
+            <p>• Try refreshing this page</p>
+            <p>• Go back and start the ad viewing process again</p>
+            <p>• Check that you have a valid API key</p>
+        </div>
+        
+        <div>
+            <a href="/" class="btn">← Back to Home</a>
+            <a href="/redirect.html" class="btn">Watch Ad Again</a>
+        </div>
+    `;
+}
+
+// Start processing when page loads
+getCredits();
 </script>
 
 

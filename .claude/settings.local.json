@@ -9,7 +9,11 @@
       "Bash(npm view:*)",
       "Bash(curl:*)",
       "WebSearch",
-      "WebFetch(domain:www.npmjs.com)"
+      "WebFetch(domain:www.npmjs.com)",
+      "Bash(pip install:*)",
+      "Bash(taskkill:*)",
+      "Bash(NUL)",
+      "Bash(python update_proxies.py:*)"
     ],
     "deny": [],
     "ask": []
