@@ -118,8 +118,48 @@ async function safeReadJSON(filePath) {
   }
 }
 
-const USE_PROXIES = config.proxyURL && Array.isArray(config.proxyURL) && config.proxyURL.length > 0;
-const PROXY_LIST = USE_PROXIES ? config.proxyURL : [];
+// Load proxies from either array or file
+function loadProxies() {
+  if (!config.proxyURL) {
+    return [];
+  }
+
+  // If it's already an array, use it directly
+  if (Array.isArray(config.proxyURL)) {
+    return config.proxyURL.filter(p => p && p.trim().length > 0);
+  }
+
+  // If it's a string, treat it as a file path
+  if (typeof config.proxyURL === 'string') {
+    try {
+      const filePath = path.resolve(__dirname, config.proxyURL);
+      console.log(`[PROXY] Loading proxies from file: ${filePath}`);
+
+      if (!fsSync.existsSync(filePath)) {
+        console.error(`[PROXY] File not found: ${filePath}`);
+        return [];
+      }
+
+      const fileContent = fsSync.readFileSync(filePath, 'utf8');
+      const proxies = fileContent
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0 && !line.startsWith('#')); // Filter out empty lines and comments
+
+      console.log(`[PROXY] Loaded ${proxies.length} proxies from file`);
+      return proxies;
+    } catch (error) {
+      console.error(`[PROXY] Error loading proxy file: ${error.message}`);
+      return [];
+    }
+  }
+
+  console.warn('[PROXY] Invalid proxyURL format in config.json');
+  return [];
+}
+
+const PROXY_LIST = loadProxies();
+const USE_PROXIES = PROXY_LIST.length > 0;
 
 const WORKING_PROXIES = new Set();
 const FAILED_PROXIES = new Set();
