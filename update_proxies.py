@@ -1,46 +1,21 @@
 
 import json
-import requests
 import sys
 import ipaddress
 import argparse
 import concurrent.futures
 from typing import List, Dict, Any, Optional
 from datetime import datetime
+from proxyscrape import create_collector
+import requests  # Still needed for proxy testing
 
 CONFIG_FILE = "config.json"
 
-# Multiple proxy sources for better coverage
-PROXY_SOURCES = {
-    "geonode": {
-        "url": "https://proxylist.geonode.com/api/proxy-list",
-        "params": {
-            "anonymityLevel": "elite",
-            "protocols": "socks5",
-            "limit": 500,
-            "page": 1,
-            "sort_by": "lastChecked",
-            "sort_type": "desc"
-        }
-    },
-    "proxyscrape": {
-        "url": "https://api.proxyscrape.com/v2/",
-        "params": {
-            "request": "displayproxies",
-            "protocol": "socks5",
-            "timeout": 10000,
-            "country": "all",
-            "ssl": "all",
-            "anonymity": "elite"
-        }
-    },
-    "proxylist_download": {
-        "url": "https://www.proxy-list.download/api/v1/get",
-        "params": {
-            "type": "socks5",
-            "anon": "elite"
-        }
-    }
+# Proxy configuration for proxyscrape library
+PROXY_CONFIG = {
+    "type": "socks5",  # socks5, socks4, http, https
+    "anonymity": "elite",  # elite, anonymous, transparent
+    "country": "all"
 }
 
 # Cloudflare IP ranges (IPv4)
@@ -63,124 +38,50 @@ CLOUDFLARE_IP_RANGES = [
 ]
 
 
-def fetch_from_geonode(source_config: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Fetch proxies from GeoNode API"""
+def fetch_proxies_from_proxyscrape(proxy_type: str = "socks5") -> List[Dict[str, Any]]:
+    """Fetch proxies from ProxyScrape using the proxyscrape library"""
+    print(f"\nFetching {proxy_type} proxies from ProxyScrape...\n")
+
     try:
-        response = requests.get(source_config["url"], params=source_config["params"], timeout=30)
-        response.raise_for_status()
-        data = response.json()
-        proxies = data.get("data", [])
+        # Create a collector for the specified proxy type
+        collector = create_collector('my-collector', proxy_type)
 
-        # Normalize format
-        normalized = []
-        for p in proxies:
-            normalized.append({
-                "ip": p.get("ip"),
-                "port": p.get("port"),
-                "protocols": p.get("protocols", ["socks5"]),
-                "country": p.get("country", "Unknown"),
-                "speed": p.get("speed", 0),
-                "upTime": p.get("upTime", 0),
-                "source": "geonode"
-            })
-        return normalized
-    except Exception as e:
-        print(f"  [FAIL] GeoNode failed: {e}")
-        return []
+        # Get the proxies
+        proxy_list = collector.get_proxies()
 
-
-def fetch_from_proxyscrape(source_config: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Fetch proxies from ProxyScrape API"""
-    try:
-        response = requests.get(source_config["url"], params=source_config["params"], timeout=30)
-        response.raise_for_status()
-
-        # ProxyScrape returns plain text list of IP:PORT
-        lines = response.text.strip().split('\n')
         proxies = []
-        for line in lines:
-            if ':' in line:
-                ip, port = line.strip().split(':', 1)
-                proxies.append({
-                    "ip": ip,
-                    "port": int(port),
-                    "protocols": ["socks5"],
-                    "country": "Unknown",
-                    "speed": 50,  # Default values
-                    "upTime": 50,
-                    "source": "proxyscrape"
-                })
-        return proxies
+        for proxy in proxy_list:
+            # proxy object has host and port attributes
+            proxies.append({
+                "ip": proxy.host,
+                "port": proxy.port,
+                "protocols": [proxy_type],
+                "country": "Unknown",
+                "speed": 50,  # Default values
+                "upTime": 50,
+                "source": "proxyscrape"
+            })
+
+        print(f"  [OK] Fetched {len(proxies)} proxies from ProxyScrape")
+
+        # Remove duplicates based on IP:PORT
+        seen = set()
+        unique_proxies = []
+        for proxy in proxies:
+            key = f"{proxy['ip']}:{proxy['port']}"
+            if key not in seen:
+                seen.add(key)
+                unique_proxies.append(proxy)
+
+        duplicates_removed = len(proxies) - len(unique_proxies)
+        if duplicates_removed > 0:
+            print(f"  Removed {duplicates_removed} duplicates")
+        print(f"  Total unique proxies: {len(unique_proxies)}")
+
+        return unique_proxies
     except Exception as e:
         print(f"  [FAIL] ProxyScrape failed: {e}")
         return []
-
-
-def fetch_from_proxylist_download(source_config: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Fetch proxies from proxy-list.download API"""
-    try:
-        response = requests.get(source_config["url"], params=source_config["params"], timeout=30)
-        response.raise_for_status()
-
-        # Returns plain text list of IP:PORT
-        lines = response.text.strip().split('\n')
-        proxies = []
-        for line in lines:
-            if ':' in line:
-                ip, port = line.strip().split(':', 1)
-                proxies.append({
-                    "ip": ip,
-                    "port": int(port),
-                    "protocols": ["socks5"],
-                    "country": "Unknown",
-                    "speed": 50,
-                    "upTime": 50,
-                    "source": "proxylist_download"
-                })
-        return proxies
-    except Exception as e:
-        print(f"  [FAIL] proxy-list.download failed: {e}")
-        return []
-
-
-def fetch_proxies_from_all_sources() -> List[Dict[str, Any]]:
-    """Fetch proxies from all available sources"""
-    print("\nFetching proxies from multiple sources...\n")
-
-    all_proxies = []
-
-    # Fetch from GeoNode
-    print("1. Fetching from GeoNode...")
-    geonode_proxies = fetch_from_geonode(PROXY_SOURCES["geonode"])
-    print(f"  [OK] Fetched {len(geonode_proxies)} proxies")
-    all_proxies.extend(geonode_proxies)
-
-    # Fetch from ProxyScrape
-    print("2. Fetching from ProxyScrape...")
-    proxyscrape_proxies = fetch_from_proxyscrape(PROXY_SOURCES["proxyscrape"])
-    print(f"  [OK] Fetched {len(proxyscrape_proxies)} proxies")
-    all_proxies.extend(proxyscrape_proxies)
-
-    # Fetch from proxy-list.download
-    print("3. Fetching from proxy-list.download...")
-    proxylist_proxies = fetch_from_proxylist_download(PROXY_SOURCES["proxylist_download"])
-    print(f"  [OK] Fetched {len(proxylist_proxies)} proxies")
-    all_proxies.extend(proxylist_proxies)
-
-    # Remove duplicates based on IP:PORT
-    seen = set()
-    unique_proxies = []
-    for proxy in all_proxies:
-        key = f"{proxy['ip']}:{proxy['port']}"
-        if key not in seen:
-            seen.add(key)
-            unique_proxies.append(proxy)
-
-    duplicates_removed = len(all_proxies) - len(unique_proxies)
-    print(f"\nTotal: {len(all_proxies)} proxies ({duplicates_removed} duplicates removed)")
-    print(f"Unique: {len(unique_proxies)} proxies")
-
-    return unique_proxies
 
 
 def is_cloudflare_ip(ip: str) -> bool:
@@ -432,8 +333,12 @@ def main():
     print("COMPOSITE API - PROXY UPDATER")
     print("="*60 + "\n")
 
-    # Fetch proxies from all sources
-    proxies = fetch_proxies_from_all_sources()
+    # Parse protocol from arguments
+    protocols = args.protocols.split(',') if args.protocols else ["socks5"]
+    proxy_type = protocols[0]  # Use the first protocol specified
+
+    # Fetch proxies from ProxyScrape
+    proxies = fetch_proxies_from_proxyscrape(proxy_type=proxy_type)
 
     if not proxies:
         print("[FAIL] No proxies fetched. Exiting.")

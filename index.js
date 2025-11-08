@@ -1,6 +1,7 @@
 const config = require("./config.json");
 const fastify = require("fastify");
 const fs = require("fs/promises");
+const fsSync = require("fs");
 const crypto = require("crypto");
 const path = require("path");
 const promptList = require("./helpers/constants.js");
@@ -11,6 +12,111 @@ const https = require("https");
 const http = require("http");
 const { URL } = require("url");
 const fetch = require('node-fetch'); // Use node-fetch for proper proxy agent support
+
+// DATA CORRUPTION PREVENTION SYSTEM
+// Prevents race conditions, partial writes, and corrupt JSON files
+
+const fileLocks = new Map(); // Track file locks to prevent concurrent writes
+
+/**
+ * Safely write JSON data with corruption prevention:
+ * 1. Validates JSON structure before writing
+ * 2. Uses atomic write (write to temp file, then rename)
+ * 3. Implements file locking to prevent concurrent writes
+ * 4. Creates backup before overwriting
+ */
+async function safeWriteJSON(filePath, data) {
+  // Acquire lock for this file
+  while (fileLocks.get(filePath)) {
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  fileLocks.set(filePath, true);
+
+  try {
+    // Validate JSON structure
+    const jsonString = JSON.stringify(data, null, 2);
+    JSON.parse(jsonString); // Throws if invalid
+
+    // Create backup of existing file
+    try {
+      await fs.access(filePath);
+      const backupPath = `${filePath}.backup`;
+      await fs.copyFile(filePath, backupPath);
+    } catch (e) {
+      // File doesn't exist yet, no backup needed
+    }
+
+    // Atomic write: write to temp file first
+    const tempPath = `${filePath}.tmp.${Date.now()}`;
+    await fs.writeFile(tempPath, jsonString, 'utf8');
+
+    // Verify temp file is valid JSON
+    const verification = JSON.parse(await fs.readFile(tempPath, 'utf8'));
+    if (!verification) {
+      throw new Error('Verification failed: temp file contains invalid data');
+    }
+
+    // Atomic rename (overwrites target file safely)
+    await fs.rename(tempPath, filePath);
+
+    console.log(`[Safe Write] Successfully wrote to ${path.basename(filePath)}`);
+    return true;
+  } catch (error) {
+    console.error(`[Safe Write] Failed to write ${filePath}:`, error.message);
+
+    // Try to restore from backup if write failed
+    try {
+      const backupPath = `${filePath}.backup`;
+      await fs.access(backupPath);
+      await fs.copyFile(backupPath, filePath);
+      console.log(`[Safe Write] Restored ${path.basename(filePath)} from backup`);
+    } catch (restoreError) {
+      console.error(`[Safe Write] Could not restore from backup:`, restoreError.message);
+    }
+
+    throw error;
+  } finally {
+    // Release lock
+    fileLocks.delete(filePath);
+  }
+}
+
+/**
+ * Safely read and parse JSON with corruption detection
+ */
+async function safeReadJSON(filePath) {
+  try {
+    const content = await fs.readFile(filePath, 'utf8');
+
+    // Detect empty or corrupted files
+    if (!content || content.trim() === '') {
+      console.error(`[Safe Read] File ${filePath} is empty, attempting backup restore`);
+      throw new Error('Empty file detected');
+    }
+
+    const data = JSON.parse(content);
+    return data;
+  } catch (error) {
+    console.error(`[Safe Read] Failed to read ${filePath}:`, error.message);
+
+    // Try to restore from backup
+    try {
+      const backupPath = `${filePath}.backup`;
+      console.log(`[Safe Read] Attempting to restore from backup: ${backupPath}`);
+      const backupContent = await fs.readFile(backupPath, 'utf8');
+      const backupData = JSON.parse(backupContent);
+
+      // Restore the main file from backup
+      await fs.copyFile(backupPath, filePath);
+      console.log(`[Safe Read] Successfully restored ${path.basename(filePath)} from backup`);
+
+      return backupData;
+    } catch (backupError) {
+      console.error(`[Safe Read] Backup restore failed:`, backupError.message);
+      throw new Error(`File corrupted and backup unavailable: ${filePath}`);
+    }
+  }
+}
 
 const USE_PROXIES = config.proxyURL && Array.isArray(config.proxyURL) && config.proxyURL.length > 0;
 const PROXY_LIST = USE_PROXIES ? config.proxyURL : [];
@@ -90,7 +196,7 @@ if (USE_PROXIES) {
 
 // Create a custom agent for proxy connections
 // Uses protocol-specific agents for compatibility with node-fetch v2
-function createCustomAgent(proxyUrl = null, targetUrl = 'https://example.com') {
+function createCustomAgent(proxyUrl = null, targetUrl = 'https://diddy.com') {
   if (proxyUrl) {
     // Prevent DNS leaks by converting SOCKS proxies to SOCKS5h
     const safeProxyUrl = preventDNSLeak(proxyUrl);
@@ -107,22 +213,28 @@ function createCustomAgent(proxyUrl = null, targetUrl = 'https://example.com') {
       // SOCKS proxy - use SocksProxyAgent
       console.log(`[Agent] Using SocksProxyAgent for ${proxyProtocol} proxy`);
       agent = new SocksProxyAgent(safeProxyUrl, {
-        keepAlive: false,
-        family: 4 // Force IPv4 to prevent IPv6 leaks
+        keepAlive: true,
+        keepAliveMsecs: 1000,
+        family: 4, // Force IPv4 to prevent IPv6 leaks
+        timeout: 30000 // 30 second timeout for proxy connection
       });
     } else if (targetProtocol === 'https') {
       // HTTPS target - use HttpsProxyAgent
       console.log(`[Agent] Using HttpsProxyAgent for HTTPS target`);
       agent = new HttpsProxyAgent(safeProxyUrl, {
-        keepAlive: false,
-        family: 4 // Force IPv4 to prevent IPv6 leaks
+        keepAlive: true,
+        keepAliveMsecs: 1000,
+        family: 4, // Force IPv4 to prevent IPv6 leaks
+        timeout: 30000 // 30 second timeout for proxy connection
       });
     } else {
       // HTTP target - use HttpProxyAgent
       console.log(`[Agent] Using HttpProxyAgent for HTTP target`);
       agent = new HttpProxyAgent(safeProxyUrl, {
-        keepAlive: false,
-        family: 4 // Force IPv4 to prevent IPv6 leaks
+        keepAlive: true,
+        keepAliveMsecs: 1000,
+        family: 4, // Force IPv4 to prevent IPv6 leaks
+        timeout: 30000 // 30 second timeout for proxy connection
       });
     }
 
@@ -133,8 +245,10 @@ function createCustomAgent(proxyUrl = null, targetUrl = 'https://example.com') {
     console.warn(`[Agent] WARNING: Creating direct HTTPS agent (no proxy - IP WILL BE EXPOSED)`);
     console.warn(`[Agent] This should only be used for testing purposes!`);
     return new https.Agent({
-      keepAlive: false,
-      family: 4 // Force IPv4
+      keepAlive: true,
+      keepAliveMsecs: 1000,
+      family: 4, // Force IPv4
+      timeout: 30000 // 30 second timeout
     });
   }
 }
@@ -167,10 +281,6 @@ function preventDNSLeak(proxyUrl) {
     return converted;
   }
 
-  // HTTP/HTTPS proxies don't need conversion but log them
-  if (proxyUrl.startsWith('http://') || proxyUrl.startsWith('https://')) {
-    console.log(`[DNS-Safe] Using HTTP proxy (Note: HTTP proxies don't prevent DNS leaks): ${proxyUrl}`);
-  }
 
   return proxyUrl;
 }
@@ -345,8 +455,8 @@ function trimMessagesToTokenLimit(messages, maxTokens) {
 }
 
 app.get("/api/make-key", async function (request, reply) {
-  // load /data/users.json
-  let users = JSON.parse(await fs.readFile("./data/users.json"));
+  // load /data/users.json using safe read
+  let users = await safeReadJSON("./data/users.json");
 
   // create UUID
   let uuid = crypto.randomUUID();
@@ -358,7 +468,7 @@ app.get("/api/make-key", async function (request, reply) {
     createdDate: Date.now()
   };
 
-  await fs.writeFile("./data/users.json", JSON.stringify(users));
+  await safeWriteJSON("./data/users.json", users);
   reply.send(users[uuid]);
 });
 
@@ -367,7 +477,7 @@ app.post("/api/check-key", async function (request, reply) {
     if (!request.body || !request.body.key) {
       return reply.status(400).send({ error: "Missing key in request" });
     }
-    let users = JSON.parse(await fs.readFile("./data/users.json"));
+    let users = await safeReadJSON("./data/users.json");
     if (!users[request.body.key]) {
       return reply.status(404).send({ error: "Key not found" });
     }
@@ -425,12 +535,12 @@ app.post("/api/getCredits", async function (request, reply) {
     if (!request.body || !request.body.key) {
       return reply.status(400).send({ error: "Missing key in request" });
     }
-    
-    let users = JSON.parse(await fs.readFile("./data/users.json"));
+
+    let users = await safeReadJSON("./data/users.json");
     if (!users[request.body.key]) {
       return reply.status(404).send({ error: "Key not found" });
     }
-    
+
     // Check if the last ad was viewed less than 12 hours ago
     if (
       users[request.body.key].lastAdViewedDate !== 0 &&
@@ -442,10 +552,10 @@ app.post("/api/getCredits", async function (request, reply) {
         .status(429)
         .send({ error: `Please wait ${hoursLeft} hours between ad views` });
     }
-    
+
     users[request.body.key].lastAdViewedDate = Date.now();
     users[request.body.key].balance = Math.round((users[request.body.key].balance + config.creditsPerAd) * 100) / 100;
-    await fs.writeFile("./data/users.json", JSON.stringify(users));
+    await safeWriteJSON("./data/users.json", users);
     reply.send({
       success: true,
       balance: users[request.body.key].balance,
@@ -458,7 +568,7 @@ app.post("/api/getCredits", async function (request, reply) {
 });
 
 app.get("/api/statistics", async function (request, reply) {
-  const stats = JSON.parse(await fs.readFile("stats.json"));
+  const stats = await safeReadJSON("stats.json");
   reply.send({
     totalRequests: stats.totalRequests,
     activeRequests: stats.activeRequests,
@@ -516,10 +626,10 @@ function preprocessRequest(request) {
 app.all("/v1/chat/completions", async function (request, reply) {
   // edit stats.json
 
-  let stats = JSON.parse(await fs.readFile("stats.json"));
+  let stats = await safeReadJSON("stats.json");
   stats.totalRequests += 1;
   stats.activeRequests += 1;
-  await fs.writeFile("stats.json", JSON.stringify(stats));
+  await safeWriteJSON("stats.json", stats);
 
   const isStreaming =
     request.headers["accept"] === "text/event-stream" ||
@@ -528,7 +638,7 @@ app.all("/v1/chat/completions", async function (request, reply) {
   await proxyToEndpoint(
     preprocessRequest(request),
     reply,
-    "https://api.deepinfra.com/v1/chat/completions",
+    "https://api.deepinfra.com/v1/openai/chat/completions",
     isStreaming
   );
 });
@@ -601,8 +711,8 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
     // get api key
     let key = headers.authorization.split(" ")[1];
 
-    // load /data/users.json
-    let users = JSON.parse(await fs.readFile("./data/users.json"));
+    // load /data/users.json using safe read
+    let users = await safeReadJSON("./data/users.json");
 
     // Check if user exists
     if (!users[key]) {
@@ -621,7 +731,7 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
       users[key].lastAdViewedDate + 43200000 < Date.now()
     ) {
       users[key].balance = 0;
-      await fs.writeFile("./data/users.json", JSON.stringify(users));
+      await safeWriteJSON("./data/users.json", users);
       return reply
         .status(402)
         .send({ error: "Credits expired. Please view an ad first." });
@@ -666,108 +776,94 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
              errorMsg.includes('unavailable');
     }
 
-    // Helper function to attempt request with multiple proxy retries
+    // Helper function to attempt request with a single proxy (no retry loop)
     async function attemptRequest(modelToUse, canFallback = true) {
       const requestBody = { ...request.body, model: modelToUse };
       let response = null;
       let lastError = null;
-      let consecutive403s = 0;
 
-      // Reduce attempts to 3-5 to avoid correlation detection
-      const maxProxyAttempts = USE_PROXIES ? Math.min(Math.floor(Math.random() * 3) + 3, PROXY_LIST.length) : 0;
+      // Only attempt once with a single proxy
+      try {
+        const proxyUrl = USE_PROXIES ? getNextProxy() : null;
 
-      for (let attempt = 0; attempt < maxProxyAttempts; attempt++) {
+        if (USE_PROXIES && !proxyUrl) {
+          throw new Error('No proxies available');
+        }
+
+        if (proxyUrl) {
+          console.log(`[Request] Using proxy: ${proxyUrl}`);
+        } else {
+          console.log(`[Request] Using direct connection (no proxy)`);
+        }
+
+        const agent = createCustomAgent(proxyUrl, endpoint);
+
+        // Create an AbortController for request timeout
+        const abortController = new AbortController();
+        const timeoutId = setTimeout(() => abortController.abort(), 30000); // 30 second timeout
+
+        const fetchOptions = {
+          method: "POST",
+          headers: headers,
+          body: JSON.stringify(requestBody),
+          agent: agent,
+          signal: abortController.signal
+        };
+
         try {
-          // Circuit breaker: if we get 3+ consecutive 403s, stop trying (session is burned)
-          if (consecutive403s >= 3) {
-            console.warn('Circuit breaker: Too many consecutive 403s, stopping attempts');
-            break;
-          }
-
-          const proxyUrl = getNextProxy();
-          if (!proxyUrl) break;
-
-          console.log(`[Attempt ${attempt + 1}/${maxProxyAttempts}] Trying proxy: ${proxyUrl}`);
-
-          const agent = createCustomAgent(proxyUrl, endpoint);
-          const fetchOptions = {
-            method: "POST",
-            headers: headers,
-            body: JSON.stringify(requestBody),
-            agent: agent,
-          };
-          console.log(`Making request through proxy...`);
+          console.log(`Making request...`);
           response = await fetch(endpoint, fetchOptions);
-          console.log(`✓ Request completed via proxy`);
+          clearTimeout(timeoutId); // Clear timeout if request completes
+          console.log(`✓ Request completed`);
+        } catch (fetchError) {
+          clearTimeout(timeoutId);
+          if (fetchError.name === 'AbortError') {
+            throw new Error('Request timeout after 30 seconds');
+          }
+          throw fetchError;
+        }
 
+        console.log(`[Response] Status: ${response.status}`);
 
-          console.log(`[Response] Status: ${response.status}`);
-
-          // Log response details
-          console.log(`✓ Proxy connected: ${proxyUrl}`);
+        if (proxyUrl) {
+          console.log(`✓ Proxy used: ${proxyUrl}`);
           console.log(`  Response status: ${response.status} ${response.statusText}`);
 
-          // If we get a 403, mark proxy as failed and retry with another proxy
+          // If we get a 403, mark proxy as failed
           if (response.status === 403) {
             console.warn(`✗ Got 403 Forbidden from DeepInfra with proxy: ${proxyUrl}`);
-            consecutive403s++;
             markProxyFailed(proxyUrl);
-            response = null;
-            lastError = new Error(`403 Forbidden from DeepInfra (${consecutive403s} consecutive)`);
-
-            if (attempt < maxProxyAttempts - 1 && consecutive403s < 3) {
-              console.log(`Retrying with next proxy after longer delay...`);
-              continue;
-            } else {
-              console.warn(`Stopping after ${consecutive403s} consecutive 403s`);
-              break;
-            }
+            lastError = new Error(`403 Forbidden from DeepInfra`);
+          } else {
+            // Success! Mark proxy as working
+            markProxyWorking(proxyUrl);
           }
+        }
+      } catch (proxyError) {
+        lastError = proxyError;
 
-          // Success! Mark proxy as working and reset 403 counter
-          consecutive403s = 0;
-          markProxyWorking(proxyUrl);
-          break;
-        } catch (proxyError) {
-          lastError = proxyError;
-          const proxyUrl = PROXY_LIST[(proxyRotationIndex - 1 + PROXY_LIST.length) % PROXY_LIST.length];
-          markProxyFailed(proxyUrl);
-          console.warn(`✗ Proxy attempt ${attempt + 1} failed: ${proxyUrl}`);
-          console.warn(`  Error: ${proxyError.message}`);
-          if (proxyError.cause) {
-            console.warn(`  Cause: ${proxyError.cause.message || proxyError.cause}`);
-          }
+        // Identify specific error types
+        const errorType = proxyError.code || proxyError.name || 'UNKNOWN';
+        const isConnectionError = ['ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT', 'ENOTFOUND', 'ENETUNREACH'].includes(errorType);
 
-          // Continue to next proxy
-          if (attempt < maxProxyAttempts - 1) {
-            console.log(`Trying next proxy...`);
-          }
+        if (isConnectionError) {
+          console.warn(`✗ Connection error: ${errorType}`);
+          console.warn(`  Error message: ${proxyError.message}`);
+        } else {
+          console.warn(`✗ Request failed: ${proxyError.message}`);
+        }
+
+        if (proxyError.cause) {
+          console.warn(`  Cause: ${proxyError.cause.message || proxyError.cause}`);
         }
       }
 
-      // If no response yet, either use direct connection (if no proxies configured) or throw error
+      // If no response, throw the last error
       if (!response) {
-        if (!USE_PROXIES) {
-          // No proxies configured - use direct connection
-          console.log(`[Direct] No proxies configured, using direct connection`);
-          try {
-            const agent = createCustomAgent(null, endpoint);
-            const fetchOptions = {
-              method: "POST",
-              headers: headers,
-              body: JSON.stringify(requestBody),
-              agent: agent,
-            };
-            response = await fetch(endpoint, fetchOptions);
-            console.log(`[Direct] Request completed with status: ${response.status}`);
-          } catch (directError) {
-            console.error(`[Direct] Connection failed: ${directError.message}`);
-            throw new Error(`Direct connection failed: ${directError.message}`);
-          }
+        if (lastError) {
+          throw lastError;
         } else {
-          // Proxies configured but all failed
-          console.error(`All ${maxProxyAttempts} proxy attempts failed for model ${modelToUse}`);
-          throw new Error(`All proxies failed after ${maxProxyAttempts} attempts. Cannot proceed without proxy.`);
+          throw new Error(`Request failed for model ${modelToUse}`);
         }
       }
 
@@ -875,17 +971,17 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
         const creditsToDeduct = Math.round(totalTokens * config.creditsPerToken * 100) / 100;
         console.log(`Deducting ${creditsToDeduct} credits for ${totalTokens} tokens (streaming)`);
 
-        let usersAfter = JSON.parse(await fs.readFile("./data/users.json"));
+        let usersAfter = await safeReadJSON("./data/users.json");
         if (usersAfter[key]) {
           const oldBalance = usersAfter[key].balance;
           usersAfter[key].balance = Math.max(0, Math.round((usersAfter[key].balance - creditsToDeduct) * 100) / 100);
           console.log(`Balance: ${oldBalance} -> ${usersAfter[key].balance}`);
-          await fs.writeFile("./data/users.json", JSON.stringify(usersAfter));
+          await safeWriteJSON("./data/users.json", usersAfter);
         }
 
-        let stats = JSON.parse(await fs.readFile("stats.json"));
+        let stats = await safeReadJSON("stats.json");
         stats.activeRequests -= 1;
-        await fs.writeFile("stats.json", JSON.stringify(stats));
+        await safeWriteJSON("stats.json", stats);
         reply.raw.end();
       } catch (streamError) {
         // Can't send error response after headers sent, just end the stream
@@ -921,17 +1017,17 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
       console.log(`Deducting ${creditsToDeduct} credits for ${totalTokens} tokens (non-streaming)`);
 
       // Reload users and deduct credits
-      let usersAfter = JSON.parse(await fs.readFile("./data/users.json"));
+      let usersAfter = await safeReadJSON("./data/users.json");
       if (usersAfter[key]) {
         const oldBalance = usersAfter[key].balance;
         usersAfter[key].balance = Math.max(0, Math.round((usersAfter[key].balance - creditsToDeduct) * 100) / 100);
         console.log(`Balance: ${oldBalance} -> ${usersAfter[key].balance}`);
-        await fs.writeFile("./data/users.json", JSON.stringify(usersAfter));
+        await safeWriteJSON("./data/users.json", usersAfter);
       }
 
-      let stats = JSON.parse(await fs.readFile("stats.json"));
+      let stats = await safeReadJSON("stats.json");
       stats.activeRequests -= 1;
-      await fs.writeFile("stats.json", JSON.stringify(stats));
+      await safeWriteJSON("stats.json", stats);
       reply.send(data);
     }
   } catch (error) {
@@ -947,7 +1043,7 @@ app.post("/v1/streaming/chat/completions", async function (request, reply) {
   await proxyToEndpoint(
     preprocessRequest(request),
     reply,
-    "https://api.deepinfra.com/v1/chat/completions",
+    "https://api.deepinfra.com/v1/openai/chat/completions",
     true
   );
 });
@@ -981,7 +1077,7 @@ setInterval(() => {
  }
 }, 1000 * 60 * 60); // 1 hour
 
-app.listen({ port: 3000, host: "0.0.0.0" }, (err, address) => {
+app.listen({ port: 3005, host: "0.0.0.0" }, (err, address) => {
   if (err) {
     console.error(err);
     process.exit(1);
