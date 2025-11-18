@@ -226,7 +226,7 @@ if (USE_PROXIES) {
 
 
 
-function createCustomAgent(proxyUrl = null, targetUrl = 'https://api.deepinfra.com/v1/openai/chat/completions') {
+function createCustomAgent(proxyUrl = null, targetUrl = 'https://api.deepinfra.com/v1/chat/completions') {
   if (proxyUrl) {
     
     const safeProxyUrl = (proxyUrl);
@@ -656,7 +656,7 @@ app.all("/v1/chat/completions", async function (request, reply) {
   await proxyToEndpoint(
     preprocessRequest(request),
     reply,
-    "https://api.deepinfra.com/v1/openai/chat/completions",
+    "https://api.deepinfra.com/v1/chat/completions",
     isStreaming
   );
 });
@@ -803,6 +803,12 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
               throw new Error(`403 Forbidden from DeepInfra`);
             }
 
+            if (response.status === 503 && proxyUrl) {
+              console.warn(`✗ Got 503 with proxy: ${proxyUrl}`);
+              markProxyFailed(proxyUrl);
+              throw new Error(`503 from proxy`);
+            }
+
             // Mark proxy as working if successful
             if (proxyUrl && response.ok) {
               markProxyWorking(proxyUrl);
@@ -827,75 +833,106 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
       let usedProxy = null;
 
       if (USE_PROXIES && PROXY_LIST.length > 0) {
-        // Race multiple proxies simultaneously
-        const numProxies = Math.min(5, PROXY_LIST.length); // Use up to 5 proxies at once
-        const proxiesToTry = [];
-
-        // Get unique proxies for racing
+        // Race multiple proxies simultaneously with retry logic
+        const numProxiesPerRace = Math.min(4, PROXY_LIST.length);
         const now = Date.now();
         const availableProxies = PROXY_LIST.filter(p => !FAILED_PROXIES.has(p));
-
-        // If we have available proxies, use them; otherwise reset and use all
         const proxyPool = availableProxies.length > 0 ? availableProxies : PROXY_LIST;
 
-        // Pick random proxies from the pool
-        for (let i = 0; i < numProxies && i < proxyPool.length; i++) {
-          const randomIndex = Math.floor(Math.random() * proxyPool.length);
-          const proxy = proxyPool[randomIndex];
-          if (!proxiesToTry.includes(proxy)) {
-            proxiesToTry.push(proxy);
-            PROXY_LAST_USED.set(proxy, now);
+        const usedProxies = new Set(); // Track which proxies we've already tried
+        let raceAttempt = 0;
+        const maxRaceAttempts = Math.ceil(proxyPool.length / numProxiesPerRace);
+
+        // Keep racing with different sets of proxies until one succeeds or we run out
+        while (raceAttempt < maxRaceAttempts) {
+          raceAttempt++;
+
+          // Pick random proxies that we haven't used yet
+          const proxiesToTry = [];
+          let attempts = 0;
+          const maxPickAttempts = proxyPool.length * 2; // Prevent infinite loop
+
+          while (proxiesToTry.length < numProxiesPerRace && attempts < maxPickAttempts) {
+            attempts++;
+            const randomIndex = Math.floor(Math.random() * proxyPool.length);
+            const proxy = proxyPool[randomIndex];
+            if (!usedProxies.has(proxy)) {
+              proxiesToTry.push(proxy);
+              usedProxies.add(proxy);
+              PROXY_LAST_USED.set(proxy, now);
+            }
+          }
+
+          // If we couldn't get enough fresh proxies, we've tried everything
+          if (proxiesToTry.length === 0) {
+            console.log(`[Race] No more untried proxies available, resetting...`);
+            FAILED_PROXIES.clear();
+            usedProxies.clear();
+
+            // Try one final race with the first 4 proxies
+            const finalProxies = proxyPool.slice(0, numProxiesPerRace);
+            finalProxies.forEach(p => PROXY_LAST_USED.set(p, now));
+
+            console.log(`[Race] Final attempt with ${finalProxies.length} proxies...`);
+            try {
+              const result = await Promise.any(
+                finalProxies.map(proxy => singleAttempt(proxy))
+              );
+              response = result.response;
+              usedProxy = result.proxyUrl;
+              console.log(`✓ Final attempt winner: ${usedProxy} with status ${response.status}`);
+              break;
+            } catch (error) {
+              console.error(`[Race] All final proxies failed. Unable to complete request.`);
+              throw new Error('All proxies exhausted after multiple race attempts');
+            }
+          }
+
+          console.log(`[Race] Attempt ${raceAttempt}/${maxRaceAttempts}: Racing ${proxiesToTry.length} proxies simultaneously...`);
+
+          try {
+            // Race all proxy attempts - first successful one wins!
+            const result = await Promise.any(
+              proxiesToTry.map(proxy => singleAttempt(proxy))
+            );
+
+            response = result.response;
+            usedProxy = result.proxyUrl;
+            console.log(`✓ Winner (attempt ${raceAttempt}): ${usedProxy} with status ${response.status}`);
+            break; // Success! Exit the retry loop
+          } catch (error) {
+            // All proxies in this batch failed
+            console.error(`[Race] All ${proxiesToTry.length} proxies failed in attempt ${raceAttempt}`);
+
+            // If this was our last attempt, throw error
+            if (raceAttempt >= maxRaceAttempts || usedProxies.size >= proxyPool.length) {
+              console.error(`[Race] Exhausted all proxies after ${raceAttempt} attempts`);
+
+              // One final attempt: reset everything and try again
+              FAILED_PROXIES.clear();
+              const lastChance = proxyPool.slice(0, numProxiesPerRace);
+              console.log(`[Race] Last chance with ${lastChance.length} proxies...`);
+
+              try {
+                const result = await Promise.any(
+                  lastChance.map(proxy => singleAttempt(proxy))
+                );
+                response = result.response;
+                usedProxy = result.proxyUrl;
+                console.log(`✓ Last chance winner: ${usedProxy} with status ${response.status}`);
+                break;
+              } catch (finalError) {
+                throw new Error('All proxies exhausted after multiple race attempts');
+              }
+            }
+
+            // Otherwise, continue to next race attempt with different proxies
+            console.log(`[Race] Retrying with different proxies...`);
           }
         }
 
-        console.log(`[Race] Racing ${proxiesToTry.length} proxies simultaneously...`);
-
-        try {
-          // Race all proxy attempts - first successful one wins!
-          const result = await Promise.any(
-            proxiesToTry.map(proxy => singleAttempt(proxy))
-          );
-
-          response = result.response;
-          usedProxy = result.proxyUrl;
-          console.log(`✓ Winner: ${usedProxy} with status ${response.status}`);
-        } catch (error) {
-          // All proxies failed, try one more round or fall back
-          console.error(`[Race] All ${proxiesToTry.length} proxies failed on first round`);
-
-          // If we still have proxies that haven't been tried, do another race
-          const remainingProxies = proxyPool.filter(p => !proxiesToTry.includes(p));
-
-          if (remainingProxies.length > 0) {
-            console.log(`[Race] Trying ${Math.min(5, remainingProxies.length)} more proxies...`);
-            const secondBatch = remainingProxies.slice(0, 5);
-
-            try {
-              const result = await Promise.any(
-                secondBatch.map(proxy => singleAttempt(proxy))
-              );
-              response = result.response;
-              usedProxy = result.proxyUrl;
-              console.log(`✓ Winner (round 2): ${usedProxy} with status ${response.status}`);
-            } catch (error2) {
-              console.error(`[Race] All proxies exhausted`);
-              // Reset failed proxies and try one last time
-              FAILED_PROXIES.clear();
-              const lastChance = PROXY_LIST.slice(0, 3);
-              const result = await Promise.any(
-                lastChance.map(proxy => singleAttempt(proxy))
-              );
-              response = result.response;
-              usedProxy = result.proxyUrl;
-            }
-          } else {
-            // No more proxies, reset and try again
-            FAILED_PROXIES.clear();
-            console.log(`[Race] Resetting failed proxies and trying again...`);
-            const result = await singleAttempt(proxiesToTry[0]);
-            response = result.response;
-            usedProxy = result.proxyUrl;
-          }
+        if (!response) {
+          throw new Error('Failed to get response after all race attempts');
         }
       } else {
         // No proxies configured, use direct connection
@@ -969,6 +1006,7 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
         let lastChunkData = null;
 
         for await (const chunk of response.body) {
+          // check openai content
           reply.raw.write(chunk);
 
           
@@ -1084,7 +1122,7 @@ app.post("/v1/streaming/chat/completions", async function (request, reply) {
   await proxyToEndpoint(
     preprocessRequest(request),
     reply,
-    "https://api.deepinfra.com/v1/openai/chat/completions",
+    "https://api.deepinfra.com/v1/chat/completions",
     true
   );
 });
