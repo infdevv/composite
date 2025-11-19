@@ -39,7 +39,7 @@ with open("config.json") as config:
     list2 = requests.get("https://raw.githubusercontent.com/TheSpeedX/PROXY-List/refs/heads/master/socks4.txt").text.split("\n")
     for i in range(len(list2)):
         list2[i] = "socks4://" + list2[i]
-    cfg["proxyURL"] = requests.get("https://raw.githubusercontent.com/monosans/proxy-list/refs/heads/main/proxies/all.txt").text.split("\n") #+ list2 
+    cfg["proxyURL"] = list2# requests.get("https://raw.githubusercontent.com/monosans/proxy-list/refs/heads/main/proxies/all.txt").text.split("\n") #+ list2 
     with open("config.json", "w+") as config:
         json.dump(cfg, config, indent=4)
         print("Added " + str(len(cfg["proxyURL"])) + " proxies")

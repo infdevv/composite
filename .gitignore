@@ -8,3 +8,4 @@ data/users.json.backup
 data
 stats.json.tmp.*
 stats.json.backup
+bot.py

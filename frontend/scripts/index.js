@@ -197,7 +197,8 @@ let messages = [
   "The Big Goodbye",
 ];
 
-document.getElementById("other").innerHTML = 'Never See Me Again' //messages[Math.floor(Math.random() * messages.length)];
+document.getElementById("other").innerHTML = 
+messages[Math.floor(Math.random() * messages.length)];
 
 setTimeout(() => {
   const adSectionStyle = getComputedStyle(document.getElementById("adSection"));
