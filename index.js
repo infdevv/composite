@@ -13,7 +13,15 @@ const http = require("http");
 const { URL } = require("url");
 const fetch = require('node-fetch');
 
+const openrouter_models = [
+    "x-ai/grok-4.1-fast",
+" meituan/longcat-flash-chat",
 
+"z-ai/glm-4.5-air",
+
+
+"tngtech/deepseek-r1t2-chimera"
+]
 
 
 const fileLocks = new Map(); 
@@ -77,10 +85,15 @@ async function safeWriteJSON(filePath, data) {
 
 
 async function safeReadJSON(filePath) {
+  // Wait for any pending writes to complete
+  while (fileLocks.get(filePath)) {
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+
   try {
     const content = await fs.readFile(filePath, 'utf8');
 
-    
+
     if (!content || content.trim() === '') {
       console.error(`[Safe Read] File ${filePath} is empty, attempting backup restore`);
       throw new Error('Empty file detected');
@@ -91,14 +104,14 @@ async function safeReadJSON(filePath) {
   } catch (error) {
     console.error(`[Safe Read] Failed to read ${filePath}:`, error.message);
 
-    
+
     try {
       const backupPath = `${filePath}.backup`;
       console.log(`[Safe Read] Attempting to restore from backup: ${backupPath}`);
       const backupContent = await fs.readFile(backupPath, 'utf8');
       const backupData = JSON.parse(backupContent);
 
-      
+
       await fs.copyFile(backupPath, filePath);
       console.log(`[Safe Read] Successfully restored ${path.basename(filePath)} from backup`);
 
@@ -603,8 +616,12 @@ function preprocessRequest(request) {
 
 
   const modelParts = request.body.model.split(":");
-  const model = modelParts[0];
+  let model = modelParts[0];
   const prompt = modelParts[1];
+
+  if (openrouter_models.includes(model)) {
+    //model = model + ":free"
+  }
 
   const newBody = JSON.parse(JSON.stringify(request.body));
 
@@ -652,6 +669,19 @@ app.all("/v1/chat/completions", async function (request, reply) {
   const isStreaming =
     request.headers["accept"] === "text/event-stream" ||
     request.body?.stream === true;
+
+  
+
+  if (openrouter_models.includes((request.body.model).split(":")[0])) {
+    request.body.model = request.body.model
+    await proxyToEndpoint(
+    preprocessRequest(request),
+    reply,
+    "https://g4f.dev/api/openrouter/chat/completions",
+    isStreaming
+  );
+    return
+  }
 
   await proxyToEndpoint(
     preprocessRequest(request),
@@ -710,11 +740,12 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
 
     
     
-    if (users[key].balance < 0.1) {
+    if (users[key].balance < 1) {
+      console.log("[Proxy] Insufficient credits: " + users[key].balance);
       return reply.status(402).send({ error: "Insufficient credits" });
     }
 
-    
+    // Check for expired credits (12 hours since last ad)
     if (
       users[key].lastAdViewedDate !== 0 &&
       users[key].lastAdViewedDate + 43200000 < Date.now()
@@ -725,8 +756,6 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
         .status(402)
         .send({ error: "Credits expired. Please view an ad first." });
     }
-
-    
 
     delete headers.authorization;
     delete headers.referer;
@@ -1156,7 +1185,7 @@ setInterval(() => {
  }
 }, 1000 * 60 * 60); 
 
-app.listen({ port: 3000, host: "0.0.0.0" }, (err, address) => {
+app.listen({ port: 3005, host: "0.0.0.0" }, (err, address) => {
   if (err) {
     console.error(err);
     process.exit(1);
