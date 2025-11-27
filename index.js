@@ -18,9 +18,10 @@ const openrouter_models = [
 " meituan/longcat-flash-chat",
 
 "z-ai/glm-4.5-air",
-
-
-"tngtech/deepseek-r1t2-chimera"
+"arliai/qwq-32b-arliai-rpr-v1",
+"tngtech/deepseek-r1t-chimera",
+"meituan/longcat-flash-chat",
+"google/gemini-2.0-flash-exp",
 ]
 
 
@@ -695,15 +696,27 @@ app.all("/v1/chat/completions", async function (request, reply) {
 
 app.get("/v1/models", async function (request, reply) {
   const models = [
-    "deepseek-ai/DeepSeek-V3.1",
-    "deepseek-ai/DeepSeek-V3.1-Terminus",
-    "deepseek-ai/DeepSeek-R1-0528",
+    "MiniMaxAI/MiniMax-M2",
+    "moonshotai/Kimi-K2-Thinking",
     "deepseek-ai/DeepSeek-V3-0324",
-    "zai-org/GLM-4.6",
+    "x-ai/grok-4.1-fast",
+    "deepseek-ai/DeepSeek-R1-0528",
+    "deepseek-ai/DeepSeek-R1-0528-Turbo",
     "deepseek-ai/DeepSeek-V3.2-Exp",
-    "moonshotai/Kimi-K2-Instruct-0905",
+    "deepseek-ai/DeepSeek-V3.1-Terminus",
+    "deepseek-ai/DeepSeek-V3.1",
     "Qwen/Qwen3-235B-A22B-Instruct-2507",
-    "meta-llama/Llama-4-Scout-17B-16E-Instruct",
+    "Qwen/Qwen3-235B-A22B-Thinking-2507",
+    "Qwen/Qwen3-Next-80B-A3B-Instruct",
+    "Qwen/Qwen3-Next-80B-A3B-Thinking",
+    "moonshotai/Kimi-K2-Instruct-0905",
+    "Qwen/Qwen3-14B",
+    "mistralai/Mistral-Small-3.2-24B-Instruct-2506",
+    "mistralai/Mistral-Small-3.1-24B-Instruct-2503",
+    "google/gemma-3-27b-it",
+    "google/gemma-3-12b-it",
+    "google/gemma-2-27b-it",
+    "google/gemma-2-9b-it",
   ];
 
   reply.send({
@@ -1185,7 +1198,7 @@ setInterval(() => {
  }
 }, 1000 * 60 * 60); 
 
-app.listen({ port: 3005, host: "0.0.0.0" }, (err, address) => {
+app.listen({ port: 3000, host: "0.0.0.0" }, (err, address) => {
   if (err) {
     console.error(err);
     process.exit(1);
