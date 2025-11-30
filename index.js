@@ -1,4 +1,22 @@
-const config = require("./config.json");
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+
+// Handle uncaught exceptions to prevent server crashes
+process.on('uncaughtException', (err) => {
+  if (err.code === 'ECONNRESET') {
+    console.log('Ignored ECONNRESET error:', err.message);
+  } else {
+    console.error('Uncaught Exception:', err);
+    process.exit(1);
+  }
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // Don't exit for rejections, just log
+});
+
+let config = require("./config.json");
 const fastify = require("fastify");
 const fs = require("fs/promises");
 const fsSync = require("fs");
@@ -23,6 +41,77 @@ const openrouter_models = [
 "meituan/longcat-flash-chat",
 "google/gemini-2.0-flash-exp",
 ]
+
+async function databay() {
+    const httpTxt = await fetch("https://raw.githubusercontent.com/TheSpeedX/PROXY-List/refs/heads/master/http.txt", {
+        headers: {
+            "Authorization": `Bearer ${config.github_token}`,
+        }
+    })
+        .then(r => r.text());
+    const socks4TxT = await fetch("https://raw.githubusercontent.com/TheSpeedX/PROXY-List/refs/heads/master/socks4.txt", {
+        headers: {
+            "Authorization": `Bearer ${config.github_token}`,
+        }
+    })
+        .then(r => r.text());
+    const socks5Txt = await fetch("https://raw.githubusercontent.com/TheSpeedX/PROXY-List/refs/heads/master/socks5.txt", {
+        headers: {
+            "Authorization": `Bearer ${config.github_token}`,
+        }
+    })
+        .then(r => r.text());
+
+    const http = httpTxt.split("\n").map(proxy => "http://" + proxy);
+    const socks4 = socks4TxT.split("\n").map(proxy => "socks4://" + proxy);
+    const socks5 = socks5Txt.split("\n").map(proxy => "socks5://" + proxy);
+
+    return [...http, ...socks4, ...socks5];
+}
+
+async function misc() {
+    const txt = await fetch("https://raw.githubusercontent.com/roosterkid/openproxylist/refs/heads/main/HTTPS_RAW.txt", {
+        headers: {
+            "Authorization": `Bearer ${config.github_token}`,
+        }
+    }).then(r => r.text());
+
+    let set1 = txt.split("\n").map(proxy => "http://" + proxy);
+
+    return set1;
+}
+
+async function handleSimple() {
+    let txt = await fetch("https://raw.githubusercontent.com/iplocate/free-proxy-list/refs/heads/main/all-proxies.txt")
+        .then(r => r.text());
+    const txt2 = await fetch("https://raw.githubusercontent.com/monosans/proxy-list/refs/heads/main/proxies/all.txtt")
+        .then(r => r.text());
+
+    txt = txt.concat(txt2)
+    
+
+    return txt.split("\n");
+}
+
+// Global variable to store proxies
+let GATHERED_PROXIES = [];
+
+async function getProxies() {
+    const [list1, list2 ] = await Promise.all([
+        misc(),
+        handleSimple()
+    ]);
+
+    const list = [...list1, ...list2 ];
+    console.log(`Loaded ${list.length} proxies`);
+    GATHERED_PROXIES = list; // Store in global variable instead of config
+    updateProxyList(); // Update the proxy list used by the application
+}
+
+setInterval(function(){
+  getProxies()
+}, 1000 * 6000 * 60) // every hour, every minute, every second
+getProxies()
 
 
 const fileLocks = new Map(); 
@@ -126,46 +215,69 @@ async function safeReadJSON(filePath) {
 
 
 function loadProxies() {
-  if (!config.proxyURL) {
-    return [];
+  // Use proxies from the global GATHERED_PROXIES variable
+  if (GATHERED_PROXIES && Array.isArray(GATHERED_PROXIES) && GATHERED_PROXIES.length > 0) {
+    return GATHERED_PROXIES.filter(p => p && p.trim().length > 0);
   }
-
   
-  if (Array.isArray(config.proxyURL)) {
-    return config.proxyURL.filter(p => p && p.trim().length > 0);
-  }
-
-  
-  if (typeof config.proxyURL === 'string') {
-    try {
-      const filePath = path.resolve(__dirname, config.proxyURL);
-      console.log(`[PROXY] Loading proxies from file: ${filePath}`);
-
-      if (!fsSync.existsSync(filePath)) {
-        console.error(`[PROXY] File not found: ${filePath}`);
+  // Fallback to config.proxyURL if GATHERED_PROXIES is empty
+  if (config.proxyURL) {
+    if (Array.isArray(config.proxyURL)) {
+      return config.proxyURL.filter(p => p && p.trim().length > 0);
+    }
+    
+    if (typeof config.proxyURL === 'string') {
+      try {
+        const filePath = path.resolve(__dirname, config.proxyURL);
+        console.log(`[PROXY] Loading proxies from file: ${filePath}`);
+        
+        if (!fsSync.existsSync(filePath)) {
+          console.error(`[PROXY] File not found: ${filePath}`);
+          return [];
+        }
+        
+        const fileContent = fsSync.readFileSync(filePath, 'utf8');
+        const proxies = fileContent
+          .split('\n')
+          .map(line => line.trim())
+          .filter(line => line.length > 0 && !line.startsWith('#'));
+        
+        console.log(`[PROXY] Loaded ${proxies.length} proxies from file`);
+        return proxies;
+      } catch (error) {
+        console.error(`[PROXY] Error loading proxy file: ${error.message}`);
         return [];
       }
-
-      const fileContent = fsSync.readFileSync(filePath, 'utf8');
-      const proxies = fileContent
-        .split('\n')
-        .map(line => line.trim())
-        .filter(line => line.length > 0 && !line.startsWith('#')); 
-
-      console.log(`[PROXY] Loaded ${proxies.length} proxies from file`);
-      return proxies;
-    } catch (error) {
-      console.error(`[PROXY] Error loading proxy file: ${error.message}`);
-      return [];
     }
+    
+    console.warn('[PROXY] Invalid proxyURL format in config.json');
+    return [];
   }
-
-  console.warn('[PROXY] Invalid proxyURL format in config.json');
+  
+  // If no proxies in config, return empty array
   return [];
 }
 
-const PROXY_LIST = loadProxies();
-const USE_PROXIES = PROXY_LIST.length > 0;
+// Initialize proxy list as empty array
+let PROXY_LIST = [];
+let USE_PROXIES = false;
+
+// Function to update proxy list and USE_PROXIES flag
+function updateProxyList() {
+  PROXY_LIST = loadProxies();
+  USE_PROXIES = PROXY_LIST.length > 0;
+  console.log(`[PROXY] Updated proxy list. USE_PROXIES: ${USE_PROXIES}, PROXY_LIST length: ${PROXY_LIST.length}`);
+}
+
+// Initial update
+updateProxyList();
+
+// Update proxy list when getProxies() updates config.proxyURL
+const originalGetProxies = getProxies;
+getProxies = async function() {
+  await originalGetProxies();
+  updateProxyList();
+};
 
 const WORKING_PROXIES = new Set();
 const FAILED_PROXIES = new Set();
@@ -239,7 +351,6 @@ if (USE_PROXIES) {
 
 
 
-
 function createCustomAgent(proxyUrl = null, targetUrl = 'https://api.deepinfra.com/v1/chat/completions') {
   if (proxyUrl) {
     
@@ -254,31 +365,45 @@ function createCustomAgent(proxyUrl = null, targetUrl = 'https://api.deepinfra.c
     const targetProtocol = targetUrl.startsWith('https') ? 'https' : 'http';
 
     if (proxyProtocol === 'socks5' || proxyProtocol === 'socks5h' || proxyProtocol === 'socks4' || proxyProtocol === 'socks') {
-      
+
       console.log(`[Agent] Using SocksProxyAgent for ${proxyProtocol} proxy`);
       agent = new SocksProxyAgent(safeProxyUrl, {
         keepAlive: true,
         keepAliveMsecs: 1000,
-        family: 4, 
-        timeout: 30000 
+        family: 4,
+        timeout: 30000,
+        rejectUnauthorized: false // Disable SSL certificate verification
       });
     } else if (targetProtocol === 'https') {
-      
+
       console.log(`[Agent] Using HttpsProxyAgent for HTTPS target`);
       agent = new HttpsProxyAgent(safeProxyUrl, {
         keepAlive: true,
         keepAliveMsecs: 1000,
-        family: 4, 
-        timeout: 30000 
+        family: 4,
+        timeout: 30000,
+        rejectUnauthorized: false // Disable SSL certificate verification
       });
     } else {
-      
+
       console.log(`[Agent] Using HttpProxyAgent for HTTP target`);
       agent = new HttpProxyAgent(safeProxyUrl, {
         keepAlive: true,
         keepAliveMsecs: 1000,
-        family: 4, 
-        timeout: 30000 
+        family: 4,
+        timeout: 30000,
+        rejectUnauthorized: false // Disable SSL certificate verification
+      });
+    }
+
+    // Add error handler to ignore ECONNRESET errors that don't crash the server
+    if (agent && typeof agent.on === 'function') {
+      agent.on('error', (err) => {
+        if (err.code === 'ECONNRESET') {
+          console.log(`[Agent] Ignored ECONNRESET error on proxy: ${safeProxyUrl}`);
+        } else {
+          console.error(`[Agent] Proxy agent error:`, err.message);
+        }
       });
     }
 
@@ -291,8 +416,9 @@ function createCustomAgent(proxyUrl = null, targetUrl = 'https://api.deepinfra.c
     return new https.Agent({
       keepAlive: true,
       keepAliveMsecs: 1000,
-      family: 4, 
-      timeout: 30000 
+      family: 4,
+      timeout: 30000,
+      rejectUnauthorized: false // Disable SSL certificate verification for direct connections too
     });
   }
 }
@@ -496,52 +622,20 @@ app.post("/api/check-key", async function (request, reply) {
     if (!users[request.body.key]) {
       return reply.status(404).send({ error: "Key not found" });
     }
+    if (
+      users[request.body.key].lastAdViewedDate !== 0 &&
+      users[request.body.key].lastAdViewedDate + 43200000 < Date.now()
+    ) {
+      users[request.body.key].balance = 0;
+      await safeWriteJSON("./data/users.json", users);
+    }
+
     reply.send(users[request.body.key]);
   } catch (error) {
     console.error("Check key error:", error);
     return reply.status(500).send({ error: "Internal server error" });
   }
 });
-
-app.get("/api/test-random-proxy", async function (request, reply) {
-  try {
-    if (!USE_PROXIES || PROXY_LIST.length === 0) {
-      return reply.status(400).send({ error: "No proxies configured" });
-    }
-
-    const randomProxy = PROXY_LIST[Math.floor(Math.random() * PROXY_LIST.length)];
-    console.log(`[PROXY] Testing proxy: ${randomProxy}`);
-
-    const agent = createCustomAgent(randomProxy, 'https://api.ipify.org');
-
-    const response = await fetch("https://api.ipify.org?format=json", {
-      agent: agent,
-      timeout: 10000
-    });
-
-    if (!response.ok) {
-      return reply.status(500).send({
-        success: false,
-        proxy: randomProxy,
-        error: `HTTP ${response.status}: ${response.statusText}`
-      });
-    }
-
-    const data = await response.json();
-    reply.send({
-      success: true,
-      proxy: randomProxy,
-      ip: data.ip,
-    });
-  } catch (error) {
-    console.error("[PROXY] Error testing random proxy:", error.message);
-    return reply.status(500).send({
-      success: false,
-      error: error.message
-    });
-  }
-})
-
 
 
 app.post("/api/getAdUrl", async function (request, reply) {
@@ -558,9 +652,6 @@ app.post("/api/getAdUrl", async function (request, reply) {
       "adUrl":await response.text()
     }) );
 });
-
-
-
 
 app.post("/api/getCredits", async function (request, reply) {
   try {
@@ -694,8 +785,10 @@ app.all("/v1/chat/completions", async function (request, reply) {
 
 
 
+
+
 app.get("/v1/models", async function (request, reply) {
-  const models = [
+  let models = [
     "MiniMaxAI/MiniMax-M2",
     "moonshotai/Kimi-K2-Thinking",
     "deepseek-ai/DeepSeek-V3-0324",
@@ -718,6 +811,38 @@ app.get("/v1/models", async function (request, reply) {
     "google/gemma-2-27b-it",
     "google/gemma-2-9b-it",
   ];
+
+  let new_models = []
+
+  let prompts = [
+    "DefaultV4",
+"DefaultV3",
+"DefaultV2",
+"DefaultV1",
+"Cheese",
+"Pupi",
+"Livechat",
+"Brbie",
+"Infdevv",
+"Anrp",
+"Humour",
+"Dacm",
+"Teto",
+"Status",
+"Affection",
+"Unpositive",
+"Slop",
+"Reasoning"
+  ]
+
+  for (let model of models){
+    for (let prompt of prompts){
+      new_models.push(model + ":" + prompt)
+    }
+  }
+
+  // merge
+  models = models.concat(new_models);
 
   reply.send({
     object: "list",
@@ -842,13 +967,36 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
             if (response.status === 403 && proxyUrl) {
               console.warn(`✗ Got 403 Forbidden with proxy: ${proxyUrl}`);
               markProxyFailed(proxyUrl);
-              throw new Error(`403 Forbidden from DeepInfra`);
+              // Return null to indicate failure instead of throwing
+              return null;
             }
 
             if (response.status === 503 && proxyUrl) {
               console.warn(`✗ Got 503 with proxy: ${proxyUrl}`);
               markProxyFailed(proxyUrl);
-              throw new Error(`503 from proxy`);
+              // Return null to indicate failure instead of throwing
+              return null;
+            }
+
+            if (response.status === 500 && proxyUrl) {
+              console.warn(`✗ Got 500 with proxy: ${proxyUrl}`);
+              markProxyFailed(proxyUrl);
+              // Return null to indicate failure instead of throwing
+              return null;
+            }
+
+            if (response.status === 400 && proxyUrl) {
+              console.warn(`✗ Got 500 with proxy: ${proxyUrl}`);
+              markProxyFailed(proxyUrl);
+              // Return null to indicate failure instead of throwing
+              return null;
+            }
+
+            if (response.status != 200 && proxyUrl) {
+              console.warn(`✗ Got unknown error with proxy: ${proxyUrl}`);
+              markProxyFailed(proxyUrl);
+              // Return null to indicate failure instead of throwing
+              return null;
             }
 
             // Mark proxy as working if successful
@@ -856,18 +1004,51 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
               markProxyWorking(proxyUrl);
             }
 
+            // Return the response for any status code (including 200, 4xx, 5xx)
+            // The caller will decide what to do with the response
             return { response, proxyUrl };
           } catch (fetchError) {
             clearTimeout(timeoutId);
             if (fetchError.name === 'AbortError') {
-              throw new Error('Request timeout after 30 seconds');
+              console.warn(`✗ Request timeout with proxy ${proxyUrl || 'direct'}: ${fetchError.message}`);
+              if (proxyUrl) {
+                markProxyFailed(proxyUrl);
+              }
+              // Return null to indicate failure instead of throwing
+              return null;
             }
-            throw fetchError;
+            // Handle ECONNRESET and other network errors gracefully
+            if (fetchError.code === 'ECONNRESET' ||
+                fetchError.code === 'CERT_HAS_EXPIRED' ||
+                fetchError.code === 'ECONNREFUSED' ||
+                fetchError.message.includes('Client network socket disconnected') ||
+                fetchError.message.includes('certificate has expired') ||
+                fetchError.message.includes('connect ECONNREFUSED') ||
+                fetchError.message.includes('connect ETIMEDOUT')) {
+              console.warn(`✗ Network error with proxy ${proxyUrl || 'direct'}: ${fetchError.message}`);
+              if (proxyUrl) {
+                markProxyFailed(proxyUrl);
+              }
+              // Return null to indicate failure instead of throwing
+              return null;
+            }
+            // Handle any other errors
+            console.warn(`✗ Error with proxy ${proxyUrl || 'direct'}: ${fetchError.message}`);
+            if (proxyUrl) {
+              markProxyFailed(proxyUrl);
+            }
+            // Return null to indicate failure instead of throwing
+            return null;
           }
         } catch (error) {
           const errorType = error.code || error.name || 'UNKNOWN';
           console.warn(`✗ Proxy ${proxyUrl || 'direct'} failed: ${errorType} - ${error.message}`);
-          throw error;
+          // Don't throw the error, just mark the proxy as failed and continue
+          if (proxyUrl) {
+            markProxyFailed(proxyUrl);
+          }
+          // Return null to indicate failure instead of throwing
+          return null;
         }
       }
 
@@ -876,7 +1057,7 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
 
       if (USE_PROXIES && PROXY_LIST.length > 0) {
         // Race multiple proxies simultaneously with retry logic
-        const numProxiesPerRace = Math.min(4, PROXY_LIST.length);
+        const numProxiesPerRace = Math.min(config.proxiesPerRound || 4, PROXY_LIST.length);
         const now = Date.now();
         const availableProxies = PROXY_LIST.filter(p => !FAILED_PROXIES.has(p));
         const proxyPool = availableProxies.length > 0 ? availableProxies : PROXY_LIST;
@@ -917,13 +1098,49 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
 
             console.log(`[Race] Final attempt with ${finalProxies.length} proxies...`);
             try {
-              const result = await Promise.any(
-                finalProxies.map(proxy => singleAttempt(proxy))
+              // Create an array of promises that will resolve with the first successful response
+              const racePromises = finalProxies.map(proxy =>
+                singleAttempt(proxy).then(result => {
+                  // Only resolve with results that have a successful status (200)
+                  if (result && result.response && result.response.status === 200) {
+                    console.log(`✓ First successful response (200) from proxy: ${proxy}`);
+                    return result;
+                  }
+                  // For non-200 responses, we still return them but they won't be the "winner"
+                  // unless all other proxies fail
+                  return result;
+                })
               );
-              response = result.response;
-              usedProxy = result.proxyUrl;
-              console.log(`✓ Final attempt winner: ${usedProxy} with status ${response.status}`);
-              break;
+
+              // Race all proxy attempts - first one to resolve wins!
+              const results = await Promise.allSettled(racePromises);
+              
+              // Find the first successful result with status 200
+              let successfulResult = null;
+              for (const result of results) {
+                if (result.status === 'fulfilled' && result.value !== null) {
+                  // Check if this is a 200 response
+                  if (result.value.response && result.value.response.status === 200) {
+                    successfulResult = result.value;
+                    console.log(`✓ Winner (200 response): ${result.value.proxyUrl}`);
+                    break; // First 200 response wins!
+                  }
+                  // If we don't have a successful result yet, store the first non-null result
+                  if (!successfulResult) {
+                    successfulResult = result.value;
+                  }
+                }
+              }
+
+              if (successfulResult) {
+                response = successfulResult.response;
+                usedProxy = successfulResult.proxyUrl;
+                console.log(`✓ Final attempt winner: ${usedProxy} with status ${response.status}`);
+                break;
+              } else {
+                console.error(`[Race] All final proxies failed. Unable to complete request.`);
+                throw new Error('All proxies exhausted after multiple race attempts');
+              }
             } catch (error) {
               console.error(`[Race] All final proxies failed. Unable to complete request.`);
               throw new Error('All proxies exhausted after multiple race attempts');
@@ -932,44 +1149,80 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
 
           console.log(`[Race] Attempt ${raceAttempt}/${maxRaceAttempts}: Racing ${proxiesToTry.length} proxies simultaneously...`);
 
+          // Create an array of promises that will resolve with the first successful response
+          const racePromises = proxiesToTry.map(proxy =>
+            singleAttempt(proxy).then(result => {
+              // Only resolve with results that have a successful status (200)
+              if (result && result.response && result.response.status === 200) {
+                console.log(`✓ First successful response (200) from proxy: ${proxy}`);
+                return result;
+              }
+              // For non-200 responses, we still return them but they won't be the "winner"
+              // unless all other proxies fail
+              return result;
+            })
+          );
+
           try {
-            // Race all proxy attempts - first successful one wins!
-            const result = await Promise.any(
-              proxiesToTry.map(proxy => singleAttempt(proxy))
-            );
-
-            response = result.response;
-            usedProxy = result.proxyUrl;
-            console.log(`✓ Winner (attempt ${raceAttempt}): ${usedProxy} with status ${response.status}`);
-            break; // Success! Exit the retry loop
-          } catch (error) {
-            // All proxies in this batch failed
-            console.error(`[Race] All ${proxiesToTry.length} proxies failed in attempt ${raceAttempt}`);
-
-            // If this was our last attempt, throw error
-            if (raceAttempt >= maxRaceAttempts || usedProxies.size >= proxyPool.length) {
-              console.error(`[Race] Exhausted all proxies after ${raceAttempt} attempts`);
-
-              // One final attempt: reset everything and try again
-              FAILED_PROXIES.clear();
-              const lastChance = proxyPool.slice(0, numProxiesPerRace);
-              console.log(`[Race] Last chance with ${lastChance.length} proxies...`);
-
-              try {
-                const result = await Promise.any(
-                  lastChance.map(proxy => singleAttempt(proxy))
-                );
-                response = result.response;
-                usedProxy = result.proxyUrl;
-                console.log(`✓ Last chance winner: ${usedProxy} with status ${response.status}`);
-                break;
-              } catch (finalError) {
-                throw new Error('All proxies exhausted after multiple race attempts');
+            // Race all proxy attempts - first one to resolve wins!
+            // We use Promise.allSettled to handle all promises and find the first successful one
+            const results = await Promise.allSettled(racePromises);
+            
+            // Find the first successful result with status 200
+            let successfulResult = null;
+            for (const result of results) {
+              if (result.status === 'fulfilled' && result.value !== null) {
+                // Check if this is a 200 response
+                if (result.value.response && result.value.response.status === 200) {
+                  successfulResult = result.value;
+                  console.log(`✓ Winner (200 response): ${result.value.proxyUrl}`);
+                  break; // First 200 response wins!
+                }
+                // If we don't have a successful result yet, store the first non-null result
+                if (!successfulResult) {
+                  successfulResult = result.value;
+                }
               }
             }
 
-            // Otherwise, continue to next race attempt with different proxies
-            console.log(`[Race] Retrying with different proxies...`);
+            if (successfulResult) {
+              response = successfulResult.response;
+              usedProxy = successfulResult.proxyUrl;
+              console.log(`✓ Winner (attempt ${raceAttempt}): ${usedProxy} with status ${response.status}`);
+              break; // Success! Exit the retry loop
+            } else {
+              // All proxies in this batch failed
+              console.error(`[Race] All ${proxiesToTry.length} proxies failed in attempt ${raceAttempt}`);
+
+              // If this was our last attempt, try a direct connection
+              if (raceAttempt >= maxRaceAttempts || usedProxies.size >= proxyPool.length) {
+                console.error(`[Race] Exhausted all proxies after ${raceAttempt} attempts`);
+                console.log(`[Race] Trying direct connection as last resort...`);
+                
+                try {
+                  const result = await singleAttempt(null);
+                  if (result !== null) {
+                    response = result.response;
+                    usedProxy = result.proxyUrl;
+                    console.log(`✓ Direct connection successful`);
+                    break;
+                  } else {
+                    console.error(`[Race] Direct connection also failed`);
+                    throw new Error('All proxies and direct connection failed');
+                  }
+                } catch (directError) {
+                  console.error(`[Race] Direct connection also failed: ${directError.message}`);
+                  throw new Error('All proxies and direct connection failed');
+                }
+              }
+
+              // Otherwise, continue to next race attempt with different proxies
+              console.log(`[Race] Retrying with different proxies...`);
+            }
+          } catch (error) {
+            // Handle any other errors
+            console.error(`[Race] Error in race attempt ${raceAttempt}:`, error);
+            throw error;
           }
         }
 
@@ -979,8 +1232,12 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
       } else {
         // No proxies configured, use direct connection
         const result = await singleAttempt(null);
-        response = result.response;
-        usedProxy = result.proxyUrl;
+        if (result !== null) {
+          response = result.response;
+          usedProxy = result.proxyUrl;
+        } else {
+          throw new Error('Direct connection failed');
+        }
       }
 
       if (!response) {
@@ -1017,12 +1274,19 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
         }
 
         
+        // Check if this is a successful response (status 200)
+        if (response.status === 200) {
+          return { response, data };
+        }
+        
+        // Handle error responses
         if (isOpenAIError(data) && canFallback && promptList.fallbacks[modelToUse]) {
           console.log(`Model ${modelToUse} returned error: ${data.error.message}, trying fallback: ${promptList.fallbacks[modelToUse]}`);
           return attemptRequest(promptList.fallbacks[modelToUse], false);
         }
-
-        return { response, data };
+        
+        // For other non-200 responses, throw an error to trigger fallback or retry
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
     }
 
@@ -1031,7 +1295,10 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
 
     if (isStreaming) {
       const response = await attemptRequest(originalModel, canFallback);
-
+      if (!response) {
+        throw new Error('All proxy attempts failed');
+      }
+      
       reply.raw.writeHead(response.status, {
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
@@ -1112,8 +1379,16 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
         }
       }
     } else {
-      const { data } = await attemptRequest(originalModel, canFallback);
-
+      try {
+        const { data } = await attemptRequest(originalModel, canFallback);
+        if (!data) {
+          throw new Error('All proxy attempts failed');
+        }
+      } catch (attemptError) {
+        console.error("Attempt request error:", attemptError);
+        throw attemptError;
+      }
+      
       
       let totalTokens = 0;
       if (data.usage && data.usage.total_tokens) {
@@ -1188,7 +1463,7 @@ setInterval(() => {
       fs.unlinkSync("./duplicate/" + files[0]);
     }
   
-    
+     
     fs.readFile("./data/users.json", "utf8").then((data) => {
       fs.writeFile("./duplicate/users-" + Date.now() + ".json", data);
    });

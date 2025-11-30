@@ -165,36 +165,7 @@ document
 let messages = [
   // music type shit
 
-  "Gone Gone / Thank You",
-  "Come to Life",
-  "All Falls Down",
-  "We Don't Care",
-  "Family Business",
-  "Graduation (SKIT)",
-  "We Major",
-  "Roses",
-  "Touch The Sky",
-  "Bring Me Down",
-  "Good Morning",
-  "I Wonder",
-  "Big Brother",
-  "Flashing Lights",
-  "Flashing Lights (Part 2)",
-  "Preacher Man",
-  "Beauty And The Beast",
-  "Highs And Lows",
-  "White Lines",
-  "2085",
-  "Off The Grid",
-  "*Boy is a Gun",
-  "Running Out Of Time",
-  "New Magic Wand",
-  "Dark Fantasy",
-  "POWER",
-  "All of The Lights",
-  "LOST IN THE WORLD / WHO WILL SURVIVE IN AMERICA",
-  "Blame Game",
-  "The Big Goodbye",
+  "BEG FORGIVENESS",
 ];
 
 document.getElementById("other").innerHTML = 
