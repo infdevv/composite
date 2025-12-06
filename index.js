@@ -11,12 +11,11 @@ const https = require("https");
 const fetch = require('node-fetch');
 
 const openrouter_models = [
-    "x-ai/grok-4.1-fast",
-    "meituan/longcat-flash-chat",
-    "z-ai/glm-4.5-air",
-    "arliai/qwq-32b-arliai-rpr-v1",
-    "tngtech/deepseek-r1t-chimera",
-    "google/gemini-2.0-flash-exp",
+    "deepseek-ai/deepseek-r1-0528",
+    "deepseek-ai/deepseek-v3.1",
+    "minimaxai/minimax-m2",
+    "mistralai/magistral-small-2506",
+    "mistralai/mistral-large-3-675b-instruct-2512"
 ]
 
 
@@ -422,13 +421,13 @@ async function directToEndpoint(request, reply, endpoint, isStreaming = false) {
 
 app.all("/v1/chat/completions", async function (request, reply) {
     const isStreaming = request.headers["accept"] === "text/event-stream" || request.body?.stream === true;
-
+    request.body.model = "deepseek-ai/deepseek-v3.1"
     if (openrouter_models.includes((request.body.model).split(":")[0])) {
         request.body.model = request.body.model;
         await directToEndpoint(
             preprocessRequest(request),
             reply,
-            "https://g4f.dev/api/openrouter/chat/completions",
+            "https://g4f.dev/api/nvidia/chat/completions",
             isStreaming
         );
         return;
@@ -437,7 +436,7 @@ app.all("/v1/chat/completions", async function (request, reply) {
     await directToEndpoint(
         preprocessRequest(request),
         reply,
-        "https://api.deepinfra.com/v1/chat/completions",
+        "https://api.deepinfra.com/v1/openai/chat/completions",
         isStreaming
     );
 });
@@ -466,7 +465,7 @@ app.get("/v1/models", async function (request, reply) {
 });
 
 // Initialize server
-app.listen({ port: 2085}, (err, address) => {
+app.listen({ port: 2085 }, (err, address) => {
     if (err) {
         console.error(err);
         process.exit(1);
