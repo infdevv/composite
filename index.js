@@ -187,14 +187,18 @@ app.get("/api/statistics", async function (request, reply) {
     });
 });
 
-function trimMessagesToTokenLimit(messages, limit){
+function trimMessagesToTokenLimit(messages, limit) {
     let stringified = JSON.stringify(messages);
-    while (stringified.length / 4 > limit){
-        messages.splice(1, 1);
+
+    // Approx: 4 chars ≈ 1 token
+    while (stringified.length / 4 > limit && messages.length > 1) {
+        messages.splice(1, 1); // remove oldest *user/assistant* message, keep index 0
         stringified = JSON.stringify(messages);
     }
+
     return messages;
 }
+
 
 app.get("/api/service", async function (request, reply) {
     const stats = await safeReadJSON("stats.json");
