@@ -6,12 +6,9 @@ const fsSync = require("fs");
 const crypto = require("crypto");
 const path = require("path");
 const promptList = require("./helpers/constants.js");
-const { HttpProxyAgent } = require('http-proxy-agent');
-const { HttpsProxyAgent } = require('https-proxy-agent');
-const { SocksProxyAgent } = require('socks-proxy-agent');
+
 const https = require("https");
 const fetch = require('node-fetch');
-const { fetchProxies } = require("./helpers/riding.js");
 
 const openrouter_models = [
     "x-ai/grok-4.1-fast",
@@ -22,114 +19,19 @@ const openrouter_models = [
     "google/gemini-2.0-flash-exp",
 ]
 
-let PROXY_LIST = [];
-let USE_PROXIES = false;
 
-async function initializeProxies() {
-    try {
-        const response = await fetch("https://raw.githubusercontent.com/infdevv/Composite-Autoproxy/refs/heads/main/proxies.txt");
-        const text = await response.text();
-        PROXY_LIST = text.split("\n").filter(proxy => proxy !== "" && !proxy.startsWith("#"));
-        USE_PROXIES = PROXY_LIST.length > 0;
-        console.log(`[PROXY] Loaded ${PROXY_LIST.length} proxies from composite proxy list`);
-    } catch (error) {
-        console.error(`[PROXY] Error loading proxies: ${error.message}`);
-        PROXY_LIST = [];
-        USE_PROXIES = false;
-    }
 
-    if (USE_PROXIES) {
-        console.log("[PROXY] Proxy on")
-        
-        // Set up automatic proxy refresh every 3 hours
-        setInterval(async () => {
-            console.log("[PROXY] Refreshing proxy list (every 30 minutes)...");
-            await initializeProxies();
-        }, 30 * 60 * 1000); // 30 minutes = 1800000ms
-    } else {
-        console.log("[PROXY] Proxy off")
-    }
-}
 
-const FAILED_PROXIES = new Set();
-const PROXY_LAST_USED = new Map();
-const PROXY_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes cooldown to avoid reusing recently used proxies
 
-function getNextProxy() {
-    if (!USE_PROXIES || PROXY_LIST.length === 0) return null;
 
-    const now = Date.now();
-    let availableProxies = PROXY_LIST.filter(p => {
-        if (FAILED_PROXIES.has(p)) return false;
-        const lastUsed = PROXY_LAST_USED.get(p);
-        if (lastUsed && (now - lastUsed) < PROXY_COOLDOWN_MS) return false;
-        return true;
+
+function createDirectAgent(targetUrl = 'https://api.deepinfra.com/v1/chat/completions') {
+    return new https.Agent({
+        keepAlive: true,
+        keepAliveMsecs: 1000,
+        family: 4,
+        timeout: 30000
     });
-
-    if (availableProxies.length === 0) {
-        availableProxies = PROXY_LIST.filter(p => !FAILED_PROXIES.has(p));
-        if (availableProxies.length === 0) {
-            console.log('All proxies failed, resetting failed list and retrying...');
-            FAILED_PROXIES.clear();
-            PROXY_LAST_USED.clear();
-            availableProxies = PROXY_LIST;
-        } else {
-            availableProxies.sort((a, b) => {
-                const aTime = PROXY_LAST_USED.get(a) || 0;
-                const bTime = PROXY_LAST_USED.get(b) || 0;
-                return aTime - bTime;
-            });
-        }
-    }
-
-    const proxy = availableProxies[Math.floor(Math.random() * availableProxies.length)];
-    PROXY_LAST_USED.set(proxy, now);
-    return proxy;
-}
-
-function markProxyFailed(proxyUrl) {
-    FAILED_PROXIES.add(proxyUrl);
-    console.log(`Proxy marked as failed: ${proxyUrl} (${FAILED_PROXIES.size}/${PROXY_LIST.length} failed)`);
-}
-
-function createCustomAgent(proxyUrl = null, targetUrl = 'https://api.deepinfra.com/v1/chat/completions') {
-    if (proxyUrl) {
-        const safeProxyUrl = proxyUrl;
-        const proxyProtocol = safeProxyUrl.split(':')[0].toLowerCase();
-        const targetProtocol = targetUrl.startsWith('https') ? 'https' : 'http';
-
-        let agent;
-        if (proxyProtocol.startsWith('socks')) {
-            agent = new SocksProxyAgent(safeProxyUrl, {
-                keepAlive: true,
-                keepAliveMsecs: 1000,
-                family: 4,
-                timeout: 30000
-            });
-        } else if (targetProtocol === 'https') {
-            agent = new HttpsProxyAgent(safeProxyUrl, {
-                keepAlive: true,
-                keepAliveMsecs: 1000,
-                family: 4,
-                timeout: 30000
-            });
-        } else {
-            agent = new HttpProxyAgent(safeProxyUrl, {
-                keepAlive: true,
-                keepAliveMsecs: 1000,
-                family: 4,
-                timeout: 30000
-            });
-        }
-        return agent;
-    } else {
-        return new https.Agent({
-            keepAlive: true,
-            keepAliveMsecs: 1000,
-            family: 4,
-            timeout: 30000
-        });
-    }
 }
 
 const app = fastify({ logger: false });
@@ -371,7 +273,7 @@ async function updateRequestStats(latency, successful) {
     }
 }
 
-async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
+async function directToEndpoint(request, reply, endpoint, isStreaming = false) {
     let stats = await safeReadJSON("stats.json");
     stats.totalRequests += 1;
     stats.activeRequests += 1;
@@ -394,7 +296,7 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
     }
 
     if (users[key].balance < 1) {
-        console.log("[Proxy] Insufficient credits: " + users[key].balance);
+        console.log("[Direct] Insufficient credits: " + users[key].balance);
         return reply.status(402).send({ error: "Insufficient credits" });
     }
 
@@ -415,8 +317,8 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
         delete headers[header.charAt(0).toUpperCase() + header.slice(1)];
     });
 
-    async function singleAttempt(proxyUrl) {
-        const agent = createCustomAgent(proxyUrl, endpoint);
+    async function directAttempt() {
+        const agent = createDirectAgent(endpoint);
         const abortController = new AbortController();
         const timeoutId = setTimeout(() => abortController.abort(), 30000);
 
@@ -429,28 +331,7 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
                 signal: abortController.signal
             });
             clearTimeout(timeoutId);
-
-            if (response.status === 403 && proxyUrl) {
-                markProxyFailed(proxyUrl);
-                throw new Error(`403 Forbidden from DeepInfra`);
-            }
-
-            if (response.status === 400 && proxyUrl) {
-                markProxyFailed(proxyUrl);
-                throw new Error(`400 Forbidden from DeepInfra`);
-            }
-
-            if (response.status !== 200 && proxyUrl) {
-                markProxyFailed(proxyUrl);
-                throw new Error(`Error from DeepInfra`);
-            }
-
-            if (response.status === 503 && proxyUrl) {
-                markProxyFailed(proxyUrl);
-                throw new Error(`503 from proxy`);
-            }
-
-            return { response, proxyUrl };
+            return { response };
         } catch (error) {
             clearTimeout(timeoutId);
             if (error.name === 'AbortError') {
@@ -463,58 +344,9 @@ async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
     let result = null;
 
     try {
-        if (USE_PROXIES && PROXY_LIST.length > 0) {
-            // Use centralized proxy selection that respects cooldown
-            let proxyAttempts = 0;
-            const maxProxyAttempts = Math.min(20, PROXY_LIST.length * 2); // Increased attempts
-            
-            while (proxyAttempts < maxProxyAttempts) {
-                proxyAttempts++;
-                const proxyUrl = getNextProxy();
-                
-                if (!proxyUrl) {
-                    console.log('[Proxy] No available proxies, clearing failed list and retrying...');
-                    FAILED_PROXIES.clear();
-                    PROXY_LAST_USED.clear();
-                    continue;
-                }
-                
-                console.log(`[Proxy] Attempt ${proxyAttempts}/${maxProxyAttempts}: Using proxy ${proxyUrl}`);
-                
-                try {
-                    result = await singleAttempt(proxyUrl);
-                    console.log(`[Proxy] Success with proxy ${proxyUrl}`);
-                    break; // Success, exit the retry loop
-                } catch (error) {
-                    console.error(`[Proxy] Proxy ${proxyUrl} failed: ${error.message}`);
-                    
-                    // Continue to next proxy attempt - don't give up!
-                    if (proxyAttempts >= maxProxyAttempts) {
-                        console.log('[Proxy] Max attempts reached, clearing failed list and doing final sweep...');
-                        FAILED_PROXIES.clear();
-                        PROXY_LAST_USED.clear();
-                        proxyAttempts = 0; // Reset attempts and try again
-                    }
-                }
-            }
-            // Only throw error if we truly exhausted all possibilities
-            if (!result) {
-                console.error('[Proxy] All proxy attempts failed, but continuing to try...');
-                // Instead of throwing, try one more time with a random proxy
-                const finalProxy = PROXY_LIST[Math.floor(Math.random() * PROXY_LIST.length)];
-                try {
-                    result = await singleAttempt(finalProxy);
-                    console.log(`[Proxy] Final attempt succeeded with ${finalProxy}`);
-                } catch (finalError) {
-                    console.error('[Proxy] Even final attempt failed');
-                    throw new Error('All proxies exhausted after extensive retry attempts');
-                }
-            }
-        } else {
-            result = await singleAttempt(null);
-        }
+        result = await directAttempt();
     } catch (error) {
-        console.error("Proxy error:", error);
+        console.error("Direct connection error:", error);
         if (!reply.sent && !reply.raw.headersSent) {
             return reply.status(500).send({ error: "Internal server error" });
         }
@@ -593,7 +425,7 @@ app.all("/v1/chat/completions", async function (request, reply) {
 
     if (openrouter_models.includes((request.body.model).split(":")[0])) {
         request.body.model = request.body.model;
-        await proxyToEndpoint(
+        await directToEndpoint(
             preprocessRequest(request),
             reply,
             "https://g4f.dev/api/openrouter/chat/completions",
@@ -602,7 +434,7 @@ app.all("/v1/chat/completions", async function (request, reply) {
         return;
     }
 
-    await proxyToEndpoint(
+    await directToEndpoint(
         preprocessRequest(request),
         reply,
         "https://api.deepinfra.com/v1/chat/completions",
@@ -633,13 +465,11 @@ app.get("/v1/models", async function (request, reply) {
     });
 });
 
-// Initialize proxies before starting the server
-initializeProxies().then(() => {
-    app.listen({ port: 2085}, (err, address) => {
-        if (err) {
-            console.error(err);
-            process.exit(1);
-        }
-        console.log(`Server listening on ${address}`);
-    });
+// Initialize server
+app.listen({ port: 2085}, (err, address) => {
+    if (err) {
+        console.error(err);
+        process.exit(1);
+    }
+    console.log(`Server listening on ${address}`);
 });
