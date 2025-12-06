@@ -1,8 +1,7 @@
 {
-  "totalRequests": 49334,
-  "activeRequests": 902,
+  "totalRequests": 49337,
+  "activeRequests": 904,
   "latencies": [
-    55190,
     2616,
     9352,
     69057,
@@ -51,9 +50,10 @@
     16928,
     6658,
     3260,
-    27981
+    27981,
+    174963
   ],
   "failedRequests": 564,
   "maxLatencies": 50,
-  "successfulRequests": 3253
+  "successfulRequests": 3254
 }
