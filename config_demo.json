@@ -1,7 +1,0 @@
-{
-    "proxyURL": ["http://site.com:12321"],
-    "cutyio": "3252395022523",
-    "maxTokens": 128000,
-    "creditsPerAd": 1280,
-    "creditsPerToken": 0.01
-}

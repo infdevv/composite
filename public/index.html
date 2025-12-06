@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Composite⁷</title>
+    <meta name="description" content="Composite is a proxy site. We proxy the proxy">
+    <meta name="authors" content="Developed by a fucking idiot, funded by the shadow goverment">
+    <style>
+        @import url(https://fonts.googleapis.com/css?family=Inter:100,200,300,regular,500,600,700,800,900,100italic,200italic,300italic,italic,500italic,600italic,700italic,800italic,900italic);
+
+        html {
+            height: 100%;
+        }
+
+        body {
+            min-height: 100%;
+            margin: 0;
+            background-color: #09050e;
+            color: #efe8ff;
+            font-family: inter;
+            position: relative;
+        }
+
+        .logo {
+            font-size: 25px;
+            display: flex;
+            margin-bottom: 25px;
+        }
+
+        .logo_main {
+            font-size: 25px;
+            display: flex;
+            width: 50%;
+            justify-content: space-between;
+        }
+
+        .superscript {
+            color: #8a67fa;
+            font-size: 15px;
+            vertical-align: super;
+        }
+
+
+        .center {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            padding: 25px;
+            width: 100%;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 90vh;
+            width: 100%;
+            flex-direction: column;
+        }
+
+        .loader {
+            width: 48px;
+            height: 48px;
+            border: 5px solid #FFF;
+            border-bottom-color: #8a67fa;
+            border-radius: 50%;
+            display: inline-block;
+            box-sizing: border-box;
+            animation: rotation 1s linear infinite;
+        }
+
+        @keyframes rotation {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes fade {
+            0% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0;
+            }
+        }
+
+        .section {
+            border: 2px solid #1c0c2e;
+            border-radius: 15px;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            flex-direction: column;
+            box-sizing: border-box;
+            background-color: rgba(28, 12, 46, 0.3);
+        }
+
+        button {
+            padding: 14px;
+            border-radius: 4px;
+            border-color: #1c0c2e;
+            background-color: #1c0c2e;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #2d0f4a;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 15px;
+            max-width: 900px;
+            width: 100%;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+
+        .welcome-section {
+            width: 60%;
+            max-width: 600px;
+            margin: 0 auto 20px;
+            text-align: center;
+        }
+
+        .temp-section {
+            width: 60%;
+            max-width: 600px;
+            margin: 0 auto 20px;
+            text-align: center;
+        }
+
+        .scrollable-container {
+            flex: 1;
+            overflow-y: auto;
+            max-height: 300px;
+            padding-right: 5px;
+            margin-top: 10px;
+            width: 90%;
+        }
+
+        .scrollable-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .scrollable-container::-webkit-scrollbar-track {
+            background: #1c0c2e;
+            border-radius: 3px;
+        }
+
+        .scrollable-container::-webkit-scrollbar-thumb {
+            background: #8a67fa;
+            border-radius: 3px;
+        }
+
+        .scrollable-container::-webkit-scrollbar-thumb:hover {
+            background: #a085ff;
+        }
+
+        a {
+            color: #a085ff;
+        }
+
+        @media (max-width: 768px) {
+            .logo {
+                font-size: 20px;
+            }
+
+            .logo_main {
+                font-size: 20px;
+                width: 100%;
+                justify-content: center;
+            }
+
+            .section {
+                padding: 10px;
+                width: 100%;
+            }
+
+            .container {
+                padding: 0 10px;
+                gap: 10px;
+                grid-template-columns: 1fr;
+            }
+
+            .welcome-section, .temp-section {
+                width: 90%;
+                margin: 0 auto 10px;
+            }
+
+            .scrollable-container {
+                width: 95%;
+                max-height: 200px;
+            }
+
+            button {
+                padding: 12px;
+                font-size: 14px;
+            }
+
+            .center {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="galaxy">
+        <div class="stars1"></div>
+        <div class="stars2"></div>
+        <div class="stars3"></div>
+         
+    </div>
+    <div class="loading" id="loader">
+        <span class="logo">
+            composite
+            <span class="superscript">7</span>
+        </span>
+        <span class="loader"></span>
+    </div>
+    <div class="center" id="center">
+
+
+        <span class="logo_main">
+            <div>
+                composite
+                <span class="superscript">7</span>
+            </div>
+            <span class="status">
+                <span id="latency" style="font-size: 12px;">
+                    --
+                </span>
+                <span id="status" style="margin-left: 10px; font-size: 12px;">
+                    --
+                </span>
+            </span>
+        </span>
+
+
+        <div id="br">
+        </div>
+        <br>
+
+        <div class="section welcome-section" id="welcome">
+            <p>Let's get you started.</p>
+            <div style="display: flex; gap: 8px; justify-content: center;">
+                <button onclick="window.location='setup.html'">Setup (Guide)</button>
+            </div>
+        </div>
+        <div id="info_box" style="display: none;">
+            <div class="section">
+            <p id="info"></p>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="section" id="keySection">
+                <h3>API Key Management</h3>
+                <div id="keyinfo">Your API key:</div>
+                <span id="keyDisplay">Not set</span>
+                <div style="gap: 18px">
+                    <div id="balanceDisplay"><span id="credits">0</span></div>
+
+                </div>
+
+                <h3>Credits expire every 12 hours</h3>
+                <button id="gen" style="margin-top: auto;">Generate New Key</button>
+
+
+            </div>
+
+
+            <div class="section" id="adSection">
+                <h3>Earn Credits</h3>
+                <div style="margin-bottom: 10px;">
+                    <small>Watch ads to earn credits (Every 12 hours)</small><br>
+                </div>
+                <button id="watchAdBtn">Watch Ad for Credits/Requests</button>
+                <div style="margin-top: 10px;">
+                    <small>• Invite 2 friends: +50 credits</small><br>
+                    <small>• Make a essay about Pipkin Pippa: no ADs + inf credits</small><br>
+                    <small>Contact us on Discord to redeem either alternative method!</small>
+                </div>
+            </div>
+
+            <div class="section" id="promptsSection">
+                <h3>Available Prompts (read guide)</h3>
+                <div class="scrollable-container">
+                    <ul id="promptsList">
+                        <li>DefaultV5</li>
+                        <li>DefaultV4</li>
+                        <li>DefaultV3</li>
+                        <li>DefaultV2</li>
+                        <li>DefaultV1</li>
+                        <li>Cheese</li>
+                        <li>Pupi</li>
+                        <li>Livechat</li>
+                        <li>Brbie</li>
+                        <li>Infdevv</li>
+                        <li>Anrp</li>
+                        <li>Humour</li>
+                        <li>Dacm</li>
+                        <li>Teto</li>
+                        <li>Status</li>
+                        <li>Affection</li>
+                        <li>Unpositive</li>
+                        <li>Slop</li>
+                        <li>Reasoning</li>
+                    </ul>
+                </div>
+            </div>
+
+
+
+            <div class="section" id="modelsSection">
+                <h3>Available Models</h3>
+                <div class="scrollable-container">
+                    <ul id="modelsList">
+                        <li>Qwen/Qwen3-Next-80B-A3B-Instruct (SUPER FAST)</li>
+                        <li>deepseek-ai/DeepSeek-V3-0324</li>
+                        <li>MiniMaxAI/MiniMax-M2</li>
+                        <li>moonshotai/Kimi-K2-Thinking</li>
+                        <li>deepseek-ai/DeepSeek-R1-0528</li>
+                        <li>deepseek-ai/DeepSeek-R1-0528-Turbo</li>
+                        <li>deepseek-ai/DeepSeek-V3.2</li>
+                        <li>deepseek-ai/DeepSeek-V3.1-Terminus</li>
+                        <li>deepseek-ai/DeepSeek-V3.1</li>
+                        <li>Qwen/Qwen3-235B-A22B-Instruct-2507</li>
+                        <li>Qwen/Qwen3-235B-A22B-Thinking-2507</li>
+                        <li>moonshotai/Kimi-K2-Instruct-0905</li>
+                        <li>google/gemma-3-27b-it</li>
+                        <li>google/gemma-3-12b-it</li>
+                        <li>google/gemma-2-27b-it</li>
+                        <li>google/gemma-2-9b-it</li>
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+        <center>
+            <h2>Need more help? Join our <a href="https://discord.gg/4MmRDuMfu9" target="_blank">discord</a></a></h2>
+        </center>
+        <script src="./scripts/bg.js"></script>
+        <script>
+
+
+            if (localStorage.getItem("key") != null) {
+                document.getElementById("gen").setAttribute("disabled", true);
+                document.getElementById("br").remove()
+                document.getElementById("gen").disabled = true;
+            }
+            let latency = 0
+            let stability = 0
+            let color = ""
+
+            async function load() {
+                try {
+                    let key
+                    try {
+                        fetch("./cf.json")
+                            .then(response => response.json())
+                            .then(json => {
+                                if (json.message) {
+                                    document.getElementById("info").innerText = json.message;
+                                    document.getElementById("info_box").style.display = "block";
+                                }
+                            })
+                            .catch(error => console.error(error));
+                        
+                        if (localStorage.getItem("key")) {
+                            try {
+                                const response = await fetch("/api/balance", {
+                                    headers: {
+                                        "Authorization": "Bearer " + localStorage.getItem("key")
+                                    }
+                                });
+                                
+                                if (!response.ok) {
+                                    localStorage.clear();
+                                    location.reload()
+                                    throw new Error(`HTTP error! status: ${response.status}`);
+                                }
+                                
+                                const user = await response.json();
+                                const balance = user["balance"];
+                                
+                                document.getElementById("keyDisplay").innerText = "Key: " + localStorage.getItem("key");
+                                document.getElementById("credits").innerText = "Credits: " + balance;
+                                
+                                if (user && user.lastAdViewedDate) {
+                                    const currentTime = Date.now();
+                                    const nextAdTime = user.lastAdViewedDate + (43200 * 1000); // 43200 seconds = 12 hours in milliseconds
+                                    if (currentTime < nextAdTime) {
+                                        document.getElementById("watchAdBtn").setAttribute("disabled", "disabled");
+                                    } else {
+                                        document.getElementById("watchAdBtn").removeAttribute("disabled");
+                                    }
+                                }
+                            } catch (error) {
+                                console.error('Error fetching balance:', error);
+                                document.getElementById("keyDisplay").innerText = "Error loading key";
+                                document.getElementById("credits").innerText = "Credits: Error";
+                            }
+                        }
+                    }
+                    catch (error) { console.log(error) }
+                    let response = await fetch("/api/service");
+                    let data = await response.json();
+                    latency = data["latency"];
+                    stability = data["stability_level"];
+                    // Determine speed based on latency
+                    if (latency <= 3000) { // Fast: ≤3 seconds
+                        stability = "fast";
+                        color = "green";
+                    } else if (latency <= 6000) { // Medium: 3-6 seconds
+                        stability = "medium";
+                        color = "yellow";
+                    } else { // Slow: >6 seconds
+                        stability = "slow";
+                        color = "red";
+                    }
+                    document.getElementById("latency").textContent = latency + "ms";
+                    document.getElementById("status").textContent = stability;
+                    document.getElementById("status").style.color = color;
+                } catch (e) {
+                    console.error(e);
+                }
+                document.getElementById("loader").style.animation = "fade .2s ease-in";
+                setTimeout(function () {
+                    document.getElementById("loader").remove();
+                    document.getElementById("center").style.display = "flex";
+                }, 200);
+            }
+
+            load()
+
+            document.getElementById("gen").addEventListener("click", async function() {
+                try {
+                    const response = await fetch("/api/make-key");
+                    const data = await response.json();
+                    localStorage.setItem("key", data.key);
+                    location.reload();
+                } catch (error) {
+                    console.error("Error generating key:", error);
+                }
+            });
+
+            document.getElementById("watchAdBtn").addEventListener("click", function () {
+                if (!this.hasAttribute("disabled")) {
+                    window.location = 'adredirect.html';
+                }
+            });
+
+           
+        </script>
+</body>
+
+</html>

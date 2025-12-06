@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Composite⁷</title>
+    <meta name="description"
+        content="Composite is a proxy site. We proxy the proxy">
+    <meta name="authors" content="Developed by a fucking idiot, funded by the shadow goverment">
+    <style>
+        @import url(https://fonts.googleapis.com/css?family=Inter:100,200,300,regular,500,600,700,800,900,100italic,200italic,300italic,italic,500italic,600italic,700italic,800italic,900italic);
+
+        html {
+            height: 100%;
+        }
+        body {
+            min-height: 100%;
+            margin: 0;
+            background-color: #09050e;
+            color: #efe8ff;
+            font-family: inter;
+            position: relative;
+        }
+
+        .logo {
+            font-size: 25px;
+            display: flex;
+            margin-bottom: 25px;
+        }
+
+        .logo_main {
+            font-size: 25px;
+            display: flex;
+            width: 50%;
+            justify-content: space-between;
+        }
+
+        .superscript {
+            color: #8a67fa;
+            font-size: 15px;
+            vertical-align: super;
+        }
+
+
+        .center {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            padding: 25px;
+            width: 100%;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 90vh;
+            width: 100%;
+            flex-direction: column;
+        }
+
+        .loader {
+            width: 48px;
+            height: 48px;
+            border: 5px solid #FFF;
+            border-bottom-color: #8a67fa;
+            border-radius: 50%;
+            display: inline-block;
+            box-sizing: border-box;
+            animation: rotation 1s linear infinite;
+        }
+
+        @keyframes rotation {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes fade {
+            0% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0;
+            }
+        }
+
+        .section {
+            border: 2px solid #1c0c2e;
+            border-radius: 15px;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            flex-direction: column;
+            box-sizing: border-box;
+            background-color: rgba(28, 12, 46, 0.3);
+        }
+
+        button {
+            padding: 14px;
+            border-radius: 4px;
+            border-color: #1c0c2e;
+            background-color: #1c0c2e;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #2d0f4a;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 15px;
+            max-width: 900px;
+            width: 100%;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+
+        .welcome-section {
+            width: 60%;
+            max-width: 600px;
+            margin: 0 auto 20px;
+            text-align: center;
+        }
+
+        .temp-section {
+            width: 60%;
+            max-width: 600px;
+            margin: 0 auto 20px;
+            text-align: center;
+        }
+
+        .scrollable-container {
+            flex: 1;
+            overflow-y: auto;
+            max-height: 300px;
+            padding-right: 5px;
+            margin-top: 10px;
+            width: 90%;
+        }
+
+        .scrollable-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .scrollable-container::-webkit-scrollbar-track {
+            background: #1c0c2e;
+            border-radius: 3px;
+        }
+
+        .scrollable-container::-webkit-scrollbar-thumb {
+            background: #8a67fa;
+            border-radius: 3px;
+        }
+
+        .scrollable-container::-webkit-scrollbar-thumb:hover {
+            background: #a085ff;
+        }
+
+        a {
+            color: #a085ff;
+        }
+
+        @media (max-width: 768px) {
+            .logo {
+                font-size: 20px;
+            }
+
+            .logo_main {
+                font-size: 20px;
+                width: 100%;
+                justify-content: center;
+            }
+
+            .section {
+                padding: 10px;
+                width: 100%;
+            }
+
+            .container {
+                padding: 0 10px;
+                gap: 10px;
+                grid-template-columns: 1fr;
+            }
+
+            .welcome-section, .temp-section {
+                width: 90%;
+                margin: 0 auto 10px;
+            }
+
+            .scrollable-container {
+                width: 95%;
+                max-height: 200px;
+            }
+
+            button {
+                padding: 12px;
+                font-size: 14px;
+            }
+
+            .center {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+            <div class="galaxy">
+<div class="stars1"></div>
+<div class="stars2"></div>
+<div class="stars3"></div>
+</div>
+    <div class="loading" id="loader">
+        <span class="logo">
+            composite
+            <span class="superscript">7</span>
+        </span>
+        <span class="loader"></span>
+        <br>
+
+    </div>
+    <div class="center" id="center">
+
+
+    <script src="./scripts/bg.js"></script>
+    <script>
+        alert(`⚠️!WARNING!⚠️
+DO NOT CLICK ANYTHING BESIDES THE CONTINUE BUTTON
+EXIT OUT OF ALL WINDOWS THAT OPEN BESIDES CUTYIO
+(1/3)
+        `)
+        alert(`⚠️!WARNING!⚠️
+DO NOT CLICK ANYTHING BESIDES THE CONTINUE BUTTON
+EXIT OUT OF ALL WINDOWS THAT OPEN BESIDES CUTYIO
+(2/3)
+        `)
+        alert(`⚠️!WARNING!⚠️
+DO NOT CLICK ANYTHING BESIDES THE CONTINUE BUTTON
+EXIT OUT OF ALL WINDOWS THAT OPEN BESIDES CUTYIO
+(3/3)
+        `)
+        sessionStorage.setItem("isver", true) // not secure not secure idgaf
+        
+        // Get URL from query parameter or use default
+        const urlParams = new URLSearchParams(window.location.search);
+        const targetUrl = window.origin + '/rep.html';
+        
+        setTimeout(function(){
+        fetch('/api/getAdUrl', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ url: targetUrl })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            window.location = data.adUrl;
+        })
+        },5000)
+    </script>
+
+</body>
+
+</html>

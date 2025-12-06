@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Composite⁷</title>
+    <meta name="description" content="Composite is a proxy site. We proxy the proxy">
+    <meta name="authors" content="Developed by a fucking idiot, funded by the shadow goverment">
+    <style>
+        @import url(https://fonts.googleapis.com/css?family=Inter:100,200,300,regular,500,600,700,800,900,100italic,200italic,300italic,italic,500italic,600italic,700italic,800italic,900italic);
+
+        html {
+            height: 100%;
+        }
+
+        body {
+            min-height: 100%;
+            margin: 0;
+            background-color: #09050e;
+            color: #efe8ff;
+            font-family: inter;
+            position: relative;
+        }
+
+        .logo {
+            font-size: 25px;
+            display: flex;
+            margin-bottom: 25px;
+        }
+
+        .logo_main {
+            font-size: 25px;
+            display: flex;
+            width: 50%;
+            justify-content: space-between;
+        }
+
+        .superscript {
+            color: #8a67fa;
+            font-size: 15px;
+            vertical-align: super;
+        }
+
+
+        .center {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 25px;
+            width: 100%;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 90%;
+            flex-direction: column;
+        }
+
+        .loader {
+            width: 48px;
+            height: 48px;
+            border: 5px solid #FFF;
+            border-bottom-color: #8a67fa;
+            border-radius: 50%;
+            display: inline-block;
+            box-sizing: border-box;
+            animation: rotation 1s linear infinite;
+        }
+
+        @keyframes rotation {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes fade {
+            0% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0;
+            }
+        }
+
+        .section {
+            border: 2px solid #1c0c2e;
+            border-radius: 15px;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            flex-direction: column;
+            box-sizing: border-box;
+            background-color: rgba(28, 12, 46, 0.3);
+        }
+
+        button {
+            padding: 14px;
+            border-radius: 4px;
+            border-color: #1c0c2e;
+            background-color: #1c0c2e;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #2d0f4a;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 15px;
+            max-width: 900px;
+            width: 100%;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+
+        .welcome-section {
+            width: 60%;
+            max-width: 600px;
+            margin: 0 auto 20px;
+            text-align: center;
+        }
+
+        .temp-section {
+            width: 60%;
+            max-width: 600px;
+            margin: 0 auto 20px;
+            text-align: center;
+        }
+
+        .scrollable-container {
+            flex: 1;
+            overflow-y: auto;
+            max-height: 300px;
+            padding-right: 5px;
+            margin-top: 10px;
+            width: 90%;
+        }
+
+        .scrollable-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .scrollable-container::-webkit-scrollbar-track {
+            background: #1c0c2e;
+            border-radius: 3px;
+        }
+
+        .scrollable-container::-webkit-scrollbar-thumb {
+            background: #8a67fa;
+            border-radius: 3px;
+        }
+
+        .scrollable-container::-webkit-scrollbar-thumb:hover {
+            background: #a085ff;
+        }
+
+        code {
+            background-color: #1c0c2e;
+            padding: 4px;
+            border-radius: 4px;
+        }
+
+        a {
+            color: #a085ff;
+        }
+
+        select {
+            padding: 14px;
+            border-radius: 4px;
+            border-color: #1c0c2e;
+            background-color: #1c0c2e;
+            color: white;
+            border: none;
+            width: 150px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        @media (max-width: 768px) {
+            .logo {
+                font-size: 20px;
+            }
+
+            .logo_main {
+                font-size: 20px;
+                width: 100%;
+                justify-content: center;
+            }
+
+            .section {
+                padding: 10px;
+                width: 100%;
+            }
+
+            .container {
+                padding: 0 10px;
+                gap: 10px;
+                grid-template-columns: 1fr;
+            }
+
+            .welcome-section, .temp-section {
+                width: 90%;
+                margin: 0 auto 10px;
+            }
+
+            .scrollable-container {
+                width: 95%;
+                max-height: 200px;
+            }
+
+            button {
+                padding: 12px;
+                font-size: 14px;
+            }
+
+            select {
+                width: 120px;
+            }
+
+            .center {
+                padding: 15px;
+            }
+
+            h3[onclick] {
+                position: static;
+                margin-bottom: 10px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="galaxy">
+        <div class="stars1"></div>
+        <div class="stars2"></div>
+        <div class="stars3"></div>
+    </div>
+
+    <div class="center" id="center">
+
+        <h3 style="position: fixed; left: 15px; top: 15px;" onclick="window.location = './'">Home</h3>
+
+
+        <span class="logo_main">
+            <div>
+                composite
+                <span class="superscript">7</span>
+            </div>
+
+        </span>
+
+        <br>
+
+        <div class="section welcome-section">
+            <h2>How to set it up</h2>
+            <p>Go to your chat website of choice and find place this URL</p>
+            <code id="url">https://composite-beta.seabase.xyz/v1/chat/completions</code>
+            <p>into the "Reverse Proxy" or "Proxy Endpoint" box</p>
+            <p>Then pick any model you want out of the available models list on the main page  and set that as your model in the "Model" box</p>
+            <p>Get your API key (or generate it) and put it into the "API Key" field. Then you can save it and use
+                it!</p>
+            <h3>Prompt builder</h3>
+            <div class="builder">
+                <select id="prompts">
+                    <option value="none">No Prompt</option>
+                </select>
+                <select id="models">
+                    <option>Model</option>
+                </select>
+                <button onclick="generate()">Generate</button>
+                <br>
+                <br>
+                <code id="modelname">Model name will appear here once you generate!</code>
+            </div>
+        </div>
+        <h2>Need more help? Join our <a href="https://discord.gg/4MmRDuMfu9" target="_blank">discord</a></a></h2>
+        <script src="./scripts/bg.js"></script>
+
+        <script>
+            document.getElementById("url").innerHTML = window.origin + "/v1/chat/completions"
+            let prompts = [
+                "DefaultV5",
+                "DefaultV4",
+                "DefaultV3",
+                "DefaultV2",
+                "DefaultV1",
+                "Cheese",
+                "Pupi",
+                "Livechat",
+                "Brbie",
+                "Infdevv",
+                "Anrp",
+                "Humour",
+                "Dacm",
+                "Teto",
+                "Status",
+                "Affection",
+                "Unpositive",
+                "Slop",
+                "Reasoning"
+            ]
+
+            let models = [
+                "MiniMaxAI/MiniMax-M2",
+"moonshotai/Kimi-K2-Thinking",
+"deepseek-ai/DeepSeek-R1-0528",
+"deepseek-ai/DeepSeek-R1-0528-Turbo",
+"deepseek-ai/DeepSeek-V3.2-Exp",
+"deepseek-ai/DeepSeek-V3.1-Terminus",
+"deepseek-ai/DeepSeek-V3.1",
+"Qwen/Qwen3-235B-A22B-Instruct-2507",
+"Qwen/Qwen3-235B-A22B-Thinking-2507",
+"Qwen/Qwen3-Next-80B-A3B-Instruct",
+"moonshotai/Kimi-K2-Instruct-0905",
+"google/gemma-3-27b-it",
+"google/gemma-3-12b-it",
+"google/gemma-2-27b-it",
+"google/gemma-2-9b-it",
+            ]
+
+            for (prompt of prompts) {
+                let option = document.createElement("option")
+                option.innerText = prompt
+                option.value = prompt
+                document.getElementById("prompts").appendChild(option)
+            }
+
+            for (model of models) {
+                let option = document.createElement("option")
+                option.innerText = model
+                option.value = model
+                document.getElementById("models").appendChild(option)
+            }
+
+
+            function generate(){
+                let model = document.getElementById("models").value 
+                let prompt = document.getElementById("prompts").value
+                document.getElementById("modelname").innerText = `${model}:${prompt}`
+            }
+        </script>
+
+</body>
+
+</html>
