@@ -433,12 +433,19 @@ async function directToEndpoint(request, reply, endpoint, isStreaming = false) {
     // Update stats for failed requests
     updateRequestStats(latency, requestSuccessful);
 }
-
 app.all("/v1/chat/completions", async function (request, reply) {
     const isStreaming = request.headers["accept"] === "text/event-stream" || request.body?.stream === true;
-    request.body.model = "deepseek-ai/deepseek-v3.1"
-    if (openrouter_models.includes((request.body.model).split(":")[0])) {
-        request.body.model = request.body.model;
+    const model = request.body.model;
+    if (1) {
+        await directToEndpoint(
+            preprocessRequest(request),
+            reply,
+            "https://text.pollinations.ai/openai",
+            isStreaming
+        );
+        return;
+    }
+    if (openrouter_models.includes(model.split(":")[0])) {
         await directToEndpoint(
             preprocessRequest(request),
             reply,
@@ -447,7 +454,18 @@ app.all("/v1/chat/completions", async function (request, reply) {
         );
         return;
     }
+    if (model === "deepseek-v3.2") {
+        await directToEndpoint(
+            preprocessRequest(request),
+            reply,
+            "https://g4f.dev/api/ollama/chat/completions",
+            isStreaming
+        );
+        return;
+    }
 
+    
+    
     await directToEndpoint(
         preprocessRequest(request),
         reply,
