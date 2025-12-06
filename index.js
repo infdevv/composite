@@ -187,6 +187,15 @@ app.get("/api/statistics", async function (request, reply) {
     });
 });
 
+function trimMessagesToTokenLimit(messages, limit){
+    let stringified = JSON.stringify(messages);
+    while (stringified.length / 4 > limit){
+        messages.splice(1, 1);
+        stringified = JSON.stringify(messages);
+    }
+    return messages;
+}
+
 app.get("/api/service", async function (request, reply) {
     const stats = await safeReadJSON("stats.json");
     const averageLatency = calculateMedianLatency(stats.latencies);
@@ -219,6 +228,8 @@ function preprocessRequest(request) {
     delete request.headers["content-length"];
     delete request.headers["Content-Length"];
 
+
+
     const modelParts = request.body.model.split(":");
     let model = modelParts[0];
     const prompt = modelParts[1];
@@ -238,9 +249,9 @@ function preprocessRequest(request) {
         }
     }
 
-    if (newBody.messages && newBody.messages.length > 0 && config.maxTokens) {
+   // if (newBody.messages && newBody.messages.length > 0 && config.maxTokens) {
         newBody.messages = trimMessagesToTokenLimit(newBody.messages, config.maxTokens);
-    }
+    //}
 
     newBody.model = model;
     request.body = newBody;
