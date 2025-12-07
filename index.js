@@ -3,6 +3,7 @@ const config = require("./config.json");
 const fastify = require("fastify");
 const fs = require("fs/promises");
 const fsSync = require("fs");
+
 const crypto = require("crypto");
 const path = require("path");
 const promptList = require("./helpers/constants.js");
@@ -54,9 +55,14 @@ async function safeReadJSON(filePath) {
 }
 
 async function safeWriteJSON(filePath, data) {
-    const tmpPath = `${filePath}.tmp`;
-    await fs.writeFile(tmpPath, JSON.stringify(data, null, 2));
-    await fs.promises.rename(tmpPath, filePath);
+    const fd = await fs.open(`${filePath}.tmp`, 'wx');
+    try {
+        await fs.promises.writeFile(fd, JSON.stringify(data, null, 2));
+        await fs.promises.fdatasync(fd, fs.constants.F_LINUX_SYNC_FILE_RANGE);
+    } finally {
+        await fs.promises.close(fd);
+    }
+    await fs.promises.rename(`${filePath}.tmp`, filePath);
 }
 
 app.get("/api/make-key", async function (request, reply) {
