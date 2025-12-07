@@ -54,15 +54,58 @@ async function safeReadJSON(filePath) {
     return JSON.parse(data);
 }
 
-async function safeWriteJSON(filePath, data) {
-    const fd = await fs.open(`${filePath}.tmp`, 'wx');
-    try {
-        await fs.promises.writeFile(fd, JSON.stringify(data, null, 2));
-        await fs.promises.fdatasync(fd, fs.constants.F_LINUX_SYNC_FILE_RANGE);
-    } finally {
-        await fs.promises.close(fd);
+async function safeWriteJSON(filePath, data, maxRetries = 5) {
+    const tempFilePath = `${filePath}.${process.pid}.${Date.now()}.${Math.random().toString(36).substr(2, 9)}.tmp`;
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        let fd = null;
+        try {
+            // Generate unique temp filename to avoid conflicts
+            fd = await fs.open(tempFilePath, 'wx');
+            
+            // Write the data
+            await fs.promises.writeFile(fd, JSON.stringify(data, null, 2));
+            
+            // Ensure data is written to disk (platform-independent)
+            await fs.promises.fsync(fd);
+            
+            // Close the file before renaming
+            await fs.promises.close(fd);
+            fd = null;
+            
+            // Atomic rename operation
+            await fs.promises.rename(tempFilePath, filePath);
+            
+            // Success!
+            return;
+            
+        } catch (error) {
+            // Clean up resources if they were opened
+            if (fd) {
+                try {
+                    await fs.promises.close(fd);
+                } catch (closeError) {
+                    // Ignore close errors
+                }
+            }
+            
+            // Clean up temp file if it exists
+            try {
+                await fs.promises.unlink(tempFilePath);
+            } catch (unlinkError) {
+                // Ignore unlink errors (file might not exist)
+            }
+            
+            // If it's the last attempt, throw the error
+            if (attempt === maxRetries) {
+                throw new Error(`Failed to write file after ${maxRetries + 1} attempts: ${error.message}`);
+            }
+            
+            // Exponential backoff with jitter for concurrent access
+            const delay = Math.min(100 * Math.pow(2, attempt), 1000) + Math.random() * 100;
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
     }
-    await fs.promises.rename(`${filePath}.tmp`, filePath);
 }
 
 app.get("/api/make-key", async function (request, reply) {
