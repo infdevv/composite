@@ -6,6 +6,7 @@ const fsSync = require("fs");
 
 const crypto = require("crypto");
 const path = require("path");
+const os = require("os");
 const promptList = require("./helpers/constants.js");
 
 const https = require("https");
@@ -55,52 +56,54 @@ async function safeReadJSON(filePath) {
 }
 
 async function safeWriteJSON(filePath, data, maxRetries = 5) {
-    const tempFilePath = `${filePath}.${process.pid}.${Date.now()}.${Math.random().toString(36).substr(2, 9)}.tmp`;
-    
+    const tempDir = os.tmpdir();
+    const tempFileName = `${path.basename(filePath)}.${crypto.randomUUID()}.tmp`;
+    const tempFilePath = path.join(tempDir, tempFileName);
+
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         let fd = null;
         try {
-            // Generate unique temp filename to avoid conflicts
+            // Create unique temp file in system temp directory
             fd = await fs.open(tempFilePath, 'wx');
-            
+
             // Write the data
-            await fs.promises.writeFile(fd, JSON.stringify(data, null, 2));
-            
+            await fd.write(JSON.stringify(data, null, 2));
+
             // Ensure data is written to disk (platform-independent)
-            await fs.promises.fsync(fd);
-            
+            await fd.sync();
+
             // Close the file before renaming
-            await fs.promises.close(fd);
+            await fd.close();
             fd = null;
-            
-            // Atomic rename operation
-            await fs.promises.rename(tempFilePath, filePath);
-            
+
+            // Atomic rename operation (can move across directories)
+            await fs.rename(tempFilePath, filePath);
+
             // Success!
             return;
-            
+
         } catch (error) {
             // Clean up resources if they were opened
             if (fd) {
                 try {
-                    await fs.promises.close(fd);
+                    await fd.close();
                 } catch (closeError) {
                     // Ignore close errors
                 }
             }
-            
+
             // Clean up temp file if it exists
             try {
-                await fs.promises.unlink(tempFilePath);
+                await fs.unlink(tempFilePath);
             } catch (unlinkError) {
                 // Ignore unlink errors (file might not exist)
             }
-            
+
             // If it's the last attempt, throw the error
             if (attempt === maxRetries) {
                 throw new Error(`Failed to write file after ${maxRetries + 1} attempts: ${error.message}`);
             }
-            
+
             // Exponential backoff with jitter for concurrent access
             const delay = Math.min(100 * Math.pow(2, attempt), 1000) + Math.random() * 100;
             await new Promise(resolve => setTimeout(resolve, delay));
