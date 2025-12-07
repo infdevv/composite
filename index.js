@@ -54,7 +54,9 @@ async function safeReadJSON(filePath) {
 }
 
 async function safeWriteJSON(filePath, data) {
-    await fs.writeFile(filePath, JSON.stringify(data, null, 2));
+    const tmpPath = `${filePath}.tmp`;
+    await fs.writeFile(tmpPath, JSON.stringify(data, null, 2));
+    await fs.promises.rename(tmpPath, filePath);
 }
 
 app.get("/api/make-key", async function (request, reply) {
@@ -447,13 +449,12 @@ app.all("/v1/chat/completions", async function (request, reply) {
 
 app.get("/v1/models", async function (request, reply) {
     const models = [
-        "MiniMaxAI/MiniMax-M2", "moonshotai/Kimi-K2-Thinking", "deepseek-ai/DeepSeek-V3-0324",
-        "x-ai/grok-4.1-fast", "deepseek-ai/DeepSeek-R1-0528", "deepseek-ai/DeepSeek-R1-0528-Turbo",
-        "deepseek-ai/DeepSeek-V3.2-Exp", "deepseek-ai/DeepSeek-V3.1-Terminus", "deepseek-ai/DeepSeek-V3.1",
+        "Qwen/Qwen3-Next-80B-A3B-Instruct", "deepseek-ai/DeepSeek-V3-0324",
+        "MiniMaxAI/MiniMax-M2", "moonshotai/Kimi-K2-Thinking", "deepseek-ai/DeepSeek-R1-0528",
+        "deepseek-ai/DeepSeek-R1-0528-Turbo", "deepseek-ai/DeepSeek-V3.2",
+        "deepseek-ai/DeepSeek-V3.1-Terminus", "deepseek-ai/DeepSeek-V3.1",
         "Qwen/Qwen3-235B-A22B-Instruct-2507", "Qwen/Qwen3-235B-A22B-Thinking-2507",
-        "Qwen/Qwen3-Next-80B-A3B-Instruct", "Qwen/Qwen3-Next-80B-A3B-Thinking",
-        "moonshotai/Kimi-K2-Instruct-0905", "Qwen/Qwen3-14B", "mistralai/Mistral-Small-3.2-24B-Instruct-2506",
-        "mistralai/Mistral-Small-3.1-24B-Instruct-2503", "google/gemma-3-27b-it",
+        "moonshotai/Kimi-K2-Instruct-0905", "google/gemma-3-27b-it",
         "google/gemma-3-12b-it", "google/gemma-2-27b-it", "google/gemma-2-9b-it",
     ];
 
