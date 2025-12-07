@@ -51,6 +51,9 @@ app.register(require("@fastify/static"), {
     decorateReply: false,
 });
 
+let consecutive403 = 0;
+let scriptRun = false;
+
 async function safeReadJSON(filePath) {
     const data = await fs.readFile(filePath, 'utf8');
     return JSON.parse(data);
