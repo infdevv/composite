@@ -51,9 +51,6 @@ app.register(require("@fastify/static"), {
     decorateReply: false,
 });
 
-let consecutive403 = 0;
-let scriptRun = false;
-
 async function safeReadJSON(filePath) {
     const data = await fs.readFile(filePath, 'utf8');
     return JSON.parse(data);
@@ -361,23 +358,27 @@ async function directToEndpoint(request, reply, endpoint, isStreaming = false) {
 
     let headers = { ...request.headers };
     if (!headers.authorization || !headers.authorization.includes(" ")) {
+        await updateRequestStats(null, false);
         return reply.status(401).send({ error: "Missing or invalid authorization header" });
     }
 
     let key = headers.authorization.split(" ")[1];
     let users = await safeReadJSON("./data/users.json");
     if (!users[key]) {
+        await updateRequestStats(null, false);
         return reply.status(401).send({ error: "Invalid API key" });
     }
 
     if (users[key].balance < 1) {
         console.log("[Direct] Insufficient credits: " + users[key].balance);
+        await updateRequestStats(null, false);
         return reply.status(402).send({ error: "Insufficient credits" });
     }
 
     if (users[key].lastAdViewedDate !== 0 && users[key].lastAdViewedDate + 43200000 < Date.now()) {
         users[key].balance = 0;
         await safeWriteJSON("./data/users.json", users);
+        await updateRequestStats(null, false);
         return reply.status(402).send({ error: "Credits expired. Please view an ad first." });
     }
 
@@ -433,23 +434,7 @@ async function directToEndpoint(request, reply, endpoint, isStreaming = false) {
     if (result && result.response) {
         const upstreamResponse = result.response;
         reply.status(upstreamResponse.status);
-        requestSuccessful = upstreamResponse.status >= 200 && upstreamResponse.status < 300;
-        
-        if (upstreamResponse.status === 403) {
-            consecutive403++;
-            if (consecutive403 >= 3 && !scriptRun) {
-                exec('./change.sh', (error, stdout, stderr) => {
-                    if (error) {
-                        console.error(`Error running change.sh: ${error}`);
-                        return;
-                    }
-                    console.log(`change.sh executed: ${stdout}`);
-                });
-                scriptRun = true;
-            }
-        } else {
-            consecutive403 = 0;
-        }
+        requestSuccessful = true;
         
         // Copy headers
         for (const [key, value] of upstreamResponse.headers.entries()) {
@@ -551,4 +536,20 @@ app.listen({ port: 2085 }, (err, address) => {
         process.exit(1);
     }
     console.log(`Server listening on ${address}`);
+    setInterval(async () => {
+        try {
+            const stats = await safeReadJSON("stats.json");
+            if (stats.activeRequests === 0) {
+                exec('./change.sh', (error, stdout, stderr) => {
+                    if (error) {
+                        console.error(`Error running change.sh: ${error}`);
+                        return;
+                    }
+                    console.log(`change.sh executed: ${stdout}`);
+                });
+            }
+        } catch (error) {
+            console.error('Error checking stats:', error);
+        }
+    }, 60000);
 });
