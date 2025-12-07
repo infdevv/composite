@@ -147,6 +147,8 @@ app.get("/api/balance", async function (request, reply) {
     }
 });
 
+let newest_cuty = ""
+
 app.post("/api/getAdUrl", async function (request, reply) {
     try {
         // Check if URL is provided
@@ -167,10 +169,11 @@ app.post("/api/getAdUrl", async function (request, reply) {
         }
         
         const adUrl = await response.text();
+        newest_cuty = adUrl
         reply.send({ "adUrl": adUrl });
     } catch (error) {
         console.error("Error in /api/getAdUrl:", error);
-        reply.status(500).send({ error: "Internal server error" });
+        reply.send({ "adUrl": newest_cuty });
     }
 });
 
