@@ -11,6 +11,7 @@ const promptList = require("./helpers/constants.js");
 
 const https = require("https");
 const fetch = require('node-fetch');
+const { exec } = require('child_process');
 
 const openrouter_models = [
     "deepseek-ai/deepseek-r1-0528",
@@ -429,7 +430,23 @@ async function directToEndpoint(request, reply, endpoint, isStreaming = false) {
     if (result && result.response) {
         const upstreamResponse = result.response;
         reply.status(upstreamResponse.status);
-        requestSuccessful = true;
+        requestSuccessful = upstreamResponse.status >= 200 && upstreamResponse.status < 300;
+        
+        if (upstreamResponse.status === 403) {
+            consecutive403++;
+            if (consecutive403 >= 3 && !scriptRun) {
+                exec('./change.sh', (error, stdout, stderr) => {
+                    if (error) {
+                        console.error(`Error running change.sh: ${error}`);
+                        return;
+                    }
+                    console.log(`change.sh executed: ${stdout}`);
+                });
+                scriptRun = true;
+            }
+        } else {
+            consecutive403 = 0;
+        }
         
         // Copy headers
         for (const [key, value] of upstreamResponse.headers.entries()) {
