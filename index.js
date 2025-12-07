@@ -331,8 +331,6 @@ async function directToEndpoint(request, reply, endpoint, isStreaming = false) {
         delete headers[header.charAt(0).toUpperCase() + header.slice(1)];
     });
 
-    headers['Authorization'] = `Bearer ${config.key}`;
-
     async function directAttempt() {
         const agent = createDirectAgent(endpoint);
         const abortController = new AbortController();
@@ -438,7 +436,7 @@ async function directToEndpoint(request, reply, endpoint, isStreaming = false) {
 app.all("/v1/chat/completions", async function (request, reply) {
     const isStreaming = request.headers["accept"] === "text/event-stream" || request.body?.stream === true;
     const model = request.body.model;
-    request.body.model = "Qwen/Qwen3-30B-A3B"
+
     await directToEndpoint(
         preprocessRequest(request),
         reply,
