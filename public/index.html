@@ -119,6 +119,11 @@
             background-color: #2d0f4a;
         }
 
+        button:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+        }
+
         .container {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -292,7 +297,7 @@
                 <button id="watchAdBtn">Watch Ad for Credits/Requests</button>
                 <div style="margin-top: 10px;">
                     <small>• Invite 2 friends: +50 credits</small><br>
-                    <small>• Make a essay about Pipkin Pippa: no ADs + inf credits</small><br>
+                    <small>• Make a essay about Pipkin Pippa: +500 credits</small><br>
                     <small>Contact us on Discord to redeem either alternative method!</small>
                 </div>
             </div>
@@ -406,8 +411,10 @@
                                     const nextAdTime = user.lastAdViewedDate + (43200 * 1000); // 43200 seconds = 12 hours in milliseconds
                                     if (currentTime < nextAdTime) {
                                         document.getElementById("watchAdBtn").setAttribute("disabled", "disabled");
+                                        document.getElementById("watchAdBtn").innerText = "Cooldown...";
                                     } else {
                                         document.getElementById("watchAdBtn").removeAttribute("disabled");
+                                        document.getElementById("watchAdBtn").innerText = "Watch Ad for Credits/Requests";
                                     }
                                 }
                             } catch (error) {
