@@ -1,39 +1,205 @@
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 const config = require("./config.json");
+
+// Prevent server crashes from unhandled errors
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
 const fastify = require("fastify");
 const fs = require("fs/promises");
 const fsSync = require("fs");
-
 const crypto = require("crypto");
 const path = require("path");
-const os = require("os");
 const promptList = require("./helpers/constants.js");
-
+const { HttpProxyAgent } = require('http-proxy-agent');
+const { HttpsProxyAgent } = require('https-proxy-agent');
+const { SocksProxyAgent } = require('socks-proxy-agent');
 const https = require("https");
 const fetch = require('node-fetch');
-const { exec } = require('child_process');
-
+const os = require("os");
 const openrouter_models = [
-    "deepseek-ai/deepseek-r1-0528",
-    "deepseek-ai/deepseek-v3.1",
-    "minimaxai/minimax-m2",
-    "mistralai/magistral-small-2506",
-    "mistralai/mistral-large-3-675b-instruct-2512"
+    "x-ai/grok-4.1-fast",
+    "meituan/longcat-flash-chat",
+    "z-ai/glm-4.5-air",
+    "arliai/qwq-32b-arliai-rpr-v1",
+    "tngtech/deepseek-r1t-chimera",
+    "google/gemini-2.0-flash-exp",
 ]
 
+function shuffle(array) {
+    if (array.length <= 5) {
+        return array.slice().sort(() => 0.5 - Math.random());
+    }
 
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+}
 
+// Proxy list URLs - now loading from all lists and combining
+const PROXY_LISTS = shuffle([
+   //"https://raw.githubusercontent.com/iplocate/free-proxy-list/refs/heads/main/all-proxies.txt",
+    //"https://raw.githubusercontent.com/iplocate/free-proxy-list/refs/heads/main/all-proxies.txt",    
+    "https://raw.githubusercontent.com/infdevv/Composite-Autoproxy/refs/heads/main/misc_proxies.txt",
+//  "https://raw.githubusercontent.com/infdevv/Composite-Autoproxy/refs/heads/main/instagram_proxies.txt",
+       "https://raw.githubusercontent.com/infdevv/Composite-Autoproxy/refs/heads/main/google_proxies.txt",
+   //"https://raw.githubusercontent.com/infdevv/Composite-Autoproxy/refs/heads/main/youtube_proxies.txt",
+// "https://raw.githubusercontent.com/infdevv/Composite-Autoproxy/refs/heads/main/discord_proxies.txt",
 
+])
 
+const MEDIAN_LATENCY_THRESHOLD_MS = 20000; // Keeping for reference but no longer switching lists
 
+let ALL_PROXIES = []; // Combined proxy pool from all lists
+let PROXY_LIST = []; // Active proxy list (now same as ALL_PROXIES)
+let USE_PROXIES = false;
+let lastProxyLoadTime = 0;
+const PROXY_LOAD_BACKOFF_MS = 5 * 60 * 1000; // 5 minutes backoff if load fails or no proxies
 
-function createDirectAgent(targetUrl = 'https://api.deepinfra.com/v1/chat/completions') {
-    return new https.Agent({
-        keepAlive: true,
-        keepAliveMsecs: 1000,
-        family: 4,
-        timeout: 30000
+async function initializeProxies() {
+    const now = Date.now();
+    if (now - lastProxyLoadTime < PROXY_LOAD_BACKOFF_MS) {
+        console.log(`[PROXY] Skipping proxy load due to backoff (${Math.ceil((PROXY_LOAD_BACKOFF_MS - (now - lastProxyLoadTime)) / 1000)}s remaining)`);
+        return;
+    }
+
+    try {
+        // Load proxies from all lists and combine them
+        const allProxiesArrays = await Promise.all(PROXY_LISTS.map(async (listUrl) => {
+            try {
+                const response = await fetch(listUrl);
+                const text = await response.text();
+                return text.split("\n").filter(proxy => {
+                    const trimmed = proxy.trim();
+                    return trimmed !== "" && !trimmed.startsWith("#") &&
+                        (trimmed.startsWith('http://') || trimmed.startsWith('https://') ||
+                         trimmed.startsWith('socks4://') || trimmed.startsWith('socks5://'));
+                });
+            } catch (error) {
+                console.error(`[PROXY] Error loading list ${listUrl}: ${error.message}`);
+                return [];
+            }
+        }));
+
+        // Combine all proxies from all lists
+        ALL_PROXIES = allProxiesArrays.flat();
+        PROXY_LIST = ALL_PROXIES; // Use combined list
+        
+        if (ALL_PROXIES.length === 0) {
+            throw new Error('No valid proxies found in any list');
+        }
+        
+        USE_PROXIES = true;
+        lastProxyLoadTime = now;
+        console.log(`[PROXY] Loaded ${ALL_PROXIES.length} total proxies from ${PROXY_LISTS.length} lists`);
+    } catch (error) {
+        console.error(`[PROXY] Error loading proxies: ${error.message}`);
+        PROXY_LIST = [];
+        ALL_PROXIES = [];
+        USE_PROXIES = false;
+        lastProxyLoadTime = now; // Still update time to start backoff
+    }
+
+    if (USE_PROXIES) {
+        console.log("[PROXY] Proxy on")
+
+        setInterval(async () => {
+            console.log("[PROXY] Refreshing proxy list...");
+            await initializeProxies();
+        }, 35 * 60 * 1000); // 35 minutes
+    } else {
+        console.log("[PROXY] Proxy off")
+    }
+}
+
+// Removed the checkAndSwitchProxyList function as we no longer switch lists
+
+const FAILED_PROXIES = new Set();
+const PROXY_LAST_USED = new Map();
+const PROXY_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes cooldown to avoid reusing recently used proxies
+
+function getNextProxy() {
+    if (!USE_PROXIES || PROXY_LIST.length === 0) return null;
+
+    const now = Date.now();
+    let availableProxies = PROXY_LIST.filter(p => {
+        if (FAILED_PROXIES.has(p)) return false;
+        const lastUsed = PROXY_LAST_USED.get(p);
+        if (lastUsed && (now - lastUsed) < PROXY_COOLDOWN_MS) return false;
+        return true;
     });
+
+    if (availableProxies.length === 0) {
+        availableProxies = PROXY_LIST.filter(p => !FAILED_PROXIES.has(p));
+        if (availableProxies.length === 0) {
+            console.log('All proxies failed, resetting failed list and retrying...');
+            FAILED_PROXIES.clear();
+            PROXY_LAST_USED.clear();
+            availableProxies = PROXY_LIST;
+        } else {
+            availableProxies.sort((a, b) => {
+                const aTime = PROXY_LAST_USED.get(a) || 0;
+                const bTime = PROXY_LAST_USED.get(b) || 0;
+                return aTime - bTime;
+            });
+        }
+    }
+
+    const proxy = availableProxies[Math.floor(Math.random() * availableProxies.length)];
+    PROXY_LAST_USED.set(proxy, now);
+    return proxy;
+}
+
+function markProxyFailed(proxyUrl) {
+    FAILED_PROXIES.add(proxyUrl);
+    console.log(`Proxy marked as failed: ${proxyUrl} (${FAILED_PROXIES.size}/${PROXY_LIST.length} failed)`);
+}
+
+function createCustomAgent(proxyUrl = null, targetUrl = 'https://api.deepinfra.com/v1/chat/completions') {
+    if (proxyUrl) {
+        console.log(`[AGENT] Creating agent for proxy ${proxyUrl}`);
+        const safeProxyUrl = proxyUrl;
+        const proxyProtocol = safeProxyUrl.split(':')[0].toLowerCase();
+        const targetProtocol = targetUrl.startsWith('https') ? 'https' : 'http';
+
+        let agent;
+        if (proxyProtocol.startsWith('socks')) {
+            agent = new SocksProxyAgent(safeProxyUrl, {
+                keepAlive: true,
+                keepAliveMsecs: 1000,
+                family: 4,
+                timeout: 30000
+            });
+        } else if (targetProtocol === 'https') {
+            agent = new HttpsProxyAgent(safeProxyUrl, {
+                keepAlive: true,
+                keepAliveMsecs: 1000,
+                family: 4,
+                timeout: 30000
+            });
+        } else {
+            agent = new HttpProxyAgent(safeProxyUrl, {
+                keepAlive: true,
+                keepAliveMsecs: 1000,
+                family: 4,
+                timeout: 30000
+            });
+        }
+        return agent;
+    } else {
+        return new https.Agent({
+            keepAlive: true,
+            keepAliveMsecs: 1000,
+            family: 4,
+            timeout: 30000
+        });
+    }
 }
 
 const app = fastify({ logger: false });
@@ -41,7 +207,7 @@ const app = fastify({ logger: false });
 app.register(require("@fastify/cors"), { origin: "*" });
 app.register(require("@fastify/rate-limit"), {
     global: true,
-    max: 30,
+    max: 50,
     timeWindow: "1 minute",
     cache: 10000,
 });
@@ -55,6 +221,7 @@ async function safeReadJSON(filePath) {
     const data = await fs.readFile(filePath, 'utf8');
     return JSON.parse(data);
 }
+
 
 async function safeWriteJSON(filePath, data, maxRetries = 5) {
     const tempDir = os.tmpdir();
@@ -148,8 +315,6 @@ app.get("/api/balance", async function (request, reply) {
     }
 });
 
-let newest_cuty = ""
-
 app.post("/api/getAdUrl", async function (request, reply) {
     try {
         // Check if URL is provided
@@ -170,11 +335,10 @@ app.post("/api/getAdUrl", async function (request, reply) {
         }
         
         const adUrl = await response.text();
-        newest_cuty = adUrl
         reply.send({ "adUrl": adUrl });
     } catch (error) {
         console.error("Error in /api/getAdUrl:", error);
-        reply.send({ "adUrl": newest_cuty });
+        reply.status(500).send({ error: "Internal server error" });
     }
 });
 
@@ -188,9 +352,9 @@ app.post("/api/getUserCredits", async function (request, reply) {
         return reply.status(404).send({ error: "Key not found" });
     }
 
-    if (users[request.body.key].lastAdViewedDate !== 0 && users[request.body.key].lastAdViewedDate + 43200000 > Date.now()) {
-        const timeLeft = 43200000 - (Date.now() - users[request.body.key].lastAdViewedDate);
-        const hoursLeft = Math.ceil(timeLeft / 3600000);
+    if (users[request.body.key].lastAdViewedDate !== 0 && users[request.body.key].lastAdViewedDate + 21600000 > Date.now()) {
+        const timeLeft = 21600000 - (Date.now() - users[request.body.key].lastAdViewedDate); // 6 hours
+        const hoursLeft = Math.ceil(timeLeft / 21600000);
         return reply.status(429).send({ error: `Please wait ${hoursLeft} hours between ad views` });
     }
 
@@ -213,7 +377,7 @@ function calculateMedianLatency(latencies) {
     const middle = Math.floor(sortedLatencies.length / 2);
     
     // If odd number of elements, return the middle one
-    // If even number, return the average of the two middle ones
+    // If even, return the average of the two middle ones
     if (sortedLatencies.length % 2 === 0) {
         return Math.round((sortedLatencies[middle - 1] + sortedLatencies[middle]) / 2);
     } else {
@@ -244,19 +408,6 @@ app.get("/api/statistics", async function (request, reply) {
         stabilityLevel: calculateStabilityLevel(stats)
     });
 });
-
-function trimMessagesToTokenLimit(messages, limit) {
-    let stringified = JSON.stringify(messages);
-
-    // Approx: 4 chars ≈ 1 token
-    while (stringified.length / 4 > limit && messages.length > 1) {
-        messages.splice(1, 1); // remove oldest *user/assistant* message, keep index 0
-        stringified = JSON.stringify(messages);
-    }
-
-    return messages;
-}
-
 
 app.get("/api/service", async function (request, reply) {
     const stats = await safeReadJSON("stats.json");
@@ -290,8 +441,6 @@ function preprocessRequest(request) {
     delete request.headers["content-length"];
     delete request.headers["Content-Length"];
 
-
-
     const modelParts = request.body.model.split(":");
     let model = modelParts[0];
     const prompt = modelParts[1];
@@ -311,9 +460,6 @@ function preprocessRequest(request) {
         }
     }
 
-   // if (newBody.messages && newBody.messages.length > 0 && config.maxTokens) {
-        newBody.messages = trimMessagesToTokenLimit(newBody.messages, config.maxTokens);
-    //}
 
     newBody.model = model;
     request.body = newBody;
@@ -345,7 +491,7 @@ async function updateRequestStats(latency, successful) {
     }
 }
 
-async function directToEndpoint(request, reply, endpoint, isStreaming = false) {
+async function proxyToEndpoint(request, reply, endpoint, isStreaming = false) {
     let stats = await safeReadJSON("stats.json");
     stats.totalRequests += 1;
     stats.activeRequests += 1;
@@ -358,27 +504,23 @@ async function directToEndpoint(request, reply, endpoint, isStreaming = false) {
 
     let headers = { ...request.headers };
     if (!headers.authorization || !headers.authorization.includes(" ")) {
-        await updateRequestStats(null, false);
         return reply.status(401).send({ error: "Missing or invalid authorization header" });
     }
 
     let key = headers.authorization.split(" ")[1];
     let users = await safeReadJSON("./data/users.json");
     if (!users[key]) {
-        await updateRequestStats(null, false);
         return reply.status(401).send({ error: "Invalid API key" });
     }
 
     if (users[key].balance < 1) {
-        console.log("[Direct] Insufficient credits: " + users[key].balance);
-        await updateRequestStats(null, false);
+        console.log("[Proxy] Insufficient credits: " + users[key].balance);
         return reply.status(402).send({ error: "Insufficient credits" });
     }
 
-    if (users[key].lastAdViewedDate !== 0 && users[key].lastAdViewedDate + 43200000 < Date.now()) {
+    if (users[key].lastAdViewedDate !== 0 && users[key].lastAdViewedDate + 21600000 < Date.now()) {
         users[key].balance = 0;
         await safeWriteJSON("./data/users.json", users);
-        await updateRequestStats(null, false);
         return reply.status(402).send({ error: "Credits expired. Please view an ad first." });
     }
 
@@ -393,8 +535,8 @@ async function directToEndpoint(request, reply, endpoint, isStreaming = false) {
         delete headers[header.charAt(0).toUpperCase() + header.slice(1)];
     });
 
-    async function directAttempt() {
-        const agent = createDirectAgent(endpoint);
+    async function singleAttempt(proxyUrl) {
+        const agent = createCustomAgent(proxyUrl, endpoint);
         const abortController = new AbortController();
         const timeoutId = setTimeout(() => abortController.abort(), 30000);
 
@@ -407,7 +549,28 @@ async function directToEndpoint(request, reply, endpoint, isStreaming = false) {
                 signal: abortController.signal
             });
             clearTimeout(timeoutId);
-            return { response };
+
+            if (response.status === 403 && proxyUrl) {
+                markProxyFailed(proxyUrl);
+                throw new Error(`403 Forbidden from DeepInfra`);
+            }
+
+            if (response.status === 400 && proxyUrl) {
+                markProxyFailed(proxyUrl);
+                throw new Error(`400 Forbidden from DeepInfra`);
+            }
+
+            if (response.status !== 200 && proxyUrl) {
+                markProxyFailed(proxyUrl);
+                throw new Error(`Error from DeepInfra`);
+            }
+
+            if (response.status === 503 && proxyUrl) {
+                markProxyFailed(proxyUrl);
+                throw new Error(`503 from proxy`);
+            }
+
+            return { response, proxyUrl };
         } catch (error) {
             clearTimeout(timeoutId);
             if (error.name === 'AbortError') {
@@ -418,53 +581,161 @@ async function directToEndpoint(request, reply, endpoint, isStreaming = false) {
     }
 
     let result = null;
+    let keepAliveInterval;
+
+    if (isStreaming || request.headers.accept === 'text/event-stream') {
+      reply.raw.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Cache-Control',
+      });
+      keepAliveInterval = setInterval(() => {
+        //reply.raw.write('data: {"choices":[{"delta":{"content":"."},"index":0,"finish_reason":null}]}\n\n');
+      }, 10000);
+      reply.raw.on('close', () => {
+        if (keepAliveInterval) clearInterval(keepAliveInterval);
+      });
+      reply.raw.on('error', (err) => {
+        console.error('Reply raw error:', err);
+        if (keepAliveInterval) clearInterval(keepAliveInterval);
+      });
+    }
 
     try {
-        result = await directAttempt();
+        if (USE_PROXIES && PROXY_LIST.length > 0) {
+            // Race 5 proxies at once instead of sequential tries
+            let raceAttempts = 0;
+            let totalAttempts = 0;
+            const maxRaces = Math.min(4, Math.max(1, Math.ceil(PROXY_LIST.length / 5))); // Max 4 races, each with up to 5 proxies
+            const maxTotalAttempts = 20; // Safeguard against infinite loops
+
+            while (raceAttempts < maxRaces && totalAttempts < maxTotalAttempts) {
+                raceAttempts++;
+                totalAttempts++;
+                const proxiesToTry = [];
+                for (let i = 0; i < 5; i++) {
+                    const proxy = getNextProxy();
+                    if (proxy) {
+                        proxiesToTry.push(proxy);
+                    }
+                }
+
+                if (proxiesToTry.length === 0) {
+                    console.log('[Proxy] No available proxies for race, clearing failed list and retrying...');
+                    FAILED_PROXIES.clear();
+                    PROXY_LAST_USED.clear();
+                    continue;
+                }
+
+                console.log(`[Proxy] Race attempt ${raceAttempts}/${maxRaces} (total ${totalAttempts}/${maxTotalAttempts}): Racing ${proxiesToTry.length} proxies`);
+
+                try {
+                    const promises = proxiesToTry.map(proxyUrl => singleAttempt(proxyUrl));
+                    result = await Promise.any(promises);
+                    console.log(`[Proxy] Success in race with proxy ${result.proxyUrl}`);
+                    break; // Success, exit the retry loop
+                } catch (aggregateError) {
+                    console.error(`[Proxy] All ${proxiesToTry.length} proxies in race failed`);
+
+                    if (raceAttempts >= maxRaces) {
+                        if (totalAttempts >= maxTotalAttempts) {
+                            console.log('[Proxy] Max total attempts reached, giving up...');
+                            throw new Error('All proxies exhausted after extensive retry attempts');
+                        }
+                        console.log('[Proxy] Max races reached, clearing failed list and doing final sweep...');
+                        FAILED_PROXIES.clear();
+                        PROXY_LAST_USED.clear();
+                        raceAttempts = 0; // Reset and try again, but totalAttempts prevents infinite loop
+                    } else {
+                        // Add delay between race attempts to prevent rapid firing
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    }
+                }
+            }
+            // If still no result, try final random proxy
+            if (!result) {
+                console.error('[Proxy] All race attempts failed, trying final random proxy...');
+                const finalProxy = PROXY_LIST[Math.floor(Math.random() * PROXY_LIST.length)];
+                try {
+                    result = await singleAttempt(finalProxy);
+                    console.log(`[Proxy] Final attempt succeeded with ${finalProxy}`);
+                } catch (finalError) {
+                    console.error('[Proxy] Even final attempt failed');
+                    throw new Error('All proxies exhausted after extensive retry attempts');
+                }
+            }
+        } else {
+            result = await singleAttempt(null);
+        }
     } catch (error) {
-        console.error("Direct connection error:", error);
+        console.error("Proxy error:", error);
+        if (keepAliveInterval) clearInterval(keepAliveInterval);
         if (!reply.sent && !reply.raw.headersSent) {
             return reply.status(500).send({ error: "Internal server error" });
         }
         // Update stats for failed requests
-        updateRequestStats(latency, requestSuccessful);
+        updateRequestStats(latency, requestSuccessful).catch(err => console.error('Error updating stats in proxy error catch:', err));
         return;
     }
 
     if (result && result.response) {
         const upstreamResponse = result.response;
+        if (keepAliveInterval) {
+            clearInterval(keepAliveInterval);
+            //reply.raw.write('data: {"choices":[{"delta":{"content":"\\n"},"index":0,"finish_reason":null}]}\n\n');
+        }
         reply.status(upstreamResponse.status);
         requestSuccessful = true;
         
-        // Copy headers
-        for (const [key, value] of upstreamResponse.headers.entries()) {
-            if (['content-encoding', 'content-length', 'transfer-encoding', 'connection'].includes(key.toLowerCase())) continue;
-            reply.header(key, value);
-        }
-        
         // Handle streaming responses to measure time to first chunk
         if (isStreaming || request.headers.accept === 'text/event-stream') {
+            // For streaming, headers already sent, skip copying upstream headers
             let bodyStream = upstreamResponse.body;
-            
+
             // Measure time to first chunk
             const streamStartTime = Date.now();
             firstChunkTime = streamStartTime - requestStartTime;
-            
+
             // Create a new readable stream that measures chunks
             const { Readable } = require('stream');
             const measuredStream = new Readable({
                 read() {}
             });
-            
+
             let firstChunkReceived = false;
-            
+            let totalChunks = 0;
+            let invalidChunks = 0;
+
             bodyStream.on('data', (chunk) => {
+                totalChunks++;
+                const chunkStr = chunk.toString();
+                
+                // Validate streaming format for each chunk - should be valid SSE format
+                const isValidStreaming = chunkStr.startsWith('data: ') || chunkStr.startsWith('data:') || chunkStr.trim() === '';
+                
+                if (!isValidStreaming && chunkStr.trim() !== '') {
+                    invalidChunks++;
+                    console.error(`[Proxy] Invalid streaming chunk from ${result.proxyUrl}: ${chunkStr.substring(0, 100)}...`);
+                    
+                    // If more than 20% of chunks are invalid, mark proxy as failed
+                    if (invalidChunks > 0 && totalChunks > 0 && (invalidChunks / totalChunks) > 0.2) {
+                        if (result.proxyUrl) {
+                            markProxyFailed(result.proxyUrl);
+                        }
+                        requestSuccessful = false;
+                        measuredStream.destroy(new Error('Invalid streaming format - too many malformed chunks'));
+                        return;
+                    }
+                }
+                
                 if (!firstChunkReceived) {
                     firstChunkReceived = true;
                     firstChunkTime = Date.now() - requestStartTime;
-                    // Use firstChunkTime for streaming latency
-                    updateRequestStats(firstChunkTime, requestSuccessful);
+                    updateRequestStats(firstChunkTime, requestSuccessful).catch(err => console.error('Error updating stats on first chunk:', err));
                 }
+                
                 measuredStream.push(chunk);
             });
             
@@ -472,21 +743,54 @@ async function directToEndpoint(request, reply, endpoint, isStreaming = false) {
                 measuredStream.push(null);
             });
             
-            bodyStream.on('error', (error) => {
+            bodyStream.on('error', async (error) => {
                 console.error('Stream error:', error);
                 requestSuccessful = false;
                 measuredStream.destroy(error);
-                updateRequestStats(firstChunkTime, requestSuccessful);
+                try {
+                    await updateRequestStats(firstChunkTime, requestSuccessful);
+                } catch (statsError) {
+                    console.error('Error updating stats in stream error:', statsError);
+                }
             });
             
-            return reply.send(measuredStream);
+            measuredStream.pipe(reply.raw).on('error', (err) => {
+              console.error('Pipe error:', err);
+              if (keepAliveInterval) clearInterval(keepAliveInterval);
+            });
+            return;
         } else {
+            // Copy headers for non-streaming
+            for (const [key, value] of upstreamResponse.headers.entries()) {
+                if (['content-encoding', 'content-length', 'transfer-encoding', 'connection'].includes(key.toLowerCase())) continue;
+                reply.header(key, value);
+            }
+
             // For non-streaming responses, measure total response time
             const response = await upstreamResponse.text();
             latency = Date.now() - requestStartTime;
             
+            // Validate non-streaming response format
+            try {
+                const responseData = JSON.parse(response);
+                // Check if it has the expected chat completions structure
+                if (!responseData.choices || !Array.isArray(responseData.choices)) {
+                    console.error(`[Proxy] Invalid response structure from ${result.proxyUrl}: missing choices array`);
+                    if (result.proxyUrl) {
+                        markProxyFailed(result.proxyUrl);
+                    }
+                    throw new Error('Invalid response structure from upstream API');
+                }
+            } catch (parseError) {
+                console.error(`[Proxy] Invalid JSON response from ${result.proxyUrl}: ${response.substring(0, 200)}...`);
+                if (result.proxyUrl) {
+                    markProxyFailed(result.proxyUrl);
+                }
+                throw new Error('Invalid JSON response from upstream API');
+            }
+            
             // Update stats for successful non-streaming requests
-            updateRequestStats(latency, requestSuccessful);
+            updateRequestStats(latency, requestSuccessful).catch(err => console.error('Error updating stats in non-streaming:', err));
             
             return reply.send(response);
         }
@@ -495,26 +799,46 @@ async function directToEndpoint(request, reply, endpoint, isStreaming = false) {
     // Update stats for failed requests
     updateRequestStats(latency, requestSuccessful);
 }
-app.all("/v1/chat/completions", async function (request, reply) {
-    const isStreaming = request.headers["accept"] === "text/event-stream" || request.body?.stream === true;
-    const model = request.body.model;
 
-    await directToEndpoint(
+app.all("/v1/chat/completions", async function (request, reply) {
+
+    // check referer
+    const referer = request.headers.referer || "";
+    if (referer && referer.startsWith("https://lorebary.com/")) {// "https://lorebary.com/")
+        // BLOCK THAT BITCH
+      return reply.status(418).send({ error: "Error 418: Unexpected Input, please debug in the Discord" });
+    }
+
+    const isStreaming = request.headers["accept"] === "text/event-stream" || request.body?.stream === true;
+
+    if (openrouter_models.includes((request.body.model).split(":")[0])) {
+        request.body.model = request.body.model;
+        await proxyToEndpoint(
+            preprocessRequest(request),
+            reply,
+            "https://g4f.dev/api/openrouter/chat/completions",
+            isStreaming
+        );
+        return;
+    }
+
+    await proxyToEndpoint(
         preprocessRequest(request),
         reply,
-        "https://api.deepinfra.com/v1/openai/chat/completions",
+        "https://api.deepinfra.com/v1/chat/completions",
         isStreaming
     );
 });
 
 app.get("/v1/models", async function (request, reply) {
     const models = [
-        "Qwen/Qwen3-Next-80B-A3B-Instruct", "deepseek-ai/DeepSeek-V3-0324",
-        "MiniMaxAI/MiniMax-M2", "moonshotai/Kimi-K2-Thinking", "deepseek-ai/DeepSeek-R1-0528",
-        "deepseek-ai/DeepSeek-R1-0528-Turbo", "deepseek-ai/DeepSeek-V3.2",
-        "deepseek-ai/DeepSeek-V3.1-Terminus", "deepseek-ai/DeepSeek-V3.1",
+        "MiniMaxAI/MiniMax-M2", "zai-org/GLM-4.6", "moonshotai/Kimi-K2-Thinking", "deepseek-ai/DeepSeek-V3-0324",
+     "deepseek-ai/DeepSeek-R1-0528", "deepseek-ai/DeepSeek-R1-0528-Turbo",
+        "deepseek-ai/DeepSeek-V3.2-Exp", "deepseek-ai/DeepSeek-V3.1-Terminus", "deepseek-ai/DeepSeek-V3.1",
         "Qwen/Qwen3-235B-A22B-Instruct-2507", "Qwen/Qwen3-235B-A22B-Thinking-2507",
-        "moonshotai/Kimi-K2-Instruct-0905", "google/gemma-3-27b-it",
+        "Qwen/Qwen3-Next-80B-A3B-Instruct", "Qwen/Qwen3-Next-80B-A3B-Thinking",
+        "moonshotai/Kimi-K2-Instruct-0905", "Qwen/Qwen3-14B", "mistralai/Mistral-Small-3.2-24B-Instruct-2506",
+        "mistralai/Mistral-Small-3.1-24B-Instruct-2503", "google/gemma-3-27b-it",
         "google/gemma-3-12b-it", "google/gemma-2-27b-it", "google/gemma-2-9b-it",
     ];
 
@@ -529,27 +853,13 @@ app.get("/v1/models", async function (request, reply) {
     });
 });
 
-// Initialize server
-app.listen({ port: 2085 }, (err, address) => {
-    if (err) {
-        console.error(err);
-        process.exit(1);
-    }
-    console.log(`Server listening on ${address}`);
-    setInterval(async () => {
-        try {
-            const stats = await safeReadJSON("stats.json");
-            if (stats.activeRequests === 0) {
-                exec('./change.sh', (error, stdout, stderr) => {
-                    if (error) {
-                        console.error(`Error running change.sh: ${error}`);
-                        return;
-                    }
-                    console.log(`change.sh executed: ${stdout}`);
-                });
-            }
-        } catch (error) {
-            console.error('Error checking stats:', error);
+// Initialize proxies before starting the server
+initializeProxies().then(() => {
+    app.listen({ port: 2085}, (err, address) => {
+        if (err) {
+            console.error(err);
+            process.exit(1);
         }
-    }, 60000);
+        console.log(`Server listening on ${address}`);
+    });
 });

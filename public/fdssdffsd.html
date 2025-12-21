@@ -253,9 +253,6 @@
 
     <div class="center" id="center">
 
-        <h3 style="position: fixed; left: 15px; top: 15px;" onclick="window.location = './'">Home</h3>
-
-
         <span class="logo_main">
             <div>
                 composite
@@ -266,95 +263,160 @@
 
         <br>
 
-        <p>Do you think composite is a scam? See why its <a href="nas.html" target="_blank">not</a></p>
-
         <div class="section welcome-section">
-            <h2>How to set it up</h2>
-            <p>Go to your chat website of choice and find place this URL</p>
-            <code id="url">https://composite-beta.seabase.xyz/v1/chat/completions</code>
-            <p>into the "Reverse Proxy" or "Proxy Endpoint" box</p>
-            <p>Then pick any model you want out of the available models list on the main page  and set that as your model in the "Model" box</p>
-            <p>Get your API key (or generate it) and put it into the "API Key" field. Then you can save it and use
-                it!</p>
-            <h3>Prompt builder</h3>
-            <div class="builder">
-                <select id="prompts">
-                    <option value="none">No Prompt</option>
-                </select>
-                <select id="models">
-                    <option>Model</option>
-                </select>
-                <button onclick="generate()">Generate</button>
-                <br>
-                <br>
-                <code id="modelname">Model name will appear here once you generate!</code>
+            <h2>Composite is under maintenance</h2>
+            <p>hello, composite is under maintenance</p>
+            <p>join the discord server for updates</p>
+            <a href="https://discord.gg/3pZYDgNgFN" target="_blank">discord server</a>
+            <p>TIMER UNTIL WE'VE TAKEN LONGER THAN A SPECIFIC OTHER WEBSITE: <span id="timer"></span>
+            <p>COMPOSITE TV (changes every 5 seconds)</p>
+            <img id="gif" style="height: 300px; width: 300px">
+            (gifs of pippa and henya cuz idk what else to put)
             </div>
         </div>
-        <h2>Need more help? Join our <a href="https://discord.gg/4MmRDuMfu9" target="_blank">discord</a></a></h2>
-        <script src="./scripts/bg.js"></script>
-
         <script>
-            document.getElementById("url").innerHTML = window.origin + "/v1/chat/completions"
-            let prompts = [
-                "DefaultV5",
-                "DefaultV4",
-                "DefaultV3",
-                "DefaultV2",
-                "DefaultV1",
-                "Cheese",
-                "Pupi",
-                "Livechat",
-                "Brbie",
-                "Infdevv",
-                "Anrp",
-                "Humour",
-                "Dacm",
-                "Teto",
-                "Status",
-                "Affection",
-                "Unpositive",
-                "Slop",
-                "Reasoning"
-            ]
 
-            let models = [
-                "MiniMaxAI/MiniMax-M2",
-"moonshotai/Kimi-K2-Thinking",
-"deepseek-ai/DeepSeek-R1-0528",
-"deepseek-ai/DeepSeek-R1-0528-Turbo",
-"deepseek-ai/DeepSeek-V3.2",
-"deepseek-ai/DeepSeek-V3.1-Terminus",
-"deepseek-ai/DeepSeek-V3.1",
-"Qwen/Qwen3-235B-A22B-Instruct-2507",
-"Qwen/Qwen3-235B-A22B-Thinking-2507",
-"Qwen/Qwen3-Next-80B-A3B-Instruct",
-"moonshotai/Kimi-K2-Instruct-0905",
-"google/gemma-3-27b-it",
-"google/gemma-3-12b-it",
-"google/gemma-2-27b-it",
-"google/gemma-2-9b-it",
-            ]
+let gifs = [
+    "https://media1.tenor.com/m/mYYaFjT8rPAAAAAd/pipkin-pippa-vtuber.gif",
+    "https://media1.tenor.com/m/LQDBIC_D8KMAAAAd/pipkin-pippa-pippa-pipkin.gif",
+    "https://media1.tenor.com/m/eycQdQALcaMAAAAd/fortnite-dance-fortnite.gif",
+    "https://media1.tenor.com/m/8h6kr_klJYAAAAAd/henya-henya-the-genius.gif"
+]
 
-            for (prompt of prompts) {
-                let option = document.createElement("option")
-                option.innerText = prompt
-                option.value = prompt
-                document.getElementById("prompts").appendChild(option)
-            }
+document.getElementById("gif").src = gifs[Math.floor(Math.random() * gifs.length)];
+setInterval(() => {
+    document.getElementById("gif").src = gifs[Math.floor(Math.random() * gifs.length)];
+}, 5000);
 
-            for (model of models) {
-                let option = document.createElement("option")
-                option.innerText = model
-                option.value = model
-                document.getElementById("models").appendChild(option)
-            }
+let start = 1766012382
+let eight_hours = 8 * 60 * 60
+let end = start + eight_hours
+setInterval(function(){
+let remaining = end - Date.now() / 1000;
+let days = Math.floor(remaining / 86400);
+let hours = Math.floor((remaining % 86400) / 3600);
+let minutes = Math.floor((remaining % 3600) / 60);
+let seconds = Math.floor(remaining % 60);
+document.getElementById("timer").innerHTML = hours + " hours, " + minutes + " minutes, " + seconds + " seconds";
+}, 1000);
 
 
-            function generate(){
-                let model = document.getElementById("models").value 
-                let prompt = document.getElementById("prompts").value
-                document.getElementById("modelname").innerText = `${model}:${prompt}`
-            }
+
+            let inner = `
+        <style>
+.galaxy {
+    width: 100vw;
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    overflow: hidden;
+    z-index: -1;
+    background: transparent;
+}
+
+.stars-layer {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    background: transparent;
+}
+
+@keyframes animate_stars {
+    0% {
+        transform: translateY(0);
+    }
+    100% {
+        transform: translateY(-100vh);
+    }
+}
+        </style>
+`;
+
+let div = document.createElement("div");
+div.classList.add("galaxy");
+div.innerHTML = inner;
+document.body.insertBefore(div, document.body.firstChild);
+
+const galaxy = document.querySelector('.galaxy');
+
+const starConfigs = [
+    { count: 300, size: 1, speed: 30, className: 'stars1' },
+    { count: 150, size: 2, speed: 50, className: 'stars2' },
+    { count: 75, size: 3, speed: 100, className: 'stars3' }
+];
+
+function generateStars(layerConfig) {
+    const layer = document.createElement('div');
+    layer.classList.add('stars-layer', layerConfig.className);
+    
+    let boxShadow = '';
+    const maxWidth = window.innerWidth;
+    const maxHeight = window.innerHeight;
+    
+    for (let i = 0; i < layerConfig.count; i++) {
+        const x = Math.floor(Math.random() * maxWidth);
+        const y = Math.floor(Math.random() * maxHeight);
+        boxShadow += `${x}px ${y}px #fff`;
+        
+        if (i < layerConfig.count - 1) {
+            boxShadow += ', ';
+        }
+    }
+    
+    layer.style.cssText = `
+        width: ${layerConfig.size}px;
+        height: ${layerConfig.size}px;
+        background-color: transparent;
+        position: relative;
+        box-shadow: ${boxShadow};
+        animation: animate_stars ${layerConfig.speed}s linear infinite;
+    `;
+    
+    const afterStyle = document.createElement('style');
+    afterStyle.textContent = `
+        .${layerConfig.className}:after {
+            content: "";
+            width: ${layerConfig.size}px;
+            height: ${layerConfig.size}px;
+            position: absolute;
+            top: ${maxHeight}px;
+            left: 0;
+            background-color: transparent;
+            box-shadow: ${boxShadow};
+        }
+    `;
+    
+    galaxy.appendChild(layer);
+    galaxy.appendChild(afterStyle);
+}
+
+function initStars() {
+    const existingLayers = galaxy.querySelectorAll('.stars-layer');
+    const existingStyles = galaxy.querySelectorAll('style:not(:first-of-type)');
+    
+    existingLayers.forEach(layer => layer.remove());
+    existingStyles.forEach(style => style.remove());
+    
+    starConfigs.forEach(config => {
+        generateStars(config);
+    });
+}
+window.addEventListener('load', initStars);
+
+let resizeTimeout;
+window.addEventListener('resize', () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(initStars, 250);
+});
+
+let touchTimeout;
+window.addEventListener('orientationchange', () => {
+    clearTimeout(touchTimeout);
+    touchTimeout = setTimeout(initStars, 500);
+});
         </script>
 
 </body>

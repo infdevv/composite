@@ -266,96 +266,19 @@
 
         <br>
 
-        <p>Do you think composite is a scam? See why its <a href="nas.html" target="_blank">not</a></p>
-
         <div class="section welcome-section">
-            <h2>How to set it up</h2>
-            <p>Go to your chat website of choice and find place this URL</p>
-            <code id="url">https://composite-beta.seabase.xyz/v1/chat/completions</code>
-            <p>into the "Reverse Proxy" or "Proxy Endpoint" box</p>
-            <p>Then pick any model you want out of the available models list on the main page  and set that as your model in the "Model" box</p>
-            <p>Get your API key (or generate it) and put it into the "API Key" field. Then you can save it and use
-                it!</p>
-            <h3>Prompt builder</h3>
-            <div class="builder">
-                <select id="prompts">
-                    <option value="none">No Prompt</option>
-                </select>
-                <select id="models">
-                    <option>Model</option>
-                </select>
-                <button onclick="generate()">Generate</button>
-                <br>
-                <br>
-                <code id="modelname">Model name will appear here once you generate!</code>
+            <h2>why its not a scam</h2>
+            <p>this is here because some people think its a scam</p>
+            <br>
+            the source code is literally right here <a href="https://github.com/infdevv/composite" target="_blank">on our github</a>
+            <br>
+            if that doesn't make you believe it, just join the discord and ask a few people, theres like 600 people in here bru ask a few
+            <br>
+            <br>
+            and if you somehow still are paranoid, i'd reccomend looking at the latency monitor on the main screen. because that is the median of the time-to-first-token for everyones responses ( lowk slow most of the day, like 30 seconds, its wild )        
             </div>
         </div>
-        <h2>Need more help? Join our <a href="https://discord.gg/4MmRDuMfu9" target="_blank">discord</a></a></h2>
         <script src="./scripts/bg.js"></script>
-
-        <script>
-            document.getElementById("url").innerHTML = window.origin + "/v1/chat/completions"
-            let prompts = [
-                "DefaultV5",
-                "DefaultV4",
-                "DefaultV3",
-                "DefaultV2",
-                "DefaultV1",
-                "Cheese",
-                "Pupi",
-                "Livechat",
-                "Brbie",
-                "Infdevv",
-                "Anrp",
-                "Humour",
-                "Dacm",
-                "Teto",
-                "Status",
-                "Affection",
-                "Unpositive",
-                "Slop",
-                "Reasoning"
-            ]
-
-            let models = [
-                "MiniMaxAI/MiniMax-M2",
-"moonshotai/Kimi-K2-Thinking",
-"deepseek-ai/DeepSeek-R1-0528",
-"deepseek-ai/DeepSeek-R1-0528-Turbo",
-"deepseek-ai/DeepSeek-V3.2",
-"deepseek-ai/DeepSeek-V3.1-Terminus",
-"deepseek-ai/DeepSeek-V3.1",
-"Qwen/Qwen3-235B-A22B-Instruct-2507",
-"Qwen/Qwen3-235B-A22B-Thinking-2507",
-"Qwen/Qwen3-Next-80B-A3B-Instruct",
-"moonshotai/Kimi-K2-Instruct-0905",
-"google/gemma-3-27b-it",
-"google/gemma-3-12b-it",
-"google/gemma-2-27b-it",
-"google/gemma-2-9b-it",
-            ]
-
-            for (prompt of prompts) {
-                let option = document.createElement("option")
-                option.innerText = prompt
-                option.value = prompt
-                document.getElementById("prompts").appendChild(option)
-            }
-
-            for (model of models) {
-                let option = document.createElement("option")
-                option.innerText = model
-                option.value = model
-                document.getElementById("models").appendChild(option)
-            }
-
-
-            function generate(){
-                let model = document.getElementById("models").value 
-                let prompt = document.getElementById("prompts").value
-                document.getElementById("modelname").innerText = `${model}:${prompt}`
-            }
-        </script>
 
 </body>
 

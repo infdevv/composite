@@ -282,7 +282,7 @@
 
                 </div>
 
-                <h3>Credits expire every 12 hours</h3>
+                <h3>Credits expire every 6 hours</h3>
                 <button id="gen" style="margin-top: auto;">Generate New Key</button>
 
 
@@ -292,7 +292,7 @@
             <div class="section" id="adSection">
                 <h3>Earn Credits</h3>
                 <div style="margin-bottom: 10px;">
-                    <small>Watch ads to earn credits (Every 12 hours)</small><br>
+                    <small>Watch ads to earn credits (Every 6 hours)</small><br>
                 </div>
                 <button id="watchAdBtn">Watch Ad for Credits/Requests</button>
                 <div style="margin-top: 10px;">
@@ -337,6 +337,7 @@
                     <ul id="modelsList">
                         <li>Qwen/Qwen3-Next-80B-A3B-Instruct (SUPER FAST)</li>
                         <li>deepseek-ai/DeepSeek-V3-0324</li>
+                        <li>zai-org/GLM-4.6</li>
                         <li>MiniMaxAI/MiniMax-M2</li>
                         <li>moonshotai/Kimi-K2-Thinking</li>
                         <li>deepseek-ai/DeepSeek-R1-0528</li>
@@ -359,6 +360,20 @@
         <center>
             <h2>Need more help? Join our <a href="https://discord.gg/4MmRDuMfu9" target="_blank">discord</a></a></h2>
         </center>
+        <br>
+        <p>Don't touch this unless you know what you are doing</p>
+        <input id="e" placeholder="literally do not touch">
+        <script>
+            document.getElementById("e").addEventListener("keydown", function(event){
+                localStorage.setItem("key", document.getElementById("e").value);
+            })
+
+            if (localStorage.getItem("key") == null) {
+                alert(`Welcome to Composite!
+You can read the guide (first button at the top) to get started!
+Also, if you think this is a scam for whatever reason, click the guide button and click the thing explaining why its not a scam.`)
+            }
+        </script>
         <script src="./scripts/bg.js"></script>
         <script>
 
@@ -408,7 +423,7 @@
                                 
                                 if (user && user.lastAdViewedDate) {
                                     const currentTime = Date.now();
-                                    const nextAdTime = user.lastAdViewedDate + (43200 * 1000); // 43200 seconds = 12 hours in milliseconds
+                                    const nextAdTime = user.lastAdViewedDate + (21600 * 1000); // 21600 seconds = 6 hours in milliseconds
                                     if (currentTime < nextAdTime) {
                                         document.getElementById("watchAdBtn").setAttribute("disabled", "disabled");
                                         document.getElementById("watchAdBtn").innerText = "Cooldown...";

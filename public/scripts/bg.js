@@ -36,22 +36,18 @@ div.classList.add("galaxy");
 div.innerHTML = inner;
 document.body.insertBefore(div, document.body.firstChild);
 
-// Get the galaxy container
 const galaxy = document.querySelector('.galaxy');
 
-// Star configuration
 const starConfigs = [
     { count: 300, size: 1, speed: 30, className: 'stars1' },
     { count: 150, size: 2, speed: 50, className: 'stars2' },
     { count: 75, size: 3, speed: 100, className: 'stars3' }
 ];
 
-// Generate stars for a layer
 function generateStars(layerConfig) {
     const layer = document.createElement('div');
     layer.classList.add('stars-layer', layerConfig.className);
     
-    // Generate box-shadow string
     let boxShadow = '';
     const maxWidth = window.innerWidth;
     const maxHeight = window.innerHeight;
@@ -66,7 +62,6 @@ function generateStars(layerConfig) {
         }
     }
     
-    // Set styles for the layer
     layer.style.cssText = `
         width: ${layerConfig.size}px;
         height: ${layerConfig.size}px;
@@ -76,7 +71,6 @@ function generateStars(layerConfig) {
         animation: animate_stars ${layerConfig.speed}s linear infinite;
     `;
     
-    // Create after pseudo-element for seamless scrolling
     const afterStyle = document.createElement('style');
     afterStyle.textContent = `
         .${layerConfig.className}:after {
@@ -95,32 +89,25 @@ function generateStars(layerConfig) {
     galaxy.appendChild(afterStyle);
 }
 
-// Initialize stars
 function initStars() {
-    // Clear existing stars
     const existingLayers = galaxy.querySelectorAll('.stars-layer');
     const existingStyles = galaxy.querySelectorAll('style:not(:first-of-type)');
     
     existingLayers.forEach(layer => layer.remove());
     existingStyles.forEach(style => style.remove());
     
-    // Generate new stars based on current screen size
     starConfigs.forEach(config => {
         generateStars(config);
     });
 }
-
-// Initialize on load
 window.addEventListener('load', initStars);
 
-// Regenerate stars on resize (with debounce)
 let resizeTimeout;
 window.addEventListener('resize', () => {
     clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(initStars, 250);
 });
 
-// Optional: Add touch support for mobile
 let touchTimeout;
 window.addEventListener('orientationchange', () => {
     clearTimeout(touchTimeout);
